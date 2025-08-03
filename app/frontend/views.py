@@ -17,6 +17,7 @@ from .models import AuditLog, DataSet, DataGeometry, DataEntry
 from django.contrib.auth.decorators import login_required, permission_required
 import json
 from django.contrib.auth import update_session_auth_hash
+from django.contrib.gis.geos import Point
 
 class GroupForm(forms.ModelForm):
     class Meta:
@@ -371,3 +372,60 @@ def entry_create_view(request, geometry_id):
         return redirect('dataset_data_input', dataset_id=dataset.id)
     
     return render(request, 'frontend/entry_create.html', {'geometry': geometry}) 
+
+@login_required
+def geometry_create_view(request, dataset_id):
+    """Create a new geometry point for a dataset"""
+    dataset = get_object_or_404(DataSet, pk=dataset_id)
+    if not dataset.can_access(request.user):
+        return HttpResponseForbidden('You do not have permission to create geometries for this dataset.')
+    
+    if request.method == 'POST':
+        try:
+            address = request.POST.get('address')
+            id_kurz = request.POST.get('id_kurz')
+            lat = float(request.POST.get('lat'))
+            lng = float(request.POST.get('lng'))
+            
+            # Validate required fields
+            if not address or not id_kurz:
+                messages.error(request, 'Address and ID are required.')
+                return redirect('dataset_data_input', dataset_id=dataset.id)
+            
+            # Check if id_kurz already exists
+            if DataGeometry.objects.filter(id_kurz=id_kurz).exists():
+                messages.error(request, f'Geometry with ID "{id_kurz}" already exists.')
+                return redirect('dataset_data_input', dataset_id=dataset.id)
+            
+            # Validate coordinates
+            if lat < -90 or lat > 90 or lng < -180 or lng > 180:
+                messages.error(request, 'Invalid coordinates provided.')
+                return redirect('dataset_data_input', dataset_id=dataset.id)
+            
+            # Create the geometry point
+            geometry = DataGeometry.objects.create(
+                dataset=dataset,
+                address=address,
+                id_kurz=id_kurz,
+                geometry=Point(lng, lat, srid=4326),
+                user=request.user
+            )
+            
+            # Log the action
+            AuditLog.objects.create(
+                user=request.user,
+                action='created_geometry',
+                target=f'geometry:{geometry.id}'
+            )
+            
+            messages.success(request, f'Geometry "{id_kurz}" created successfully.')
+            return redirect('dataset_data_input', dataset_id=dataset.id)
+            
+        except (ValueError, TypeError) as e:
+            messages.error(request, 'Invalid data provided. Please check your coordinates.')
+            return redirect('dataset_data_input', dataset_id=dataset.id)
+        except Exception as e:
+            messages.error(request, f'Error creating geometry: {str(e)}')
+            return redirect('dataset_data_input', dataset_id=dataset.id)
+    
+    return render(request, 'frontend/geometry_create.html', {'dataset': dataset}) 

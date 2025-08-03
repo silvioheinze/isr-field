@@ -20,16 +20,28 @@
         border-radius: 8px;
         margin-bottom: 20px;
     }
+    .map-controls {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 1000;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4">
+    <!-- CSRF Token for JavaScript -->
+    {% csrf_token %}
+    
     <div class="row">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h2>Data Input: {{ dataset.name }}</h2>
-                <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-secondary">Back to Dataset</a>
+                <div>
+                    <a href="{% url 'geometry_create' dataset.id %}" class="btn btn-success">Add Geometry Point</a>
+                    <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-secondary">Back to Dataset</a>
+                </div>
             </div>
         </div>
     </div>
@@ -40,9 +52,15 @@
             <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0">Geometry Points Map</h5>
+                    <small class="text-muted">Click on the map to add new geometry points</small>
                 </div>
-                <div class="card-body">
+                <div class="card-body position-relative">
                     <div id="map"></div>
+                    <div class="map-controls">
+                        <button id="addPointBtn" class="btn btn-primary btn-sm">
+                            <i class="bi bi-geo-alt"></i> Add Point Mode
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -60,7 +78,10 @@
                         {% for geometry in geometries %}
                             <div class="geometry-info">
                                 <h6>{{ geometry.id_kurz }} - {{ geometry.address }}</h6>
-                                <p class="text-muted mb-2">Coordinates: {{ geometry.geometry.y|floatformat:6 }}, {{ geometry.geometry.x|floatformat:6 }}</p>
+                                <p class="text-muted mb-2">
+                                    Coordinates: {{ geometry.geometry.y|floatformat:6 }}, {{ geometry.geometry.x|floatformat:6 }}<br>
+                                    Created by: {{ geometry.user.username|default:"Unknown" }}
+                                </p>
                                 
                                 {% if geometry.entries.all %}
                                     <div class="row">
@@ -114,6 +135,8 @@
     var mapData = {{ map_data|safe }};
     var markers = [];
     var bounds = L.latLngBounds();
+    var addPointMode = false;
+    var tempMarker = null;
 
     mapData.forEach(function(point) {
         var marker = L.marker([point.lat, point.lng])
@@ -147,6 +170,92 @@
                 marker.setPopupContent(popupContent);
             }
         });
+    });
+
+    // Add point mode functionality
+    document.getElementById('addPointBtn').addEventListener('click', function() {
+        addPointMode = !addPointMode;
+        this.textContent = addPointMode ? 'Cancel Add Point' : 'Add Point Mode';
+        this.className = addPointMode ? 'btn btn-warning btn-sm' : 'btn btn-primary btn-sm';
+        
+        if (addPointMode) {
+            map.getContainer().style.cursor = 'crosshair';
+        } else {
+            map.getContainer().style.cursor = '';
+            if (tempMarker) {
+                map.removeLayer(tempMarker);
+                tempMarker = null;
+            }
+        }
+    });
+
+    // Handle map clicks for adding new points
+    map.on('click', function(e) {
+        if (addPointMode) {
+            var lat = e.latlng.lat;
+            var lng = e.latlng.lng;
+            
+            // Remove previous temp marker
+            if (tempMarker) {
+                map.removeLayer(tempMarker);
+            }
+            
+            // Add temporary marker
+            tempMarker = L.marker([lat, lng], {
+                icon: L.divIcon({
+                    className: 'temp-marker',
+                    html: '<div style="background-color: red; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white;"></div>'
+                })
+            }).addTo(map);
+            
+            // Show form to create new geometry
+            var address = prompt('Enter address for this point:');
+            if (address && address.trim() !== '') {
+                var idKurz = prompt('Enter ID (id_kurz):');
+                if (idKurz && idKurz.trim() !== '') {
+                    // Create form and submit
+                    var form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = '{% url "geometry_create" dataset.id %}';
+                    
+                    // Get CSRF token
+                    var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                    var csrfInput = document.createElement('input');
+                    csrfInput.type = 'hidden';
+                    csrfInput.name = 'csrfmiddlewaretoken';
+                    csrfInput.value = csrfToken;
+                    form.appendChild(csrfInput);
+                    
+                    var inputs = [
+                        {name: 'address', value: address.trim()},
+                        {name: 'id_kurz', value: idKurz.trim()},
+                        {name: 'lat', value: lat},
+                        {name: 'lng', value: lng}
+                    ];
+                    
+                    inputs.forEach(function(input) {
+                        var inputElement = document.createElement('input');
+                        inputElement.type = 'hidden';
+                        inputElement.name = input.name;
+                        inputElement.value = input.value;
+                        form.appendChild(inputElement);
+                    });
+                    
+                    document.body.appendChild(form);
+                    form.submit();
+                } else {
+                    alert('ID is required.');
+                }
+            } else {
+                alert('Address is required.');
+            }
+            
+            // Reset add point mode
+            addPointMode = false;
+            document.getElementById('addPointBtn').textContent = 'Add Point Mode';
+            document.getElementById('addPointBtn').className = 'btn btn-primary btn-sm';
+            map.getContainer().style.cursor = '';
+        }
     });
 </script>
 {% endblock %} 
