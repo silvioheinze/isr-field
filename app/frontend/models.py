@@ -82,4 +82,30 @@ class DataEntry(models.Model):
 
     class Meta:
         ordering = ['-created_at']
-        verbose_name_plural = "Data Entries" 
+        verbose_name_plural = "Data Entries"
+
+
+class DataEntryFile(models.Model):
+    entry = models.ForeignKey(DataEntry, on_delete=models.CASCADE, related_name='files')
+    file = models.FileField(upload_to='uploads/%Y/%m/%d/')
+    filename = models.CharField(max_length=255)
+    file_type = models.CharField(max_length=50)  # e.g., 'image/jpeg', 'image/png'
+    file_size = models.IntegerField()  # Size in bytes
+    upload_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='uploaded_files')
+    upload_date = models.DateTimeField(auto_now_add=True)
+    description = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.filename} - {self.entry.name}"
+
+    def get_file_extension(self):
+        """Get file extension from filename"""
+        return self.filename.split('.')[-1].lower() if '.' in self.filename else ''
+
+    def is_image(self):
+        """Check if file is an image"""
+        return self.file_type.startswith('image/')
+
+    class Meta:
+        ordering = ['-upload_date']
+        verbose_name_plural = "Data Entry Files" 

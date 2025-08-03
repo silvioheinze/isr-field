@@ -1,0 +1,106 @@
+{% extends 'frontend/_base.html' %}
+
+{% block title %}Entry Details - {{ entry.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <h2>{{ entry.name }}</h2>
+            <p class="text-muted">
+                Geometry: {{ entry.geometry.id_kurz }} - {{ entry.geometry.address }}<br>
+                Created by: {{ entry.user.username|default:"Unknown" }}
+            </p>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Entry Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Year:</strong> {{ entry.year }}</p>
+                            <p><strong>Usage Code 1:</strong> {{ entry.usage_code1 }}</p>
+                            <p><strong>Usage Code 2:</strong> {{ entry.usage_code2 }}</p>
+                            <p><strong>Usage Code 3:</strong> {{ entry.usage_code3 }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Category Innovation:</strong> {{ entry.cat_inno }}</p>
+                            <p><strong>Category Value:</strong> {{ entry.cat_wert }}</p>
+                            <p><strong>Category Facility:</strong> {{ entry.cat_fili }}</p>
+                            <p><strong>Created:</strong> {{ entry.created_at|date:"F d, Y H:i" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Actions</h5>
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'entry_edit' entry.id %}" class="btn btn-primary">Edit Entry</a>
+                        <a href="{% url 'file_upload' entry.id %}" class="btn btn-success">Upload Photos</a>
+                        <a href="{% url 'dataset_data_input' entry.geometry.dataset.id %}" class="btn btn-secondary">Back to Dataset</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Files Section -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Attached Photos & Files</h5>
+                    <a href="{% url 'file_upload' entry.id %}" class="btn btn-sm btn-success">Upload New Files</a>
+                </div>
+                <div class="card-body">
+                    {% if entry.files.all %}
+                        <div class="row">
+                            {% for file in entry.files.all %}
+                                <div class="col-md-4 col-lg-3 mb-3">
+                                    <div class="card">
+                                        {% if file.is_image %}
+                                            <img src="{{ file.file.url }}" class="card-img-top" alt="{{ file.filename }}" style="height: 200px; object-fit: cover;">
+                                        {% else %}
+                                            <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
+                                                <i class="bi bi-file-earmark" style="font-size: 3rem;"></i>
+                                            </div>
+                                        {% endif %}
+                                        <div class="card-body">
+                                            <h6 class="card-title">{{ file.filename|truncatechars:20 }}</h6>
+                                            <p class="card-text">
+                                                <small class="text-muted">
+                                                    Size: {{ file.file_size|filesizeformat }}<br>
+                                                    Type: {{ file.file_type }}<br>
+                                                    Uploaded by: {{ file.upload_user.username }}<br>
+                                                    Date: {{ file.upload_date|date:"M d, Y" }}
+                                                </small>
+                                            </p>
+                                            {% if file.description %}
+                                                <p class="card-text">{{ file.description|truncatechars:50 }}</p>
+                                            {% endif %}
+                                            <div class="btn-group w-100" role="group">
+                                                <a href="{% url 'file_download' file.id %}" class="btn btn-sm btn-outline-primary">Download</a>
+                                                <a href="{% url 'file_delete' file.id %}" class="btn btn-sm btn-outline-danger">Delete</a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center">
+                            <p class="text-muted">No photos or files attached to this entry.</p>
+                            <a href="{% url 'file_upload' entry.id %}" class="btn btn-success">Upload Your First Photo</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

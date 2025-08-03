@@ -13,11 +13,15 @@ from django.contrib import messages
 from django.urls import reverse
 from django.contrib.auth.models import Group
 from django import forms
-from .models import AuditLog, DataSet, DataGeometry, DataEntry
+from .models import AuditLog, DataSet, DataGeometry, DataEntry, DataEntryFile
 from django.contrib.auth.decorators import login_required, permission_required
 import json
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.gis.geos import Point
+from django.http import HttpResponse, Http404
+from django.conf import settings
+import os
+import mimetypes
 
 class GroupForm(forms.ModelForm):
     class Meta:
@@ -176,24 +180,24 @@ def dataset_create_view(request):
         name = request.POST.get('name')
         description = request.POST.get('description', '')
         is_public = request.POST.get('is_public') == 'on'
-
+        
         dataset = DataSet.objects.create(
             name=name,
             description=description,
             owner=request.user,
             is_public=is_public
         )
-
+        
         # Log the action
         AuditLog.objects.create(
             user=request.user,
             action='created_dataset',
             target=f'dataset:{dataset.id}'
         )
-
+        
         messages.success(request, 'Dataset created successfully.')
         return redirect('dataset_list')
-
+    
     return render(request, 'frontend/dataset_create.html')
 
 @login_required
@@ -202,7 +206,7 @@ def dataset_detail_view(request, dataset_id):
     dataset = get_object_or_404(DataSet, pk=dataset_id)
     if not dataset.can_access(request.user):
         return HttpResponseForbidden('You do not have permission to view this dataset.')
-
+    
     return render(request, 'frontend/dataset_detail.html', {'dataset': dataset})
 
 @login_required
@@ -211,23 +215,23 @@ def dataset_edit_view(request, dataset_id):
     dataset = get_object_or_404(DataSet, pk=dataset_id)
     if dataset.owner != request.user:
         return HttpResponseForbidden('You do not have permission to edit this dataset.')
-
+    
     if request.method == 'POST':
         dataset.name = request.POST.get('name')
         dataset.description = request.POST.get('description', '')
         dataset.is_public = request.POST.get('is_public') == 'on'
         dataset.save()
-
+        
         # Log the action
         AuditLog.objects.create(
             user=request.user,
             action='edited_dataset',
             target=f'dataset:{dataset.id}'
         )
-
+        
         messages.success(request, 'Dataset updated successfully.')
         return redirect('dataset_detail', dataset_id=dataset.id)
-
+    
     return render(request, 'frontend/dataset_edit.html', {'dataset': dataset})
 
 @login_required
@@ -236,29 +240,29 @@ def dataset_access_view(request, dataset_id):
     dataset = get_object_or_404(DataSet, pk=dataset_id)
     if dataset.owner != request.user:
         return HttpResponseForbidden('You do not have permission to manage access to this dataset.')
-
+    
     if request.method == 'POST':
         user_ids = request.POST.getlist('shared_users')
         dataset.shared_with.set(User.objects.filter(id__in=user_ids))
-
+        
         # Log the action
         AuditLog.objects.create(
             user=request.user,
             action='modified_dataset_access',
             target=f'dataset:{dataset.id}'
         )
-
+        
         messages.success(request, 'Dataset access updated successfully.')
         return redirect('dataset_detail', dataset_id=dataset.id)
-
+    
     all_users = User.objects.exclude(id=request.user.id)
     shared_users = dataset.shared_with.values_list('id', flat=True)
-
+    
     return render(request, 'frontend/dataset_access.html', {
         'dataset': dataset,
         'all_users': all_users,
         'shared_users': shared_users
-    }) 
+    })
 
 @login_required
 def dataset_data_input_view(request, dataset_id):
@@ -371,7 +375,7 @@ def entry_create_view(request, geometry_id):
         messages.success(request, 'Entry created successfully.')
         return redirect('dataset_data_input', dataset_id=dataset.id)
     
-    return render(request, 'frontend/entry_create.html', {'geometry': geometry}) 
+    return render(request, 'frontend/entry_create.html', {'geometry': geometry})
 
 @login_required
 def geometry_create_view(request, dataset_id):
@@ -428,4 +432,105 @@ def geometry_create_view(request, dataset_id):
             messages.error(request, f'Error creating geometry: {str(e)}')
             return redirect('dataset_data_input', dataset_id=dataset.id)
     
-    return render(request, 'frontend/geometry_create.html', {'dataset': dataset}) 
+    return render(request, 'frontend/geometry_create.html', {'dataset': dataset})
+
+@login_required
+def file_upload_view(request, entry_id):
+    """Upload files for a DataEntry"""
+    entry = get_object_or_404(DataEntry, pk=entry_id)
+    geometry = entry.geometry
+    dataset = geometry.dataset
+    
+    if not dataset.can_access(request.user):
+        return HttpResponseForbidden('You do not have permission to upload files for this entry.')
+    
+    if request.method == 'POST':
+        uploaded_files = request.FILES.getlist('files')
+        description = request.POST.get('description', '')
+        
+        for uploaded_file in uploaded_files:
+            # Get file information
+            file_type, _ = mimetypes.guess_type(uploaded_file.name)
+            file_size = uploaded_file.size
+            
+            # Create DataEntryFile
+            entry_file = DataEntryFile.objects.create(
+                entry=entry,
+                file=uploaded_file,
+                filename=uploaded_file.name,
+                file_type=file_type or 'application/octet-stream',
+                file_size=file_size,
+                upload_user=request.user,
+                description=description
+            )
+            
+            # Log the action
+            AuditLog.objects.create(
+                user=request.user,
+                action='uploaded_file',
+                target=f'file:{entry_file.id}'
+            )
+        
+        messages.success(request, f'{len(uploaded_files)} file(s) uploaded successfully.')
+        return redirect('entry_detail', entry_id=entry.id)
+    
+    return render(request, 'frontend/file_upload.html', {'entry': entry})
+
+@login_required
+def file_download_view(request, file_id):
+    """Download a file"""
+    entry_file = get_object_or_404(DataEntryFile, pk=file_id)
+    entry = entry_file.entry
+    geometry = entry.geometry
+    dataset = geometry.dataset
+    
+    if not dataset.can_access(request.user):
+        return HttpResponseForbidden('You do not have permission to download this file.')
+    
+    # Check if file exists
+    if not os.path.exists(entry_file.file.path):
+        raise Http404("File not found")
+    
+    # Open and serve the file
+    with open(entry_file.file.path, 'rb') as f:
+        response = HttpResponse(f.read(), content_type=entry_file.file_type)
+        response['Content-Disposition'] = f'attachment; filename="{entry_file.filename}"'
+        return response
+
+@login_required
+def file_delete_view(request, file_id):
+    """Delete a file"""
+    entry_file = get_object_or_404(DataEntryFile, pk=file_id)
+    entry = entry_file.entry
+    geometry = entry.geometry
+    dataset = geometry.dataset
+    
+    if not dataset.can_access(request.user):
+        return HttpResponseForbidden('You do not have permission to delete this file.')
+    
+    if request.method == 'POST':
+        # Log the action before deletion
+        AuditLog.objects.create(
+            user=request.user,
+            action='deleted_file',
+            target=f'file:{entry_file.id}'
+        )
+        
+        # Delete the file
+        entry_file.delete()
+        messages.success(request, 'File deleted successfully.')
+        return redirect('entry_detail', entry_id=entry.id)
+    
+    return render(request, 'frontend/file_delete.html', {'entry_file': entry_file})
+
+@login_required
+def entry_detail_view(request, entry_id):
+    """Detailed view of a DataEntry with its files"""
+    entry = get_object_or_404(DataEntry, pk=entry_id)
+    geometry = entry.geometry
+    dataset = geometry.dataset
+    
+    if not dataset.can_access(request.user):
+        return HttpResponseForbidden('You do not have permission to view this entry.')
+    
+    return render(request, 'frontend/entry_detail.html', {'entry': entry}) 

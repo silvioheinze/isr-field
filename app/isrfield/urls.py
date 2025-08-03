@@ -16,6 +16,8 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
 from frontend import views as frontend_views
 
 urlpatterns = [
@@ -36,6 +38,14 @@ urlpatterns = [
     path('datasets/<int:dataset_id>/data-input/', frontend_views.dataset_data_input_view, name='dataset_data_input'),
     path('datasets/<int:dataset_id>/geometries/create/', frontend_views.geometry_create_view, name='geometry_create'),
     path('entries/<int:entry_id>/edit/', frontend_views.entry_edit_view, name='entry_edit'),
+    path('entries/<int:entry_id>/', frontend_views.entry_detail_view, name='entry_detail'),
+    path('entries/<int:entry_id>/upload/', frontend_views.file_upload_view, name='file_upload'),
+    path('files/<int:file_id>/download/', frontend_views.file_download_view, name='file_download'),
+    path('files/<int:file_id>/delete/', frontend_views.file_delete_view, name='file_delete'),
     path('geometries/<int:geometry_id>/entries/create/', frontend_views.entry_create_view, name='entry_create'),
     path('', frontend_views.topbar_view, name='topbar'),
 ]
+
+# Serve media files during development
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -98,7 +98,10 @@
                                                                 Created by: {{ entry.user.username|default:"Unknown" }}
                                                             </small>
                                                         </p>
-                                                        <a href="{% url 'entry_edit' entry.id %}" class="btn btn-sm btn-primary">Edit</a>
+                                                        <div class="btn-group w-100" role="group">
+                                                            <a href="{% url 'entry_detail' entry.id %}" class="btn btn-sm btn-outline-info">View Details</a>
+                                                            <a href="{% url 'entry_edit' entry.id %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
