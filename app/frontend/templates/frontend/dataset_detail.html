@@ -1,0 +1,58 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ dataset.name }} - Dataset Details</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8">
+            <h2>{{ dataset.name }}</h2>
+            <p class="text-muted">Created by {{ dataset.owner.username }} on {{ dataset.created_at|date:"F d, Y" }}</p>
+            
+            {% if dataset.description %}
+                <div class="mb-4">
+                    <h5>Description</h5>
+                    <p>{{ dataset.description }}</p>
+                </div>
+            {% endif %}
+            
+            <div class="mb-4">
+                <h5>Access Information</h5>
+                <ul class="list-unstyled">
+                    <li><strong>Owner:</strong> {{ dataset.owner.username }}</li>
+                    <li><strong>Public:</strong> {% if dataset.is_public %}Yes{% else %}No{% endif %}</li>
+                    <li><strong>Shared with:</strong> 
+                        {% if dataset.shared_with.all %}
+                            {% for user in dataset.shared_with.all %}{{ user.username }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                        {% else %}
+                            No users
+                        {% endif %}
+                    </li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Actions</h5>
+                    <div class="d-grid gap-2">
+                        {% if dataset.owner == user %}
+                            <a href="{% url 'dataset_edit' dataset.id %}" class="btn btn-primary">Edit Dataset</a>
+                            <a href="{% url 'dataset_access' dataset.id %}" class="btn btn-warning">Manage Access</a>
+                        {% endif %}
+                        <a href="{% url 'dataset_list' %}" class="btn btn-secondary">Back to Datasets</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 
