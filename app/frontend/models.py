@@ -1,5 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.contrib.gis.db import models as gis_models
+from django.contrib.gis.geos import Point
 
 class AuditLog(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
@@ -34,4 +36,27 @@ class DataSet(models.Model):
         return False
 
     class Meta:
-        ordering = ['-created_at'] 
+        ordering = ['-created_at']
+
+
+class DataGeometry(models.Model):
+    dataset = models.ForeignKey(DataSet, on_delete=models.CASCADE, related_name='geometries')
+    address = models.CharField(max_length=500)
+    geometry = gis_models.PointField(srid=4326)  # WGS84 coordinate system
+    id_kurz = models.CharField(max_length=100, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.id_kurz} - {self.address}"
+
+    def save(self, *args, **kwargs):
+        # Ensure the geometry is properly set if not already done
+        if not self.geometry:
+            # Default to a point if no geometry is provided
+            self.geometry = Point(0, 0, srid=4326)
+        super().save(*args, **kwargs)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name_plural = "Data Geometries" 
