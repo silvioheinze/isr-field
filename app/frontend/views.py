@@ -7,14 +7,16 @@ from django.shortcuts import render
 from django.contrib.auth.models import User, Group
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404
-from django.contrib.auth.forms import UserChangeForm
+from django.contrib.auth.forms import UserChangeForm, PasswordChangeForm
 from django.contrib.auth.models import Group
 from django.contrib import messages
 from django.urls import reverse
 from django.contrib.auth.models import Group
 from django import forms
-from .models import AuditLog, DataSet
+from .models import AuditLog, DataSet, DataGeometry, DataEntry
 from django.contrib.auth.decorators import login_required, permission_required
+import json
+from django.contrib.auth import update_session_auth_hash
 
 class GroupForm(forms.ModelForm):
     class Meta:
@@ -47,7 +49,45 @@ def register_view(request):
 
 @login_required
 def profile_view(request):
-    return render(request, 'frontend/profile.html', {'user': request.user})
+    """User profile view with email and password change functionality"""
+    user = request.user
+    message = None
+    message_type = None
+    
+    if request.method == 'POST':
+        if 'change_email' in request.POST:
+            # Handle email change
+            new_email = request.POST.get('email')
+            if new_email and new_email != user.email:
+                user.email = new_email
+                user.save()
+                message = 'Email updated successfully.'
+                message_type = 'success'
+            else:
+                message = 'Please provide a valid email address.'
+                message_type = 'error'
+                
+        elif 'change_password' in request.POST:
+            # Handle password change
+            password_form = PasswordChangeForm(user, request.POST)
+            if password_form.is_valid():
+                password_form.save()
+                update_session_auth_hash(request, password_form.user)
+                message = 'Password changed successfully.'
+                message_type = 'success'
+            else:
+                message = 'Please correct the password errors below.'
+                message_type = 'error'
+    
+    # Create password form for display
+    password_form = PasswordChangeForm(user)
+    
+    return render(request, 'frontend/profile.html', {
+        'user': user,
+        'password_form': password_form,
+        'message': message,
+        'message_type': message_type
+    })
 
 
 def is_manager(user):
@@ -218,3 +258,115 @@ def dataset_access_view(request, dataset_id):
         'all_users': all_users,
         'shared_users': shared_users
     }) 
+
+@login_required
+def dataset_data_input_view(request, dataset_id):
+    """Data input view with map and entry editing"""
+    dataset = get_object_or_404(DataSet, pk=dataset_id)
+    if not dataset.can_access(request.user):
+        return HttpResponseForbidden('You do not have permission to view this dataset.')
+    
+    # Get all geometries for this dataset with their entries
+    geometries = DataGeometry.objects.filter(dataset=dataset).prefetch_related('entries')
+    
+    # Prepare map data
+    map_data = []
+    for geometry in geometries:
+        map_point = {
+            'id': geometry.id,
+            'id_kurz': geometry.id_kurz,
+            'address': geometry.address,
+            'lat': geometry.geometry.y,
+            'lng': geometry.geometry.x,
+            'entries_count': geometry.entries.count(),
+            'entries': []
+        }
+        
+        # Add entry data for this geometry
+        for entry in geometry.entries.all():
+            map_point['entries'].append({
+                'id': entry.id,
+                'name': entry.name,
+                'usage_code1': entry.usage_code1,
+                'usage_code2': entry.usage_code2,
+                'usage_code3': entry.usage_code3,
+                'cat_inno': entry.cat_inno,
+                'cat_wert': entry.cat_wert,
+                'cat_fili': entry.cat_fili,
+                'year': entry.year
+            })
+        
+        map_data.append(map_point)
+    
+    return render(request, 'frontend/dataset_data_input.html', {
+        'dataset': dataset,
+        'geometries': geometries,
+        'map_data': json.dumps(map_data)
+    })
+
+@login_required
+def entry_edit_view(request, entry_id):
+    """Edit a specific DataEntry"""
+    entry = get_object_or_404(DataEntry, pk=entry_id)
+    geometry = entry.geometry
+    dataset = geometry.dataset
+    
+    if not dataset.can_access(request.user):
+        return HttpResponseForbidden('You do not have permission to edit this entry.')
+    
+    if request.method == 'POST':
+        entry.name = request.POST.get('name')
+        entry.usage_code1 = int(request.POST.get('usage_code1', 0))
+        entry.usage_code2 = int(request.POST.get('usage_code2', 0))
+        entry.usage_code3 = int(request.POST.get('usage_code3', 0))
+        entry.cat_inno = int(request.POST.get('cat_inno', 0))
+        entry.cat_wert = int(request.POST.get('cat_wert', 0))
+        entry.cat_fili = int(request.POST.get('cat_fili', 0))
+        entry.year = int(request.POST.get('year', 2024))
+        entry.save()
+        
+        # Log the action
+        AuditLog.objects.create(
+            user=request.user,
+            action='edited_entry',
+            target=f'entry:{entry.id}'
+        )
+        
+        messages.success(request, 'Entry updated successfully.')
+        return redirect('dataset_data_input', dataset_id=dataset.id)
+    
+    return render(request, 'frontend/entry_edit.html', {'entry': entry})
+
+@login_required
+def entry_create_view(request, geometry_id):
+    """Create a new DataEntry for a specific geometry"""
+    geometry = get_object_or_404(DataGeometry, pk=geometry_id)
+    dataset = geometry.dataset
+    
+    if not dataset.can_access(request.user):
+        return HttpResponseForbidden('You do not have permission to create entries for this dataset.')
+    
+    if request.method == 'POST':
+        entry = DataEntry.objects.create(
+            geometry=geometry,
+            name=request.POST.get('name'),
+            usage_code1=int(request.POST.get('usage_code1', 0)),
+            usage_code2=int(request.POST.get('usage_code2', 0)),
+            usage_code3=int(request.POST.get('usage_code3', 0)),
+            cat_inno=int(request.POST.get('cat_inno', 0)),
+            cat_wert=int(request.POST.get('cat_wert', 0)),
+            cat_fili=int(request.POST.get('cat_fili', 0)),
+            year=int(request.POST.get('year', 2024))
+        )
+        
+        # Log the action
+        AuditLog.objects.create(
+            user=request.user,
+            action='created_entry',
+            target=f'entry:{entry.id}'
+        )
+        
+        messages.success(request, 'Entry created successfully.')
+        return redirect('dataset_data_input', dataset_id=dataset.id)
+    
+    return render(request, 'frontend/entry_create.html', {'geometry': geometry}) 

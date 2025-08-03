@@ -33,5 +33,8 @@ urlpatterns = [
     path('datasets/<int:dataset_id>/', frontend_views.dataset_detail_view, name='dataset_detail'),
     path('datasets/<int:dataset_id>/edit/', frontend_views.dataset_edit_view, name='dataset_edit'),
     path('datasets/<int:dataset_id>/access/', frontend_views.dataset_access_view, name='dataset_access'),
+    path('datasets/<int:dataset_id>/data-input/', frontend_views.dataset_data_input_view, name='dataset_data_input'),
+    path('entries/<int:entry_id>/edit/', frontend_views.entry_edit_view, name='entry_edit'),
+    path('geometries/<int:geometry_id>/entries/create/', frontend_views.entry_create_view, name='entry_create'),
     path('', frontend_views.topbar_view, name='topbar'),
 ]

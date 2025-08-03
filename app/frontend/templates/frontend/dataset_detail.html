@@ -41,6 +41,7 @@
                             <a href="{% url 'dataset_edit' dataset.id %}" class="btn btn-primary">Edit Dataset</a>
                             <a href="{% url 'dataset_access' dataset.id %}" class="btn btn-warning">Manage Access</a>
                         {% endif %}
+                        <a href="{% url 'dataset_data_input' dataset.id %}" class="btn btn-info">Data Input</a>
                         <a href="{% url 'dataset_list' %}" class="btn btn-secondary">Back to Datasets</a>
                     </div>
                 </div>

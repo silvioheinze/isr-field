@@ -1,0 +1,151 @@
+{% extends 'frontend/_base.html' %}
+
+{% block title %}Data Input - {{ dataset.name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+    #map {
+        height: 400px;
+        width: 100%;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    .entry-card {
+        margin-bottom: 15px;
+    }
+    .geometry-info {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>Data Input: {{ dataset.name }}</h2>
+                <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-secondary">Back to Dataset</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Map Section -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Geometry Points Map</h5>
+                </div>
+                <div class="card-body">
+                    <div id="map"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Entry Section -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Data Entries</h5>
+                </div>
+                <div class="card-body">
+                    {% if geometries %}
+                        {% for geometry in geometries %}
+                            <div class="geometry-info">
+                                <h6>{{ geometry.id_kurz }} - {{ geometry.address }}</h6>
+                                <p class="text-muted mb-2">Coordinates: {{ geometry.geometry.y|floatformat:6 }}, {{ geometry.geometry.x|floatformat:6 }}</p>
+                                
+                                {% if geometry.entries.all %}
+                                    <div class="row">
+                                        {% for entry in geometry.entries.all %}
+                                            <div class="col-md-6 col-lg-4">
+                                                <div class="card entry-card">
+                                                    <div class="card-body">
+                                                        <h6 class="card-title">{{ entry.name }}</h6>
+                                                        <p class="card-text">
+                                                            <small class="text-muted">
+                                                                Year: {{ entry.year }}<br>
+                                                                Usage Codes: {{ entry.usage_code1 }}, {{ entry.usage_code2 }}, {{ entry.usage_code3 }}<br>
+                                                                Categories: {{ entry.cat_inno }}, {{ entry.cat_wert }}, {{ entry.cat_fili }}
+                                                            </small>
+                                                        </p>
+                                                        <a href="{% url 'entry_edit' entry.id %}" class="btn btn-sm btn-primary">Edit</a>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <p class="text-muted">No entries for this geometry.</p>
+                                {% endif %}
+                                
+                                <a href="{% url 'entry_create' geometry.id %}" class="btn btn-success btn-sm">Add Entry</a>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted">No geometries found for this dataset.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    // Initialize map
+    var map = L.map('map').setView([48.2082, 16.3738], 13); // Vienna coordinates as default
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Add markers for each geometry
+    var mapData = {{ map_data|safe }};
+    var markers = [];
+    var bounds = L.latLngBounds();
+
+    mapData.forEach(function(point) {
+        var marker = L.marker([point.lat, point.lng])
+            .bindPopup(`
+                <strong>${point.id_kurz}</strong><br>
+                ${point.address}<br>
+                Entries: ${point.entries_count}
+            `)
+            .addTo(map);
+        
+        markers.push(marker);
+        bounds.extend([point.lat, point.lng]);
+    });
+
+    // Fit map to show all markers
+    if (markers.length > 0) {
+        map.fitBounds(bounds);
+    }
+
+    // Add click handler to markers to show entry details
+    markers.forEach(function(marker, index) {
+        marker.on('click', function() {
+            var point = mapData[index];
+            if (point.entries.length > 0) {
+                var popupContent = '<strong>' + point.id_kurz + '</strong><br>' + point.address + '<br><br>';
+                point.entries.forEach(function(entry) {
+                    popupContent += '<strong>' + entry.name + '</strong> (' + entry.year + ')<br>';
+                    popupContent += 'Usage: ' + entry.usage_code1 + ', ' + entry.usage_code2 + ', ' + entry.usage_code3 + '<br>';
+                    popupContent += 'Categories: ' + entry.cat_inno + ', ' + entry.cat_wert + ', ' + entry.cat_fili + '<br><br>';
+                });
+                marker.setPopupContent(popupContent);
+            }
+        });
+    });
+</script>
+{% endblock %} 
