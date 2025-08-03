@@ -51,7 +51,7 @@ def profile_view(request):
 
 
 def is_manager(user):
-    return user.is_authenticated and user.groups.filter(name='manager').exists()
+    return user.is_authenticated and (user.is_superuser or user.groups.filter(name='manager').exists())
 
 @login_required
 def user_management_view(request):
