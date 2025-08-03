@@ -356,7 +356,8 @@ def entry_create_view(request, geometry_id):
             cat_inno=int(request.POST.get('cat_inno', 0)),
             cat_wert=int(request.POST.get('cat_wert', 0)),
             cat_fili=int(request.POST.get('cat_fili', 0)),
-            year=int(request.POST.get('year', 2024))
+            year=int(request.POST.get('year', 2024)),
+            user=request.user
         )
         
         # Log the action

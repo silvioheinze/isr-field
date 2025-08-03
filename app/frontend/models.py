@@ -44,6 +44,7 @@ class DataGeometry(models.Model):
     address = models.CharField(max_length=500)
     geometry = gis_models.PointField(srid=4326)  # WGS84 coordinate system
     id_kurz = models.CharField(max_length=100, unique=True)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_geometries')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -72,6 +73,7 @@ class DataEntry(models.Model):
     cat_wert = models.IntegerField()
     cat_fili = models.IntegerField()
     year = models.IntegerField()
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_entries')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

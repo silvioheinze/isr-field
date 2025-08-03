@@ -73,7 +73,8 @@
                                                             <small class="text-muted">
                                                                 Year: {{ entry.year }}<br>
                                                                 Usage Codes: {{ entry.usage_code1 }}, {{ entry.usage_code2 }}, {{ entry.usage_code3 }}<br>
-                                                                Categories: {{ entry.cat_inno }}, {{ entry.cat_wert }}, {{ entry.cat_fili }}
+                                                                Categories: {{ entry.cat_inno }}, {{ entry.cat_wert }}, {{ entry.cat_fili }}<br>
+                                                                Created by: {{ entry.user.username|default:"Unknown" }}
                                                             </small>
                                                         </p>
                                                         <a href="{% url 'entry_edit' entry.id %}" class="btn btn-sm btn-primary">Edit</a>
