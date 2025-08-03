@@ -23,8 +23,9 @@
                                         <h6 class="mb-1">{{ dataset.name }}</h6>
                                         <small class="text-muted">{{ dataset.description|truncatewords:15 }}</small>
                                     </div>
-                                    <div>
+                                    <div class="btn-group" role="group">
                                         <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-sm btn-outline-primary">View</a>
+                                        <a href="{% url 'dataset_data_input' dataset.id %}" class="btn btn-sm btn-outline-success">Data Input</a>
                                         {% if dataset.owner == user %}
                                             <a href="{% url 'dataset_edit' dataset.id %}" class="btn btn-sm btn-outline-secondary">Edit</a>
                                         {% endif %}
@@ -54,6 +55,9 @@
                     <div class="d-grid gap-2">
                         <a href="{% url 'dataset_create' %}" class="btn btn-primary">Create Dataset</a>
                         <a href="{% url 'dataset_list' %}" class="btn btn-outline-primary">View All Datasets</a>
+                        {% if datasets %}
+                            <a href="{% url 'dataset_data_input' datasets.0.id %}" class="btn btn-success">Quick Data Input</a>
+                        {% endif %}
                         <a href="{% url 'profile' %}" class="btn btn-outline-secondary">View Profile</a>
                         {% if user.is_staff %}
                             <a href="{% url 'user_management' %}" class="btn btn-outline-warning">User Management</a>
