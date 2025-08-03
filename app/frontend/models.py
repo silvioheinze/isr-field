@@ -59,4 +59,25 @@ class DataGeometry(models.Model):
 
     class Meta:
         ordering = ['-created_at']
-        verbose_name_plural = "Data Geometries" 
+        verbose_name_plural = "Data Geometries"
+
+
+class DataEntry(models.Model):
+    geometry = models.ForeignKey(DataGeometry, on_delete=models.CASCADE, related_name='entries')
+    name = models.CharField(max_length=255)
+    usage_code1 = models.IntegerField()
+    usage_code2 = models.IntegerField()
+    usage_code3 = models.IntegerField()
+    cat_inno = models.IntegerField()
+    cat_wert = models.IntegerField()
+    cat_fili = models.IntegerField()
+    year = models.IntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} - {self.geometry.id_kurz} ({self.year})"
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name_plural = "Data Entries" 
