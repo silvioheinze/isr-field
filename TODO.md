@@ -2,7 +2,7 @@
 [X] add _base template to profile-template
 [X] add user created to datageometry and dataentry
 [X] add import function to dataset
-[ ] manage datset access / add group access
+[X] manage datset access / add group access
 [X] add export dataset function
 [ ] adapt colours to isr ci
 [X] add button to add geometry in map
@@ -12,3 +12,4 @@
 [X] automatic coordinate system at import
 [ ] UI Data entry optimization
 [X] footer to the bottom
+[ ] group data set actions

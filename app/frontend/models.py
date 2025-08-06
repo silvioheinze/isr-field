@@ -18,6 +18,7 @@ class DataSet(models.Model):
     description = models.TextField(blank=True, null=True)
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_datasets')
     shared_with = models.ManyToManyField(User, related_name='shared_datasets', blank=True)
+    shared_with_groups = models.ManyToManyField('auth.Group', related_name='shared_datasets', blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_public = models.BooleanField(default=False)
@@ -32,6 +33,9 @@ class DataSet(models.Model):
         if user == self.owner:
             return True
         if user in self.shared_with.all():
+            return True
+        # Check if user is in any of the shared groups
+        if self.shared_with_groups.filter(user=user).exists():
             return True
         return False
 

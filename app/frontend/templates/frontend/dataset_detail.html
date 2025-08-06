@@ -43,11 +43,18 @@
                 <ul class="list-unstyled">
                     <li><strong>Owner:</strong> {{ dataset.owner.username }}</li>
                     <li><strong>Public:</strong> {% if dataset.is_public %}Yes{% else %}No{% endif %}</li>
-                    <li><strong>Shared with:</strong> 
+                    <li><strong>Shared with users:</strong> 
                         {% if dataset.shared_with.all %}
                             {% for user in dataset.shared_with.all %}{{ user.username }}{% if not forloop.last %}, {% endif %}{% endfor %}
                         {% else %}
                             No users
+                        {% endif %}
+                    </li>
+                    <li><strong>Shared with groups:</strong> 
+                        {% if dataset.shared_with_groups.all %}
+                            {% for group in dataset.shared_with_groups.all %}{{ group.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                        {% else %}
+                            No groups
                         {% endif %}
                     </li>
                 </ul>

@@ -5,7 +5,7 @@ A Django application for managing spatial data with user authentication, data im
 ## Features
 
 - **User Management**: Registration, authentication, and role-based access control
-- **Dataset Management**: Create, edit, and manage datasets with access control
+- **Dataset Management**: Create, edit, and manage datasets with access control (users and groups)
 - **Spatial Data**: Store and manage geometry points with associated data
 - **Data Import**: Import CSV files with automatic coordinate system detection
 - **Data Export**: Export datasets as CSV with year-prefixed columns
@@ -55,5 +55,30 @@ ID,ADRESSE,GEB_X,GEB_Y,2016_USAGE_CODE1,2016_CAT_INNO,2022_USAGE_CODE1,2022_CAT_
 test_001,Test Address 1,16.3738,48.2082,100,1,100,1
 test_002,Test Address 2,16.3748,48.2092,101,2,101,2
 ```
+
+## Access Control
+
+The application supports flexible access control for datasets:
+
+### Access Levels
+
+1. **Owner**: The user who created the dataset (always has full access)
+2. **Individual Users**: Specific users granted direct access
+3. **Groups**: All members of selected user groups have access
+4. **Public**: Anyone can access the dataset (if enabled)
+
+### Access Management
+
+- Dataset owners can manage access through the "Manage Access" interface
+- Users can be added/removed individually or through group membership
+- Access changes are logged for audit purposes
+- Group membership automatically grants access to all datasets shared with that group
+
+### Access Priority
+
+1. **Public datasets**: Accessible to everyone
+2. **Owner access**: Dataset creator always has access
+3. **Individual user access**: Directly shared users have access
+4. **Group access**: Users in shared groups have access
 
 

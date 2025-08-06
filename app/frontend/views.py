@@ -271,7 +271,13 @@ def dataset_access_view(request, dataset_id):
     
     if request.method == 'POST':
         user_ids = request.POST.getlist('shared_users')
+        group_ids = request.POST.getlist('shared_groups')
+        
+        # Update user access
         dataset.shared_with.set(User.objects.filter(id__in=user_ids))
+        
+        # Update group access
+        dataset.shared_with_groups.set(Group.objects.filter(id__in=group_ids))
         
         # Log the action
         AuditLog.objects.create(
@@ -284,12 +290,16 @@ def dataset_access_view(request, dataset_id):
         return redirect('dataset_detail', dataset_id=dataset.id)
     
     all_users = User.objects.exclude(id=request.user.id)
+    all_groups = Group.objects.all()
     shared_users = dataset.shared_with.values_list('id', flat=True)
+    shared_groups = dataset.shared_with_groups.values_list('id', flat=True)
     
     return render(request, 'frontend/dataset_access.html', {
         'dataset': dataset,
         'all_users': all_users,
-        'shared_users': shared_users
+        'all_groups': all_groups,
+        'shared_users': shared_users,
+        'shared_groups': shared_groups
     })
 
 @login_required
