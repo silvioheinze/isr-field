@@ -62,28 +62,69 @@
         </div>
         
         <div class="col-md-4">
-            <div class="card">
+            <!-- Dataset Management Actions -->
+            {% if dataset.owner == user %}
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-gear"></i> Dataset Management</h6>
+                </div>
                 <div class="card-body">
-                    <h5 class="card-title">Actions</h5>
                     <div class="d-grid gap-2">
-                        {% if dataset.owner == user %}
-                            <a href="{% url 'dataset_edit' dataset.id %}" class="btn btn-primary">Edit Dataset</a>
-                            <a href="{% url 'dataset_access' dataset.id %}" class="btn btn-warning">Manage Access</a>
-                            <a href="{% url 'dataset_clear_data' dataset.id %}" class="btn btn-danger">
-                                <i class="bi bi-trash"></i> Clear Data
-                            </a>
-                        {% endif %}
-                        <a href="{% url 'dataset_csv_import' dataset.id %}" class="btn btn-success">Import CSV</a>
-                        <a href="{% url 'dataset_export_options' dataset.id %}" class="btn btn-outline-success">
+                        <a href="{% url 'dataset_edit' dataset.id %}" class="btn btn-primary btn-sm">
+                            <i class="bi bi-pencil"></i> Edit Dataset
+                        </a>
+                        <a href="{% url 'dataset_access' dataset.id %}" class="btn btn-warning btn-sm">
+                            <i class="bi bi-people"></i> Manage Access
+                        </a>
+                        <a href="{% url 'dataset_clear_data' dataset.id %}" class="btn btn-danger btn-sm">
+                            <i class="bi bi-trash"></i> Clear Data
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Data Import/Export Actions -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-arrow-left-right"></i> Import & Export</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'dataset_csv_import' dataset.id %}" class="btn btn-success btn-sm">
+                            <i class="bi bi-upload"></i> Import CSV
+                        </a>
+                        <a href="{% url 'dataset_export_options' dataset.id %}" class="btn btn-outline-success btn-sm">
                             <i class="bi bi-download"></i> Export CSV
                         </a>
-                        {% if user.is_superuser %}
-                        <a href="{% url 'debug_import' dataset.id %}" class="btn btn-warning">
-                            <i class="bi bi-bug"></i> Debug Import
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Data Input Actions -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-pencil-square"></i> Data Input</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'dataset_data_input' dataset.id %}" class="btn btn-info btn-sm">
+                            <i class="bi bi-map"></i> Interactive Map
                         </a>
-                        {% endif %}
-                        <a href="{% url 'dataset_data_input' dataset.id %}" class="btn btn-info">Data Input</a>
-                        <a href="{% url 'dataset_list' %}" class="btn btn-secondary">Back to Datasets</a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Navigation -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-arrow-left"></i> Navigation</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'dataset_list' %}" class="btn btn-secondary btn-sm">
+                            <i class="bi bi-list"></i> Back to Datasets
+                        </a>
                     </div>
                 </div>
             </div>

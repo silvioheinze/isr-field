@@ -19,15 +19,35 @@
                             <p class="card-text">{{ dataset.description|truncatewords:20 }}</p>
                             <div class="mb-2">
                                 <small class="text-muted">
-                                    Owner: {{ dataset.owner.username }}<br>
-                                    Created: {{ dataset.created_at|date:"M d, Y" }}
+                                    <i class="bi bi-person"></i> {{ dataset.owner.username }}<br>
+                                    <i class="bi bi-calendar"></i> {{ dataset.created_at|date:"M d, Y" }}
                                 </small>
                             </div>
-                            <div class="d-flex gap-2">
-                                <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-sm btn-outline-primary">View</a>
+                            <div class="mb-2">
+                                <small class="text-muted">
+                                    {% if dataset.is_public %}
+                                        <span class="badge bg-success">Public</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Private</span>
+                                    {% endif %}
+                                    {% if dataset.shared_with.all or dataset.shared_with_groups.all %}
+                                        <span class="badge bg-info">Shared</span>
+                                    {% endif %}
+                                </small>
+                            </div>
+                            <div class="d-grid gap-1">
+                                <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-eye"></i> View Details
+                                </a>
                                 {% if dataset.owner == user %}
-                                    <a href="{% url 'dataset_edit' dataset.id %}" class="btn btn-sm btn-outline-secondary">Edit</a>
-                                    <a href="{% url 'dataset_access' dataset.id %}" class="btn btn-sm btn-outline-warning">Access</a>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{% url 'dataset_edit' dataset.id %}" class="btn btn-outline-secondary" title="Edit Dataset">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'dataset_access' dataset.id %}" class="btn btn-outline-warning" title="Manage Access">
+                                        <i class="bi bi-people"></i>
+                                    </a>
+                                </div>
                                 {% endif %}
                             </div>
                         </div>

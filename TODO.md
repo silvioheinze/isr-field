@@ -12,4 +12,5 @@
 [X] automatic coordinate system at import
 [ ] UI Data entry optimization
 [X] footer to the bottom
-[ ] group data set actions
+[X] group data set actions
+[X] group dashboard actions
