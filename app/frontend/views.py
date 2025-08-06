@@ -16,10 +16,14 @@ from django import forms
 from .models import AuditLog, DataSet, DataGeometry, DataEntry, DataEntryFile
 from django.contrib.auth.decorators import login_required, permission_required
 import json
+import csv
+import io
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.gis.geos import Point
-from django.http import HttpResponse, Http404
+from django.http import HttpResponse, Http404, JsonResponse
 from django.conf import settings
+from django.db import transaction
+from django.core.exceptions import ValidationError
 import os
 import mimetypes
 
@@ -207,7 +211,15 @@ def dataset_detail_view(request, dataset_id):
     if not dataset.can_access(request.user):
         return HttpResponseForbidden('You do not have permission to view this dataset.')
     
-    return render(request, 'frontend/dataset_detail.html', {'dataset': dataset})
+    # Get counts for geometries and data entries
+    geometries_count = DataGeometry.objects.filter(dataset=dataset).count()
+    data_entries_count = DataEntry.objects.filter(geometry__dataset=dataset).count()
+    
+    return render(request, 'frontend/dataset_detail.html', {
+        'dataset': dataset,
+        'geometries_count': geometries_count,
+        'data_entries_count': data_entries_count
+    })
 
 @login_required
 def dataset_edit_view(request, dataset_id):
@@ -284,6 +296,7 @@ def dataset_data_input_view(request, dataset_id):
             'lat': geometry.geometry.y,
             'lng': geometry.geometry.x,
             'entries_count': geometry.entries.count(),
+            'user': geometry.user.username if geometry.user else 'Unknown',
             'entries': []
         }
         
@@ -298,16 +311,91 @@ def dataset_data_input_view(request, dataset_id):
                 'cat_inno': entry.cat_inno,
                 'cat_wert': entry.cat_wert,
                 'cat_fili': entry.cat_fili,
-                'year': entry.year
+                'year': entry.year,
+                'user': entry.user.username if entry.user else 'Unknown'
             })
         
         map_data.append(map_point)
     
     return render(request, 'frontend/dataset_data_input.html', {
         'dataset': dataset,
-        'geometries': geometries,
-        'map_data': json.dumps(map_data)
+        'geometries': geometries
     })
+
+
+@login_required
+def dataset_map_data_view(request, dataset_id):
+    """API endpoint to get map data for a dataset"""
+    try:
+        dataset = get_object_or_404(DataSet, pk=dataset_id)
+        if not dataset.can_access(request.user):
+            return HttpResponseForbidden('You do not have permission to view this dataset.')
+        
+        # Get map bounds from request parameters
+        bounds = request.GET.get('bounds')
+        
+        if bounds:
+            try:
+                # Parse bounds: "south,west,north,east"
+                south, west, north, east = map(float, bounds.split(','))
+                
+                # Filter geometries within the bounds using spatial lookups
+                from django.contrib.gis.geos import Polygon
+                from django.contrib.gis.db.models.functions import Transform
+                
+                # Create a bounding box polygon
+                bbox = Polygon.from_bbox((west, south, east, north))
+                
+                # Filter geometries within the bounds
+                geometries = DataGeometry.objects.filter(
+                    dataset=dataset,
+                    geometry__within=bbox
+                ).prefetch_related('entries')
+            except (ValueError, TypeError) as e:
+                # If bounds parsing fails, get all geometries
+                geometries = DataGeometry.objects.filter(dataset=dataset).prefetch_related('entries')
+        else:
+            # No bounds provided, get all geometries
+            geometries = DataGeometry.objects.filter(dataset=dataset).prefetch_related('entries')
+        
+        # Prepare map data
+        map_data = []
+        for geometry in geometries:
+            try:
+                map_point = {
+                    'id': geometry.id,
+                    'id_kurz': geometry.id_kurz,
+                    'address': geometry.address,
+                    'lat': geometry.geometry.y,
+                    'lng': geometry.geometry.x,
+                    'entries_count': geometry.entries.count(),
+                    'user': geometry.user.username if geometry.user else 'Unknown',
+                    'entries': []
+                }
+                
+                # Add entry data for this geometry
+                for entry in geometry.entries.all():
+                    map_point['entries'].append({
+                        'id': entry.id,
+                        'name': entry.name,
+                        'usage_code1': entry.usage_code1,
+                        'usage_code2': entry.usage_code2,
+                        'usage_code3': entry.usage_code3,
+                        'cat_inno': entry.cat_inno,
+                        'cat_wert': entry.cat_wert,
+                        'cat_fili': entry.cat_fili,
+                        'year': entry.year,
+                        'user': entry.user.username if entry.user else 'Unknown'
+                    })
+                
+                map_data.append(map_point)
+            except Exception as e:
+                continue
+        
+        return JsonResponse({'map_data': map_data})
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 @login_required
 def entry_edit_view(request, entry_id):
@@ -533,4 +621,188 @@ def entry_detail_view(request, entry_id):
     if not dataset.can_access(request.user):
         return HttpResponseForbidden('You do not have permission to view this entry.')
     
-    return render(request, 'frontend/entry_detail.html', {'entry': entry}) 
+    return render(request, 'frontend/entry_detail.html', {'entry': entry})
+
+
+@login_required
+def dataset_csv_import_view(request, dataset_id):
+    """Import CSV data into a dataset"""
+    dataset = get_object_or_404(DataSet, pk=dataset_id)
+    if not dataset.can_access(request.user):
+        return HttpResponseForbidden('You do not have permission to import data into this dataset.')
+    
+    if request.method == 'POST':
+        if 'csv_file' not in request.FILES:
+            messages.error(request, 'Please select a CSV file to import.')
+            return render(request, 'frontend/dataset_csv_import.html', {'dataset': dataset})
+        
+        csv_file = request.FILES['csv_file']
+        
+        # Check file extension
+        if not csv_file.name.endswith('.csv'):
+            messages.error(request, 'Please upload a valid CSV file.')
+            return render(request, 'frontend/dataset_csv_import.html', {'dataset': dataset})
+        
+        try:
+            # Read CSV file
+            decoded_file = csv_file.read().decode('utf-8')
+            csv_data = csv.DictReader(io.StringIO(decoded_file))
+            
+            imported_count = 0
+            errors = []
+            
+            with transaction.atomic():
+                for row_num, row in enumerate(csv_data, start=2):  # Start at 2 because row 1 is header
+                    try:
+                        # Extract data from CSV row
+                        id_kurz = row.get('ID', '').strip()
+                        address = row.get('ADRESSE', '').strip()
+                        
+                        # Extract coordinates - handle different possible column names
+                        x_coord = None
+                        y_coord = None
+                        
+                        # Try different possible coordinate column names
+                        if 'GEB_X' in row and 'GEB_Y' in row:
+                            x_coord = row['GEB_X']
+                            y_coord = row['GEB_Y']
+                        elif 'X' in row and 'Y' in row:
+                            x_coord = row['X']
+                            y_coord = row['Y']
+                        elif 'LONGITUDE' in row and 'LATITUDE' in row:
+                            x_coord = row['LONGITUDE']
+                            y_coord = row['LATITUDE']
+                        elif 'LON' in row and 'LAT' in row:
+                            x_coord = row['LON']
+                            y_coord = row['LAT']
+                        
+                        # Validate required fields
+                        if not id_kurz:
+                            errors.append(f"Row {row_num}: Missing ID")
+                            continue
+                        
+                        if not address:
+                            errors.append(f"Row {row_num}: Missing address")
+                            continue
+                        
+                        if x_coord is None or y_coord is None:
+                            errors.append(f"Row {row_num}: Missing coordinates")
+                            continue
+                        
+                        # Check if geometry already exists
+                        if DataGeometry.objects.filter(id_kurz=id_kurz).exists():
+                            errors.append(f"Row {row_num}: Geometry with ID '{id_kurz}' already exists")
+                            continue
+                        
+                        # Convert coordinates to float
+                        try:
+                            x_coord = float(x_coord)
+                            y_coord = float(y_coord)
+                        except ValueError:
+                            errors.append(f"Row {row_num}: Invalid coordinates")
+                            continue
+                        
+                        # Create geometry point
+                        geometry = DataGeometry.objects.create(
+                            dataset=dataset,
+                            address=address,
+                            id_kurz=id_kurz,
+                            geometry=Point(x_coord, y_coord, srid=4326),
+                            user=request.user
+                        )
+                        
+                        # Create data entry if usage data is available
+                        usage_code1 = row.get('2016_NUTZUNG') or row.get('2022_NUTZUNG') or row.get('NUTZUNG')
+                        usage_code2 = row.get('2016_CAT_INNO') or row.get('2022_CAT_INNO') or row.get('CAT_INNO')
+                        usage_code3 = row.get('2016_CAT_WERT') or row.get('2022_CAT_WERT') or row.get('CAT_WERT')
+                        cat_inno = row.get('2016_CAT_INNO') or row.get('2022_CAT_INNO') or row.get('CAT_INNO')
+                        cat_wert = row.get('2016_CAT_WERT') or row.get('2022_CAT_WERT') or row.get('CAT_WERT')
+                        cat_fili = row.get('2016_CAT_FILI') or row.get('2022_CAT_FILI') or row.get('CAT_FILI')
+                        year = row.get('YEAR') or '2022'  # Default to 2022 if not specified
+                        
+                        # Convert to integers if they exist and are not empty
+                        try:
+                            if usage_code1 and usage_code1.strip():
+                                usage_code1 = int(usage_code1)
+                            else:
+                                usage_code1 = 0
+                                
+                            if usage_code2 and usage_code2.strip():
+                                usage_code2 = int(usage_code2)
+                            else:
+                                usage_code2 = 0
+                                
+                            if usage_code3 and usage_code3.strip():
+                                usage_code3 = int(usage_code3)
+                            else:
+                                usage_code3 = 0
+                                
+                            if cat_inno and cat_inno.strip():
+                                cat_inno = int(cat_inno)
+                            else:
+                                cat_inno = 0
+                                
+                            if cat_wert and cat_wert.strip():
+                                cat_wert = int(cat_wert)
+                            else:
+                                cat_wert = 0
+                                
+                            if cat_fili and cat_fili.strip():
+                                cat_fili = int(cat_fili)
+                            else:
+                                cat_fili = 0
+                                
+                            if year and year.strip():
+                                year = int(year)
+                            else:
+                                year = 2022
+                                
+                        except ValueError:
+                            # If conversion fails, use default values
+                            usage_code1 = usage_code2 = usage_code3 = cat_inno = cat_wert = cat_fili = 0
+                            year = 2022
+                        
+                        # Create data entry
+                        DataEntry.objects.create(
+                            geometry=geometry,
+                            name=f"Entry for {id_kurz}",
+                            usage_code1=usage_code1,
+                            usage_code2=usage_code2,
+                            usage_code3=usage_code3,
+                            cat_inno=cat_inno,
+                            cat_wert=cat_wert,
+                            cat_fili=cat_fili,
+                            year=year,
+                            user=request.user
+                        )
+                        
+                        imported_count += 1
+                        
+                    except Exception as e:
+                        errors.append(f"Row {row_num}: {str(e)}")
+                        continue
+            
+            # Log the import action
+            AuditLog.objects.create(
+                user=request.user,
+                action='csv_import',
+                target=f'dataset:{dataset.id}',
+                details=f'Imported {imported_count} records'
+            )
+            
+            if imported_count > 0:
+                messages.success(request, f'Successfully imported {imported_count} records.')
+            
+            if errors:
+                error_message = f'Import completed with {len(errors)} errors: ' + '; '.join(errors[:10])
+                if len(errors) > 10:
+                    error_message += f' (and {len(errors) - 10} more errors)'
+                messages.warning(request, error_message)
+            
+            return redirect('dataset_detail', dataset_id=dataset.id)
+            
+        except Exception as e:
+            messages.error(request, f'Error processing CSV file: {str(e)}')
+            return render(request, 'frontend/dataset_csv_import.html', {'dataset': dataset})
+    
+    return render(request, 'frontend/dataset_csv_import.html', {'dataset': dataset}) 

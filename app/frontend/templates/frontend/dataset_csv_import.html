@@ -1,0 +1,76 @@
+{% extends 'frontend/_base.html' %}
+
+{% block title %}Import CSV - {{ dataset.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <h2>Import CSV Data</h2>
+            <p class="text-muted">Import spatial data from CSV file into "{{ dataset.name }}"</p>
+            
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">CSV Format Requirements</h5>
+                    <p>The CSV file should contain the following columns:</p>
+                    <ul>
+                        <li><strong>ID</strong> - Unique identifier for each geometry point</li>
+                        <li><strong>ADRESSE</strong> - Address of the location</li>
+                        <li><strong>GEB_X, GEB_Y</strong> - X and Y coordinates (or X/Y, LONGITUDE/LATITUDE, LON/LAT)</li>
+                        <li><strong>2016_NUTZUNG, 2016_CAT_INNO, 2016_CAT_WERT, 2016_CAT_FILI</strong> - Usage and category data for 2016</li>
+                        <li><strong>2022_NUTZUNG, 2022_CAT_INNO, 2022_CAT_WERT, 2022_CAT_FILI</strong> - Usage and category data for 2022</li>
+                        <li><strong>YEAR</strong> - Year for the data entry (optional, defaults to 2022)</li>
+                    </ul>
+                    
+                    <div class="alert alert-info">
+                        <strong>Note:</strong> The import will create both geometry points and data entries. 
+                        If a geometry with the same ID already exists, that row will be skipped.
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h5 class="card-title">Upload CSV File</h5>
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="csv_file" class="form-label">Select CSV File</label>
+                            <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv" required>
+                            <div class="form-text">Only CSV files are accepted.</div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Import Data</button>
+                        <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-secondary">Cancel</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Actions</h5>
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-secondary">Back to Dataset</a>
+                        <a href="{% url 'dataset_data_input' dataset.id %}" class="btn btn-info">Data Input</a>
+                        {% if dataset.owner == user %}
+                            <a href="{% url 'dataset_edit' dataset.id %}" class="btn btn-warning">Edit Dataset</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h5 class="card-title">Sample CSV Format</h5>
+                    <small class="text-muted">
+                        <pre>ID,ADRESSE,2016_NUTZUNG,2016_CAT_INNO,2016_CAT_WERT,2016_CAT_FILI,GEB_X,GEB_Y,2022_NUTZUNG,2022_CAT_INNO,2022_CAT_WERT,2022_CAT_FILI,YEAR
+ss16_kg01_001_1,Apollogasse 19,870,999,999,999,656.61,339913.14,870,999,999,999,2022
+ss16_kg01_001_2,Apollogasse 28,640,0,0,0,636.41,339972.43,640,0,0,0,2022</pre>
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
