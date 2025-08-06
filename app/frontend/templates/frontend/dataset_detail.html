@@ -62,8 +62,16 @@
                         {% if dataset.owner == user %}
                             <a href="{% url 'dataset_edit' dataset.id %}" class="btn btn-primary">Edit Dataset</a>
                             <a href="{% url 'dataset_access' dataset.id %}" class="btn btn-warning">Manage Access</a>
+                            <a href="{% url 'dataset_clear_data' dataset.id %}" class="btn btn-danger">
+                                <i class="bi bi-trash"></i> Clear Data
+                            </a>
                         {% endif %}
                         <a href="{% url 'dataset_csv_import' dataset.id %}" class="btn btn-success">Import CSV</a>
+                        {% if user.is_superuser %}
+                        <a href="{% url 'debug_import' dataset.id %}" class="btn btn-warning">
+                            <i class="bi bi-bug"></i> Debug Import
+                        </a>
+                        {% endif %}
                         <a href="{% url 'dataset_data_input' dataset.id %}" class="btn btn-info">Data Input</a>
                         <a href="{% url 'dataset_list' %}" class="btn btn-secondary">Back to Datasets</a>
                     </div>

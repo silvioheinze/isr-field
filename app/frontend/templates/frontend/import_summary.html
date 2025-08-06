@@ -1,0 +1,137 @@
+{% extends 'frontend/_base.html' %}
+
+{% block title %}Import Summary - {{ dataset.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-check-circle"></i> Import Completed Successfully
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <h5>Import Summary</h5>
+                    
+                    {% if import_summary %}
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h3 class="text-primary">{{ import_summary.geometries_created }}</h3>
+                                    <p class="mb-0">Geometry Points Created</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h3 class="text-success">{{ import_summary.entries_created }}</h3>
+                                    <p class="mb-0">Data Entries Created</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h3 class="text-info">{{ import_summary.rows_processed }}</h3>
+                                    <p class="mb-0">Rows Processed</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h3 class="text-warning">{{ import_summary.rows_skipped }}</h3>
+                                    <p class="mb-0">Rows Skipped</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h3 class="text-danger">{{ import_summary.transformation_errors }}</h3>
+                                    <p class="mb-0">Transformation Errors</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <h6>Coordinate System Information:</h6>
+                        <ul class="mb-0">
+                            <li><strong>System:</strong> {{ import_summary.coordinate_system_name }}</li>
+                            <li><strong>EPSG Code:</strong> {{ import_summary.coordinate_system }}</li>
+                            <li><strong>Detection Method:</strong> {{ import_summary.detection_method|title }}</li>
+                        </ul>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <h6>Dataset Overview:</h6>
+                        <p class="mb-0">This page shows the current state of the dataset. No recent import data is available.</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if errors %}
+                    <div class="alert alert-warning">
+                        <h6>Import Warnings:</h6>
+                        <p>The import completed successfully, but there were some issues:</p>
+                        <ul>
+                            {% for error in errors %}
+                            <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-primary">
+                            <i class="bi bi-eye"></i> View Dataset
+                        </a>
+                        <a href="{% url 'dataset_data_input' dataset.id %}" class="btn btn-info">
+                            <i class="bi bi-map"></i> Data Input
+                        </a>
+                        <a href="{% url 'dataset_csv_import' dataset.id %}" class="btn btn-success">
+                            <i class="bi bi-upload"></i> Import More Data
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Quick Actions</h5>
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Dataset
+                        </a>
+                        <a href="{% url 'dataset_data_input' dataset.id %}" class="btn btn-info">
+                            <i class="bi bi-geo-alt"></i> View on Map
+                        </a>
+                        <a href="{% url 'dataset_csv_import' dataset.id %}" class="btn btn-success">
+                            <i class="bi bi-plus-circle"></i> Import Another File
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h5 class="card-title">Dataset Information</h5>
+                    <p><strong>Name:</strong> {{ dataset.name }}</p>
+                    <p><strong>Owner:</strong> {{ dataset.owner.username }}</p>
+                    <p><strong>Total Geometries:</strong> {{ total_geometries }}</p>
+                    <p><strong>Total Entries:</strong> {{ total_entries }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

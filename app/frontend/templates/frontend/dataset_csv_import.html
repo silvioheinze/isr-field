@@ -17,14 +17,25 @@
                         <li><strong>ID</strong> - Unique identifier for each geometry point</li>
                         <li><strong>ADRESSE</strong> - Address of the location</li>
                         <li><strong>GEB_X, GEB_Y</strong> - X and Y coordinates (or X/Y, LONGITUDE/LATITUDE, LON/LAT)</li>
-                        <li><strong>2016_NUTZUNG, 2016_CAT_INNO, 2016_CAT_WERT, 2016_CAT_FILI</strong> - Usage and category data for 2016</li>
-                        <li><strong>2022_NUTZUNG, 2022_CAT_INNO, 2022_CAT_WERT, 2022_CAT_FILI</strong> - Usage and category data for 2022</li>
-                        <li><strong>YEAR</strong> - Year for the data entry (optional, defaults to 2022)</li>
+                        <li><strong>Year-prefixed columns</strong> - Any columns starting with year (e.g., 2016_NUTZUNG, 2022_CAT_INNO)</li>
+                        <li><strong>Generic columns</strong> - NUTZUNG, CAT_INNO, CAT_WERT, CAT_FILI, YEAR (optional)</li>
+                    </ul>
+                    
+                    <h6 class="mt-3">Supported Coordinate Systems:</h6>
+                    <ul>
+                        <li><strong>WGS84 (EPSG:4326)</strong> - Latitude/Longitude coordinates (e.g., 48.2082, 16.3738)</li>
+                        <li><strong>MGI Austria GK M34 (EPSG:31256)</strong> - Austrian projected coordinates (e.g., 656610, 3399131)</li>
+                        <li><strong>MGI Austria GK M31 (EPSG:31257)</strong> - Austrian projected coordinates (e.g., 456610, 3399131)</li>
+                        <li><strong>MGI Austria GK M28 (EPSG:31258)</strong> - Austrian projected coordinates (e.g., 256610, 3399131)</li>
+                        <li><strong>Web Mercator (EPSG:3857)</strong> - Web mapping coordinates</li>
                     </ul>
                     
                     <div class="alert alert-info">
-                        <strong>Note:</strong> The import will create both geometry points and data entries. 
+                        <strong>Note:</strong> The import will create geometry points and separate data entries for all years detected in column headers. 
                         If a geometry with the same ID already exists, that row will be skipped.
+                        Each geometry may have multiple entries (one for each year found in the data).
+                        <br><br>
+                        <strong>Coordinate System:</strong> The system will automatically detect and transform coordinates from common Austrian projections (MGI Austria GK) to WGS84.
                     </div>
                 </div>
             </div>
@@ -38,6 +49,19 @@
                             <label for="csv_file" class="form-label">Select CSV File</label>
                             <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv" required>
                             <div class="form-text">Only CSV files are accepted.</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="coordinate_system" class="form-label">Coordinate System (Optional)</label>
+                            <select class="form-select" id="coordinate_system" name="coordinate_system">
+                                <option value="auto">Auto-detect (Recommended)</option>
+                                <option value="4326">WGS84 (EPSG:4326) - Latitude/Longitude</option>
+                                <option value="31256">MGI Austria GK M34 (EPSG:31256)</option>
+                                <option value="31257">MGI Austria GK M31 (EPSG:31257)</option>
+                                <option value="31258">MGI Austria GK M28 (EPSG:31258)</option>
+                                <option value="3857">Web Mercator (EPSG:3857)</option>
+                            </select>
+                            <div class="form-text">Leave as "Auto-detect" for automatic coordinate system detection and transformation.</div>
                         </div>
                         <button type="submit" class="btn btn-primary">Import Data</button>
                         <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-secondary">Cancel</a>
@@ -64,9 +88,9 @@
                 <div class="card-body">
                     <h5 class="card-title">Sample CSV Format</h5>
                     <small class="text-muted">
-                        <pre>ID,ADRESSE,2016_NUTZUNG,2016_CAT_INNO,2016_CAT_WERT,2016_CAT_FILI,GEB_X,GEB_Y,2022_NUTZUNG,2022_CAT_INNO,2022_CAT_WERT,2022_CAT_FILI,YEAR
-ss16_kg01_001_1,Apollogasse 19,870,999,999,999,656.61,339913.14,870,999,999,999,2022
-ss16_kg01_001_2,Apollogasse 28,640,0,0,0,636.41,339972.43,640,0,0,0,2022</pre>
+                        <pre>ID,ADRESSE,2016_NUTZUNG,2016_CAT_INNO,2016_CAT_WERT,2016_CAT_FILI,GEB_X,GEB_Y,2022_NUTZUNG,2022_CAT_INNO,2022_CAT_WERT,2022_CAT_FILI,2020_NUTZUNG,2020_CAT_INNO
+ss16_kg01_001_1,Apollogasse 19,870,999,999,999,656.61,339913.14,870,999,999,999,850,888
+ss16_kg01_001_2,Apollogasse 28,640,0,0,0,636.41,339972.43,640,0,0,0,650,0</pre>
                     </small>
                 </div>
             </div>

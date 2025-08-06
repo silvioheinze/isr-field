@@ -26,6 +26,21 @@ from django.db import transaction
 from django.core.exceptions import ValidationError
 import os
 import mimetypes
+import logging
+
+# Set up logging for import debugging
+logger = logging.getLogger(__name__)
+
+def get_coordinate_system_name(srid):
+    """Get human-readable name for coordinate system SRID"""
+    coordinate_systems = {
+        4326: "WGS84 (Latitude/Longitude)",
+        31256: "MGI Austria GK M34",
+        31257: "MGI Austria GK M31", 
+        31258: "MGI Austria GK M28",
+        3857: "Web Mercator",
+    }
+    return coordinate_systems.get(srid, f"EPSG:{srid}")
 
 class GroupForm(forms.ModelForm):
     class Meta:
@@ -397,6 +412,60 @@ def dataset_map_data_view(request, dataset_id):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
+
+@login_required
+def dataset_clear_data_view(request, dataset_id):
+    """Clear all geometry points and data entries from a dataset"""
+    dataset = get_object_or_404(DataSet, pk=dataset_id)
+    
+    # Only dataset owner can clear data
+    if dataset.owner != request.user:
+        return HttpResponseForbidden('You do not have permission to clear data from this dataset.')
+    
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                # Get counts before deletion for logging
+                geometry_count = DataGeometry.objects.filter(dataset=dataset).count()
+                entry_count = DataEntry.objects.filter(geometry__dataset=dataset).count()
+                file_count = DataEntryFile.objects.filter(entry__geometry__dataset=dataset).count()
+                
+                # Delete all files first (to avoid foreign key constraints)
+                DataEntryFile.objects.filter(entry__geometry__dataset=dataset).delete()
+                
+                # Delete all data entries
+                DataEntry.objects.filter(geometry__dataset=dataset).delete()
+                
+                # Delete all geometry points
+                DataGeometry.objects.filter(dataset=dataset).delete()
+                
+                # Log the action
+                AuditLog.objects.create(
+                    user=request.user,
+                    action='cleared_dataset_data',
+                    target=f'dataset:{dataset.id} - Deleted {geometry_count} geometries, {entry_count} entries, and {file_count} files'
+                )
+                
+                messages.success(request, f'Successfully cleared all data from "{dataset.name}". Deleted {geometry_count} geometry points, {entry_count} data entries, and {file_count} files.')
+                
+        except Exception as e:
+            messages.error(request, f'Error clearing dataset data: {str(e)}')
+            return redirect('dataset_detail', dataset_id=dataset.id)
+        
+        return redirect('dataset_detail', dataset_id=dataset.id)
+    
+    # GET request - show confirmation page
+    geometry_count = DataGeometry.objects.filter(dataset=dataset).count()
+    entry_count = DataEntry.objects.filter(geometry__dataset=dataset).count()
+    file_count = DataEntryFile.objects.filter(entry__geometry__dataset=dataset).count()
+    
+    return render(request, 'frontend/dataset_clear_data.html', {
+        'dataset': dataset,
+        'geometry_count': geometry_count,
+        'entry_count': entry_count,
+        'file_count': file_count
+    })
+
 @login_required
 def entry_edit_view(request, entry_id):
     """Edit a specific DataEntry"""
@@ -627,32 +696,50 @@ def entry_detail_view(request, entry_id):
 @login_required
 def dataset_csv_import_view(request, dataset_id):
     """Import CSV data into a dataset"""
+    logger.info(f"Starting CSV import for dataset {dataset_id} by user {request.user.username}")
+    
     dataset = get_object_or_404(DataSet, pk=dataset_id)
     if not dataset.can_access(request.user):
+        logger.warning(f"User {request.user.username} attempted to access dataset {dataset_id} without permission")
         return HttpResponseForbidden('You do not have permission to import data into this dataset.')
     
     if request.method == 'POST':
+        logger.info("Processing POST request for CSV import")
+        
         if 'csv_file' not in request.FILES:
+            logger.error("No CSV file found in request.FILES")
+            logger.debug(f"Available files in request.FILES: {list(request.FILES.keys())}")
             messages.error(request, 'Please select a CSV file to import.')
             return render(request, 'frontend/dataset_csv_import.html', {'dataset': dataset})
         
         csv_file = request.FILES['csv_file']
+        logger.info(f"CSV file received: {csv_file.name}, size: {csv_file.size} bytes")
         
         # Check file extension
         if not csv_file.name.endswith('.csv'):
+            logger.error(f"Invalid file type: {csv_file.name}")
             messages.error(request, 'Please upload a valid CSV file.')
             return render(request, 'frontend/dataset_csv_import.html', {'dataset': dataset})
         
         try:
             # Read CSV file
+            logger.info("Reading CSV file content")
             decoded_file = csv_file.read().decode('utf-8')
+            logger.debug(f"CSV content length: {len(decoded_file)} characters")
+            logger.debug(f"First 500 characters of CSV: {decoded_file[:500]}")
+            
             csv_data = csv.DictReader(io.StringIO(decoded_file))
+            logger.info(f"CSV headers detected: {csv_data.fieldnames}")
             
             imported_count = 0
             errors = []
             
             with transaction.atomic():
+                logger.info("Starting transaction for CSV import")
+                row_count = 0
                 for row_num, row in enumerate(csv_data, start=2):  # Start at 2 because row 1 is header
+                    row_count += 1
+                    logger.debug(f"Processing row {row_num}: {row}")
                     try:
                         # Extract data from CSV row
                         id_kurz = row.get('ID', '').strip()
@@ -662,147 +749,390 @@ def dataset_csv_import_view(request, dataset_id):
                         x_coord = None
                         y_coord = None
                         
+                        logger.debug(f"Available columns in row: {list(row.keys())}")
+                        
                         # Try different possible coordinate column names
                         if 'GEB_X' in row and 'GEB_Y' in row:
                             x_coord = row['GEB_X']
                             y_coord = row['GEB_Y']
+                            logger.debug(f"Using GEB_X/GEB_Y coordinates: {x_coord}, {y_coord}")
                         elif 'X' in row and 'Y' in row:
                             x_coord = row['X']
                             y_coord = row['Y']
+                            logger.debug(f"Using X/Y coordinates: {x_coord}, {y_coord}")
                         elif 'LONGITUDE' in row and 'LATITUDE' in row:
                             x_coord = row['LONGITUDE']
                             y_coord = row['LATITUDE']
+                            logger.debug(f"Using LONGITUDE/LATITUDE coordinates: {x_coord}, {y_coord}")
                         elif 'LON' in row and 'LAT' in row:
                             x_coord = row['LON']
                             y_coord = row['LAT']
+                            logger.debug(f"Using LON/LAT coordinates: {x_coord}, {y_coord}")
+                        else:
+                            logger.warning(f"No coordinate columns found in row {row_num}. Available columns: {list(row.keys())}")
                         
                         # Validate required fields
+                        logger.debug(f"Validating row {row_num}: ID='{id_kurz}', Address='{address}', X='{x_coord}', Y='{y_coord}'")
+                        
                         if not id_kurz:
+                            logger.warning(f"Row {row_num}: Missing ID")
                             errors.append(f"Row {row_num}: Missing ID")
                             continue
                         
                         if not address:
-                            errors.append(f"Row {row_num}: Missing address")
-                            continue
+                            logger.warning(f"Row {row_num}: Missing address, using default")
+                            address = f"Unknown Address ({id_kurz})"
                         
                         if x_coord is None or y_coord is None:
+                            logger.warning(f"Row {row_num}: Missing coordinates")
                             errors.append(f"Row {row_num}: Missing coordinates")
                             continue
                         
                         # Check if geometry already exists
-                        if DataGeometry.objects.filter(id_kurz=id_kurz).exists():
+                        existing_geometry = DataGeometry.objects.filter(id_kurz=id_kurz).exists()
+                        logger.debug(f"Row {row_num}: Geometry with ID '{id_kurz}' already exists: {existing_geometry}")
+                        if existing_geometry:
+                            logger.warning(f"Row {row_num}: Geometry with ID '{id_kurz}' already exists")
                             errors.append(f"Row {row_num}: Geometry with ID '{id_kurz}' already exists")
                             continue
                         
                         # Convert coordinates to float
                         try:
+                            logger.debug(f"Converting coordinates to float: x='{x_coord}', y='{y_coord}'")
                             x_coord = float(x_coord)
                             y_coord = float(y_coord)
-                        except ValueError:
+                            logger.debug(f"Converted coordinates: x={x_coord}, y={y_coord}")
+                        except ValueError as e:
+                            logger.error(f"Row {row_num}: Failed to convert coordinates to float: {e}")
                             errors.append(f"Row {row_num}: Invalid coordinates")
                             continue
                         
+                        # Detect coordinate projection and transform if needed
+                        from django.contrib.gis.geos import Point
+                        from django.contrib.gis.gdal import SpatialReference, CoordTransform
+                        
+                        # Check if coordinates are likely in a different projection
+                        # Common Austrian coordinate systems:
+                        # - EPSG:4326 (WGS84) - lat/lng: lat ~47-49, lng ~9-18
+                        # - EPSG:31256 (MGI Austria GK M34) - x ~500000-900000, y ~4000000-5000000
+                        # - EPSG:31257 (MGI Austria GK M31) - x ~300000-700000, y ~4000000-5000000
+                        # - EPSG:31258 (MGI Austria GK M28) - x ~100000-500000, y ~4000000-5000000
+                        # - EPSG:31256 (MGI Austria GK M34) - x ~100-2000, y ~330000-350000 (scaled coordinates)
+                        
+                        # Get coordinate system from form or use auto-detection
+                        coordinate_system = request.POST.get('coordinate_system', 'auto')
+                        logger.debug(f"Coordinate system selection: {coordinate_system}")
+                        
+                        if coordinate_system == 'auto':
+                            # Auto-detect projection based on coordinate ranges
+                            source_srid = 4326  # Default to WGS84
+                            logger.debug(f"Auto-detecting coordinate system for coordinates: x={x_coord}, y={y_coord}")
+                            
+                            if (x_coord >= 100000 and x_coord <= 900000 and 
+                                y_coord >= 3000000 and y_coord <= 5000000):
+                                # Likely Austrian projected coordinates (full scale)
+                                if x_coord >= 500000 and x_coord <= 900000:
+                                    source_srid = 31256  # MGI Austria GK M34
+                                elif x_coord >= 300000 and x_coord <= 700000:
+                                    source_srid = 31257  # MGI Austria GK M31
+                                elif x_coord >= 100000 and x_coord <= 500000:
+                                    source_srid = 31258  # MGI Austria GK M28
+                            elif (x_coord >= 100000 and x_coord <= 900000 and 
+                                  y_coord >= 3000000 and y_coord <= 4000000):
+                                # Likely Austrian projected coordinates (alternative scale)
+                                source_srid = 31256  # MGI Austria GK M34
+                                logger.debug("Detected MGI Austria GK M34 (EPSG:31256) - alternative scale")
+                            elif (x_coord >= 100 and x_coord <= 2000 and 
+                                  y_coord >= 330000 and y_coord <= 350000):
+                                # Likely Austrian projected coordinates (scaled down)
+                                source_srid = 31256  # MGI Austria GK M34
+                                logger.debug("Detected MGI Austria GK M34 (EPSG:31256) - scaled coordinates")
+                            elif (x_coord >= 9 and x_coord <= 18 and 
+                                  y_coord >= 47 and y_coord <= 49):
+                                # Likely WGS84 lat/lng coordinates
+                                source_srid = 4326
+                                logger.debug("Detected WGS84 (EPSG:4326)")
+                            else:
+                                logger.debug(f"Using default WGS84 (EPSG:4326) for coordinates outside known ranges")
+                        else:
+                            # Use manually specified coordinate system
+                            try:
+                                source_srid = int(coordinate_system)
+                                logger.debug(f"Using manually specified coordinate system: EPSG:{source_srid}")
+                            except ValueError as e:
+                                logger.error(f"Row {row_num}: Invalid coordinate system specified: {coordinate_system}")
+                                errors.append(f"Row {row_num}: Invalid coordinate system specified")
+                                continue
+                        
+                        # Track coordinate system for import summary
+                        if 'import_summary' not in locals():
+                            import_summary = {
+                                'coordinate_system': source_srid,
+                                'coordinate_system_name': get_coordinate_system_name(source_srid),
+                                'detection_method': 'manual' if coordinate_system != 'auto' else 'auto',
+                                'geometries_created': 0,
+                                'entries_created': 0,
+                                'rows_processed': 0,
+                                'rows_skipped': 0,
+                                'transformation_errors': 0
+                            }
+                        
+                        # Create point in source projection
+                        source_point = Point(x_coord, y_coord, srid=source_srid)
+                        
+                        # Transform to WGS84 (EPSG:4326) if needed
+                        if source_srid != 4326:
+                            logger.debug(f"Transforming coordinates from EPSG:{source_srid} to EPSG:4326")
+                            try:
+                                source_srs = SpatialReference(source_srid)
+                                target_srs = SpatialReference(4326)
+                                transform = CoordTransform(source_srs, target_srs)
+                                source_point.transform(transform)
+                                x_coord = source_point.x
+                                y_coord = source_point.y
+                                logger.debug(f"Transformation successful: new coordinates x={x_coord}, y={y_coord}")
+                            except Exception as e:
+                                logger.error(f"Row {row_num}: Coordinate transformation failed: {str(e)}")
+                                errors.append(f"Row {row_num}: Coordinate transformation failed - {str(e)}")
+                                import_summary['transformation_errors'] += 1
+                                continue
+                        else:
+                            logger.debug("No transformation needed - coordinates already in WGS84")
+                        
+                        # Validate final WGS84 coordinates
+                        logger.debug(f"Validating final WGS84 coordinates: x={x_coord}, y={y_coord}")
+                        if y_coord < -90 or y_coord > 90 or x_coord < -180 or x_coord > 180:
+                            logger.error(f"Row {row_num}: Invalid WGS84 coordinates after transformation: x={x_coord}, y={y_coord}")
+                            errors.append(f"Row {row_num}: Invalid WGS84 coordinates after transformation")
+                            continue
+                        
                         # Create geometry point
-                        geometry = DataGeometry.objects.create(
-                            dataset=dataset,
-                            address=address,
-                            id_kurz=id_kurz,
-                            geometry=Point(x_coord, y_coord, srid=4326),
-                            user=request.user
-                        )
-                        
-                        # Create data entry if usage data is available
-                        usage_code1 = row.get('2016_NUTZUNG') or row.get('2022_NUTZUNG') or row.get('NUTZUNG')
-                        usage_code2 = row.get('2016_CAT_INNO') or row.get('2022_CAT_INNO') or row.get('CAT_INNO')
-                        usage_code3 = row.get('2016_CAT_WERT') or row.get('2022_CAT_WERT') or row.get('CAT_WERT')
-                        cat_inno = row.get('2016_CAT_INNO') or row.get('2022_CAT_INNO') or row.get('CAT_INNO')
-                        cat_wert = row.get('2016_CAT_WERT') or row.get('2022_CAT_WERT') or row.get('CAT_WERT')
-                        cat_fili = row.get('2016_CAT_FILI') or row.get('2022_CAT_FILI') or row.get('CAT_FILI')
-                        year = row.get('YEAR') or '2022'  # Default to 2022 if not specified
-                        
-                        # Convert to integers if they exist and are not empty
+                        logger.debug(f"Creating geometry point for row {row_num}: ID={id_kurz}, Address={address}, Coordinates=({x_coord}, {y_coord})")
                         try:
-                            if usage_code1 and usage_code1.strip():
-                                usage_code1 = int(usage_code1)
-                            else:
-                                usage_code1 = 0
-                                
-                            if usage_code2 and usage_code2.strip():
-                                usage_code2 = int(usage_code2)
-                            else:
-                                usage_code2 = 0
-                                
-                            if usage_code3 and usage_code3.strip():
-                                usage_code3 = int(usage_code3)
-                            else:
-                                usage_code3 = 0
-                                
-                            if cat_inno and cat_inno.strip():
-                                cat_inno = int(cat_inno)
-                            else:
-                                cat_inno = 0
-                                
-                            if cat_wert and cat_wert.strip():
-                                cat_wert = int(cat_wert)
-                            else:
-                                cat_wert = 0
-                                
-                            if cat_fili and cat_fili.strip():
-                                cat_fili = int(cat_fili)
-                            else:
-                                cat_fili = 0
-                                
-                            if year and year.strip():
-                                year = int(year)
-                            else:
-                                year = 2022
-                                
-                        except ValueError:
-                            # If conversion fails, use default values
-                            usage_code1 = usage_code2 = usage_code3 = cat_inno = cat_wert = cat_fili = 0
-                            year = 2022
+                            geometry = DataGeometry.objects.create(
+                                dataset=dataset,
+                                address=address,
+                                id_kurz=id_kurz,
+                                geometry=Point(x_coord, y_coord, srid=4326),
+                                user=request.user
+                            )
+                            logger.debug(f"Successfully created geometry with ID: {geometry.id}")
+                            import_summary['geometries_created'] += 1
+                        except Exception as e:
+                            logger.error(f"Row {row_num}: Failed to create geometry: {str(e)}")
+                            errors.append(f"Row {row_num}: Failed to create geometry - {str(e)}")
+                            continue
                         
-                        # Create data entry
-                        DataEntry.objects.create(
-                            geometry=geometry,
-                            name=f"Entry for {id_kurz}",
-                            usage_code1=usage_code1,
-                            usage_code2=usage_code2,
-                            usage_code3=usage_code3,
-                            cat_inno=cat_inno,
-                            cat_wert=cat_wert,
-                            cat_fili=cat_fili,
-                            year=year,
-                            user=request.user
-                        )
+                        # Create separate data entries for all year-prefixed columns
+                        entries_created = 0
+                        
+                        # Get all column names from the CSV
+                        all_columns = list(row.keys())
+                        logger.debug(f"Row {row_num}: All columns: {all_columns}")
+                        
+                        # Find all year-prefixed columns (e.g., "2016_", "2022_", "2020_", etc.)
+                        year_columns = {}
+                        for column in all_columns:
+                            # Check if column starts with a 4-digit year followed by underscore
+                            if column and len(column) >= 5 and column[:4].isdigit() and column[4] == '_':
+                                year = int(column[:4])
+                                field_name = column[5:]  # Remove year prefix
+                                
+                                if year not in year_columns:
+                                    year_columns[year] = {}
+                                year_columns[year][field_name] = row.get(column)
+                                logger.debug(f"Row {row_num}: Found year column {column} -> year={year}, field={field_name}, value={row.get(column)}")
+                        
+                        logger.debug(f"Row {row_num}: Year columns detected: {list(year_columns.keys())}")
+                        
+                        # Create entries for each year found
+                        logger.debug(f"Row {row_num}: Creating entries for {len(year_columns)} years")
+                        for year, year_data in year_columns.items():
+                            logger.debug(f"Row {row_num}: Processing year {year} with data: {year_data}")
+                            try:
+                                # Map field names to DataEntry fields
+                                usage_code1 = year_data.get('NUTZUNG', 0)
+                                usage_code2 = year_data.get('CAT_INNO', 0)
+                                usage_code3 = year_data.get('CAT_WERT', 0)
+                                cat_inno = year_data.get('CAT_INNO', 0)
+                                cat_wert = year_data.get('CAT_WERT', 0)
+                                cat_fili = year_data.get('CAT_FILI', 0)
+                                
+                                # Convert to integers if they exist and are not empty
+                                usage_code1 = int(usage_code1) if usage_code1 and str(usage_code1).strip() else 0
+                                usage_code2 = int(usage_code2) if usage_code2 and str(usage_code2).strip() else 0
+                                usage_code3 = int(usage_code3) if usage_code3 and str(usage_code3).strip() else 0
+                                cat_inno = int(cat_inno) if cat_inno and str(cat_inno).strip() else 0
+                                cat_wert = int(cat_wert) if cat_wert and str(cat_wert).strip() else 0
+                                cat_fili = int(cat_fili) if cat_fili and str(cat_fili).strip() else 0
+                                
+                                # Create data entry for this year
+                                DataEntry.objects.create(
+                                    geometry=geometry,
+                                    name=f"Entry for {id_kurz} ({year})",
+                                    usage_code1=usage_code1,
+                                    usage_code2=usage_code2,
+                                    usage_code3=usage_code3,
+                                    cat_inno=cat_inno,
+                                    cat_wert=cat_wert,
+                                    cat_fili=cat_fili,
+                                    year=year,
+                                    user=request.user
+                                )
+                                entries_created += 1
+                                import_summary['entries_created'] += 1
+                                
+                            except (ValueError, TypeError) as e:
+                                # If data conversion fails for this year, skip this entry
+                                errors.append(f"Row {row_num}: Invalid data for year {year} - {str(e)}")
+                                continue
+                        
+                        # If no year-specific data exists, try to create entry with generic data
+                        if entries_created == 0:
+                            # Fallback to generic data if available
+                            usage_code1 = row.get('NUTZUNG')
+                            usage_code2 = row.get('CAT_INNO')
+                            usage_code3 = row.get('CAT_WERT')
+                            cat_inno = row.get('CAT_INNO')
+                            cat_wert = row.get('CAT_WERT')
+                            cat_fili = row.get('CAT_FILI')
+                            year = row.get('YEAR') or 2022
+                            
+                            if any([usage_code1, usage_code2, usage_code3, cat_inno, cat_wert, cat_fili]):
+                                try:
+                                    # Convert to integers
+                                    usage_code1 = int(usage_code1) if usage_code1 and str(usage_code1).strip() else 0
+                                    usage_code2 = int(usage_code2) if usage_code2 and str(usage_code2).strip() else 0
+                                    usage_code3 = int(usage_code3) if usage_code3 and str(usage_code3).strip() else 0
+                                    cat_inno = int(cat_inno) if cat_inno and str(cat_inno).strip() else 0
+                                    cat_wert = int(cat_wert) if cat_wert and str(cat_wert).strip() else 0
+                                    cat_fili = int(cat_fili) if cat_fili and str(cat_fili).strip() else 0
+                                    year = int(year) if year and str(year).strip() else 2022
+                                    
+                                    # Create generic data entry
+                                    DataEntry.objects.create(
+                                        geometry=geometry,
+                                        name=f"Entry for {id_kurz} ({year})",
+                                        usage_code1=usage_code1,
+                                        usage_code2=usage_code2,
+                                        usage_code3=usage_code3,
+                                        cat_inno=cat_inno,
+                                        cat_wert=cat_wert,
+                                        cat_fili=cat_fili,
+                                        year=year,
+                                        user=request.user
+                                    )
+                                    entries_created += 1
+                                    import_summary['entries_created'] += 1
+                                    
+                                except ValueError:
+                                    # If generic data conversion fails, skip this entry
+                                    pass
                         
                         imported_count += 1
+                        import_summary['rows_processed'] += 1
+                        logger.debug(f"Row {row_num}: Successfully processed")
                         
                     except Exception as e:
+                        logger.error(f"Row {row_num}: Unexpected error: {str(e)}")
                         errors.append(f"Row {row_num}: {str(e)}")
+                        import_summary['rows_skipped'] += 1
                         continue
+            
+            logger.info(f"Import completed. Total rows processed: {row_count}, imported: {imported_count}, errors: {len(errors)}")
             
             # Log the import action
             AuditLog.objects.create(
                 user=request.user,
                 action='csv_import',
-                target=f'dataset:{dataset.id}',
-                details=f'Imported {imported_count} records'
+                target=f'dataset:{dataset.id} - Imported {imported_count} records'
             )
             
             if imported_count > 0:
-                messages.success(request, f'Successfully imported {imported_count} records.')
+                # Calculate total counts for the dataset
+                total_geometries = DataGeometry.objects.filter(dataset=dataset).count()
+                total_entries = DataEntry.objects.filter(geometry__dataset=dataset).count()
+                
+                # Ensure import_summary exists
+                if 'import_summary' not in locals():
+                    import_summary = {
+                        'coordinate_system': 4326,
+                        'coordinate_system_name': 'WGS84 (Latitude/Longitude)',
+                        'detection_method': 'auto',
+                        'geometries_created': 0,
+                        'entries_created': 0,
+                        'rows_processed': 0,
+                        'rows_skipped': 0,
+                        'transformation_errors': 0
+                    }
+                
+                # Render import summary page
+                return render(request, 'frontend/import_summary.html', {
+                    'dataset': dataset,
+                    'import_summary': import_summary,
+                    'errors': errors,
+                    'total_geometries': total_geometries,
+                    'total_entries': total_entries
+                })
             
-            if errors:
-                error_message = f'Import completed with {len(errors)} errors: ' + '; '.join(errors[:10])
-                if len(errors) > 10:
-                    error_message += f' (and {len(errors) - 10} more errors)'
-                messages.warning(request, error_message)
-            
+            # If no data was imported, redirect to dataset detail with error
+            messages.error(request, 'No data was imported. Please check your CSV file format.')
             return redirect('dataset_detail', dataset_id=dataset.id)
             
         except Exception as e:
+            logger.error(f"Critical error during CSV import: {str(e)}", exc_info=True)
             messages.error(request, f'Error processing CSV file: {str(e)}')
             return render(request, 'frontend/dataset_csv_import.html', {'dataset': dataset})
     
-    return render(request, 'frontend/dataset_csv_import.html', {'dataset': dataset}) 
+    return render(request, 'frontend/dataset_csv_import.html', {'dataset': dataset})
+
+@login_required
+def import_summary_view(request, dataset_id):
+    """Display import summary for a dataset"""
+    dataset = get_object_or_404(DataSet, id=dataset_id)
+    
+    # Check if user has access to this dataset
+    if not dataset.can_access(request.user):
+        return HttpResponseForbidden("You do not have permission to view this dataset.")
+    
+    # Calculate current dataset statistics
+    total_geometries = DataGeometry.objects.filter(dataset=dataset).count()
+    total_entries = DataEntry.objects.filter(geometry__dataset=dataset).count()
+    
+    return render(request, 'frontend/import_summary.html', {
+        'dataset': dataset,
+        'total_geometries': total_geometries,
+        'total_entries': total_entries,
+        'import_summary': None,  # No import data available
+        'errors': []
+    })
+
+@login_required
+def debug_import_view(request, dataset_id):
+    """Debug view to test CSV import with sample data"""
+    if not request.user.is_superuser:
+        return HttpResponseForbidden("Debug view only available to superusers")
+    
+    dataset = get_object_or_404(DataSet, id=dataset_id)
+    
+    if request.method == 'POST':
+        # Create a sample CSV for testing
+        sample_csv = """ID,ADRESSE,GEB_X,GEB_Y,2016_NUTZUNG,2016_CAT_INNO,2016_CAT_WERT,2016_CAT_FILI,2022_NUTZUNG,2022_CAT_INNO,2022_CAT_WERT,2022_CAT_FILI
+test_001,Test Address 1,656610,3399131,870,999,999,999,870,999,999,999
+test_002,Test Address 2,636410,3399724,640,0,0,0,640,0,0,0"""
+        
+        # Create a mock file object
+        from django.core.files.base import ContentFile
+        csv_file = ContentFile(sample_csv.encode('utf-8'), name='test_import.csv')
+        
+        # Mock the request.FILES
+        request.FILES = {'csv_file': csv_file}
+        request.POST = request.POST.copy()
+        request.POST['coordinate_system'] = 'auto'
+        
+        logger.info("Starting debug import with sample CSV")
+        
+        # Call the actual import function
+        return dataset_csv_import_view(request, dataset_id)
+    
+    return render(request, 'frontend/debug_import.html', {'dataset': dataset})
