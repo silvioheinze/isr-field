@@ -27,6 +27,7 @@ from django.core.exceptions import ValidationError
 import os
 import mimetypes
 import logging
+from datetime import datetime
 
 # Set up logging for import debugging
 logger = logging.getLogger(__name__)
@@ -1136,3 +1137,136 @@ test_002,Test Address 2,636410,3399724,640,0,0,0,640,0,0,0"""
         return dataset_csv_import_view(request, dataset_id)
     
     return render(request, 'frontend/debug_import.html', {'dataset': dataset})
+
+@login_required
+def dataset_export_options_view(request, dataset_id):
+    """Show export options for a dataset"""
+    dataset = get_object_or_404(DataSet, id=dataset_id)
+    
+    # Check if user has access to this dataset
+    if not dataset.can_access(request.user):
+        return HttpResponseForbidden("You do not have permission to export this dataset.")
+    
+    # Get dataset statistics
+    geometries_count = DataGeometry.objects.filter(dataset=dataset).count()
+    data_entries_count = DataEntry.objects.filter(geometry__dataset=dataset).count()
+    
+    # Get all unique years from entries
+    years = set()
+    geometries = DataGeometry.objects.filter(dataset=dataset)
+    for geometry in geometries:
+        for entry in geometry.entries.all():
+            if entry.year:
+                years.add(entry.year)
+    
+    years = sorted(list(years))
+    
+    return render(request, 'frontend/dataset_export.html', {
+        'dataset': dataset,
+        'geometries_count': geometries_count,
+        'data_entries_count': data_entries_count,
+        'years': years
+    })
+
+@login_required
+def dataset_csv_export_view(request, dataset_id):
+    """Export dataset as CSV with each geometry as a row and entries as columns named by years"""
+    dataset = get_object_or_404(DataSet, id=dataset_id)
+    
+    # Check if user has access to this dataset
+    if not dataset.can_access(request.user):
+        return HttpResponseForbidden("You do not have permission to export this dataset.")
+    
+    # Get all geometries for this dataset
+    geometries = DataGeometry.objects.filter(dataset=dataset).order_by('id_kurz')
+    
+    if not geometries.exists():
+        messages.warning(request, 'No data found to export.')
+        return redirect('dataset_detail', dataset_id=dataset.id)
+    
+    # Get export parameters from request
+    include_coordinates = request.GET.get('include_coordinates', 'true').lower() == 'true'
+    include_empty_years = request.GET.get('include_empty_years', 'true').lower() == 'true'
+    
+    # Get all unique years from entries
+    years = set()
+    for geometry in geometries:
+        for entry in geometry.entries.all():
+            if entry.year:
+                years.add(entry.year)
+    
+    years = sorted(list(years))
+    
+    # Define the fields to export for each year
+    year_fields = [
+        'usage_code1', 'usage_code2', 'usage_code3', 'cat_inno', 'cat_wert', 'cat_fili'
+    ]
+    
+    # Create CSV response
+    import csv
+    from django.http import HttpResponse
+    
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="{dataset.name}_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+    
+    writer = csv.writer(response)
+    
+    # Write header row
+    header = ['ID', 'ADRESSE']
+    if include_coordinates:
+        header.extend(['GEB_X', 'GEB_Y'])
+    
+    for year in years:
+        for field in year_fields:
+            # Map field names to more readable column names
+            field_mapping = {
+                'usage_code1': 'USAGE_CODE1',
+                'usage_code2': 'USAGE_CODE2', 
+                'usage_code3': 'USAGE_CODE3',
+                'cat_inno': 'CAT_INNO',
+                'cat_wert': 'CAT_WERT',
+                'cat_fili': 'CAT_FILI'
+            }
+            header.append(f'{year}_{field_mapping.get(field, field.upper())}')
+    
+    writer.writerow(header)
+    
+    # Write data rows
+    for geometry in geometries:
+        row = [
+            geometry.id_kurz,
+            geometry.address
+        ]
+        
+        if include_coordinates:
+            row.extend([
+                geometry.geometry.x if geometry.geometry else '',
+                geometry.geometry.y if geometry.geometry else ''
+            ])
+        
+        # Add data for each year
+        for year in years:
+            # Get entry for this year (assuming one entry per year per geometry)
+            entry = geometry.entries.filter(year=year).first()
+            
+            for field in year_fields:
+                if entry:
+                    value = getattr(entry, field, '')
+                    # Convert None to empty string
+                    row.append('' if value is None else str(value))
+                else:
+                    row.append('')
+        
+        writer.writerow(row)
+    
+    # Log the export action
+    AuditLog.objects.create(
+        user=request.user,
+        action='csv_export',
+        target=f'dataset:{dataset.id} - Exported {geometries.count()} geometries with {len(years)} years'
+    )
+    
+    # Add success message
+    messages.success(request, f'Successfully exported {geometries.count()} geometries with data from {len(years)} years.')
+    
+    return response

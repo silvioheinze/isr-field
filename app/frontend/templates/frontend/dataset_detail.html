@@ -67,6 +67,9 @@
                             </a>
                         {% endif %}
                         <a href="{% url 'dataset_csv_import' dataset.id %}" class="btn btn-success">Import CSV</a>
+                        <a href="{% url 'dataset_export_options' dataset.id %}" class="btn btn-outline-success">
+                            <i class="bi bi-download"></i> Export CSV
+                        </a>
                         {% if user.is_superuser %}
                         <a href="{% url 'debug_import' dataset.id %}" class="btn btn-warning">
                             <i class="bi bi-bug"></i> Debug Import
