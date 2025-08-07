@@ -1,0 +1,114 @@
+# Multi-stage build for production
+FROM python:3.13-slim as builder
+
+# Install build dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        gdal-bin \
+        libgdal-dev \
+        python3-dev \
+        gcc \
+        build-essential \
+        libpq-dev \
+        libgeos-dev \
+        proj-bin \
+        proj-data \
+        libproj-dev \
+        libxml2-dev \
+        libxslt-dev \
+        libffi-dev \
+        zlib1g-dev \
+        libjpeg-dev \
+        tzdata \
+        gettext \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+ENV PYTHONPATH=/usr/src/app
+
+# Create virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install Python dependencies
+COPY ./app/requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Production stage
+FROM python:3.13-slim as production
+
+# Install runtime dependencies only
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        gdal-bin \
+        libgdal-dev \
+        libpq5 \
+        libgeos-c1v5 \
+        proj-bin \
+        proj-data \
+        libproj25 \
+        libxml2 \
+        libxslt1.1 \
+        libffi8 \
+        zlib1g \
+        libjpeg62-turbo \
+        tzdata \
+        gettext \
+        nginx \
+        supervisor \
+        curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Set timezone
+ENV TZ=Europe/Vienna
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONPATH=/usr/src/app
+ENV DJANGO_SETTINGS_MODULE=isrfield.settings
+
+# Create non-root user
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Copy virtual environment from builder stage
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Set work directory
+WORKDIR /usr/src/app
+
+# Copy project files
+COPY ./app/ .
+
+# Copy production configuration files
+COPY ./nginx/nginx.conf /etc/nginx/nginx.conf
+COPY ./supervisor.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Create necessary directories
+RUN mkdir -p /var/log/supervisor /var/log/nginx /var/log/django /usr/src/app/media /usr/src/app/staticfiles
+
+# Collect static files
+RUN python manage.py collectstatic --noinput
+
+# Set proper permissions
+RUN chown -R appuser:appuser /usr/src/app /var/log /etc/nginx /etc/supervisor
+RUN chmod +x /usr/src/app/entrypoint.sh
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health/ || exit 1
+
+# Start supervisor
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

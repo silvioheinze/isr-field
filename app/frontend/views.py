@@ -28,9 +28,29 @@ import os
 import mimetypes
 import logging
 from datetime import datetime
+from django.db import connection
 
 # Set up logging for import debugging
 logger = logging.getLogger(__name__)
+
+def health_check_view(request):
+    """Health check endpoint for Docker container"""
+    try:
+        # Check database connection
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+        
+        return JsonResponse({
+            'status': 'healthy',
+            'database': 'connected',
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return JsonResponse({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }, status=500)
 
 def get_coordinate_system_name(srid):
     """Get human-readable name for coordinate system SRID"""

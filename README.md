@@ -29,6 +29,54 @@ docker compose exec app python manage.py migrate
 docker compose exec app python manage.py createsuperuser
 ```
 
+## Production Deployment
+
+The application includes a production-ready Docker setup with GitHub Actions for automated builds.
+
+### Docker Images
+
+- **Development**: `Dockerfile` - For local development
+- **Production**: `Dockerfile.prod` - Multi-stage build with optimizations
+
+### GitHub Container Registry
+
+Images are automatically built and pushed to GitHub Container Registry on:
+- Push to main/master branch
+- Tagged releases (v*)
+- Pull requests (for testing)
+
+### Quick Deployment
+
+1. **Set up environment variables**:
+   ```bash
+   cp env.example .env
+   # Edit .env with your configuration
+   ```
+
+2. **Deploy using the script**:
+   ```bash
+   ./deploy.sh
+   ```
+
+3. **Manual deployment**:
+   ```bash
+   docker-compose -f docker-compose.prod.yml up -d
+   ```
+
+### Environment Variables
+
+Required environment variables for production:
+- `DJANGO_SECRET_KEY`: Django secret key
+- `POSTGRES_DB`: Database name
+- `POSTGRES_USER`: Database user
+- `POSTGRES_PASSWORD`: Database password
+
+### Health Checks
+
+The application includes health check endpoints:
+- **Health endpoint**: `http://localhost:8000/health/`
+- **Docker health checks**: Automatic container health monitoring
+
 ## Data Export
 
 The application supports exporting datasets as CSV files with the following features:

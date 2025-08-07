@@ -14,3 +14,4 @@
 [X] footer to the bottom
 [X] group data set actions
 [X] group dashboard actions
+[X] add github workflow for docker image

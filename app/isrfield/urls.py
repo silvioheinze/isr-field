@@ -50,6 +50,7 @@ urlpatterns = [
     path('files/<int:file_id>/download/', frontend_views.file_download_view, name='file_download'),
     path('files/<int:file_id>/delete/', frontend_views.file_delete_view, name='file_delete'),
     path('geometries/<int:geometry_id>/entries/create/', frontend_views.entry_create_view, name='entry_create'),
+    path('health/', frontend_views.health_check_view, name='health_check'),
     path('', frontend_views.topbar_view, name='topbar'),
 ]
 

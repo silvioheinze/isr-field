@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgis/postgis:15-3.3
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-isrfield}
+      POSTGRES_USER: ${POSTGRES_USER:-isruser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-isrpassword}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-isruser} -d ${POSTGRES_DB:-isrfield}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  app:
+    image: ghcr.io/silvioheinze/isr-field:latest
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-isrfield}
+      - POSTGRES_USER=${POSTGRES_USER:-isruser}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-isrpassword}
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+      - DJANGO_SETTINGS_MODULE=isrfield.settings
+      - DEBUG=False
+    volumes:
+      - media_data:/usr/src/app/media
+      - static_data:/usr/src/app/staticfiles
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dataplexity-isrfield.entrypoints=https"
+      - "traefik.http.routers.dataplexity-isrfield.rule=Host(`isrfield.dataplexity.eu`)"
+      - "traefik.http.routers.dataplexity-isrfield.tls=true"
+      - "traefik.http.routers.dataplexity-isrfield.tls.certresolver=http"
+      - "traefik.http.routers.dataplexity-isrfield.service=dataplexity-isrfield"
+      - "traefik.http.services.dataplexity-isrfield.loadbalancer.server.port=8000"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.dataplexity-isrfield.middlewares=default@file"
+
+volumes:
+  postgres_data:
+  media_data:
+  static_data:
