@@ -53,12 +53,17 @@ Images are automatically built and pushed to GitHub Container Registry on:
    # Edit .env with your configuration
    ```
 
-2. **Deploy using the script**:
+2. **Test the production build**:
+   ```bash
+   ./test-production-build.sh
+   ```
+
+3. **Deploy using the script**:
    ```bash
    ./deploy.sh
    ```
 
-3. **Manual deployment**:
+4. **Manual deployment**:
    ```bash
    docker-compose -f docker-compose.prod.yml up -d
    ```
