@@ -16,9 +16,8 @@ services:
       - internal
 
   app:
-    image: ghcr.io/silvioheinze/isr-field:dev
-    command: >
-      sh -c "python manage.py collectstatic --noinput && python manage.py migrate && uvicorn main.asgi:application --host 0.0.0.0 --port 8000"
+    image: ghcr.io/silvioheinze/isr-field
+    command: uvicorn main.asgi:application --host 0.0.0.0 --port 8000
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-isrfield}
       - POSTGRES_USER=${POSTGRES_USER:-isruser}
@@ -44,26 +43,26 @@ services:
       - internal
   
   nginx:
-      build: ./nginx
-      restart: unless-stopped
-      volumes:
-        - static_data:/home/app/web/staticfiles
-        - media_data:/home/app/web/media
-      depends_on:
-        - app
-      labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.dataplexity-isrfield.entrypoints=https"
-        - "traefik.http.routers.dataplexity-isrfield.rule=Host(`isrfield.dataplexity.eu`)"
-        - "traefik.http.routers.dataplexity-isrfield.tls=true"
-        - "traefik.http.routers.dataplexity-isrfield.tls.certresolver=http"
-        - "traefik.http.routers.dataplexity-isrfield.service=dataplexity-isrfield"
-        - "traefik.http.services.dataplexity-isrfield.loadbalancer.server.port=8000"
-        - "traefik.docker.network=proxy"
-        - "traefik.http.routers.dataplexity-isrfield.middlewares=default@file"
-      networks:
-        - proxy
-        - internal
+    build: ./nginx
+    restart: unless-stopped
+    volumes:
+      - static_data:/home/app/web/staticfiles
+      - media_data:/home/app/web/media
+    depends_on:
+      - app
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dataplexity-isrfield.entrypoints=https"
+      - "traefik.http.routers.dataplexity-isrfield.rule=Host(`isrfield.dataplexity.eu`)"
+      - "traefik.http.routers.dataplexity-isrfield.tls=true"
+      - "traefik.http.routers.dataplexity-isrfield.tls.certresolver=http"
+      - "traefik.http.routers.dataplexity-isrfield.service=dataplexity-isrfield"
+      - "traefik.http.services.dataplexity-isrfield.loadbalancer.server.port=8000"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.dataplexity-isrfield.middlewares=default@file"
+    networks:
+      - proxy
+      - internal
 
 networks:
   internal:
