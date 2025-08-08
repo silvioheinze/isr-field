@@ -1,5 +1,4 @@
-# Production Dockerfile
-FROM python:3.13-slim
+FROM python:slim
 
 # Install runtime dependencies
 RUN apt-get update && \
@@ -48,17 +47,15 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy project files
 COPY ./app/ .
 
-# Create necessary directories
-RUN mkdir -p /usr/src/app/media /usr/src/app/staticfiles
+# Create necessary directories and set ownership
+RUN mkdir -p /usr/src/app/media /usr/src/app/staticfiles && \
+    chown -R appuser:appuser /usr/src/app
 
-# Collect static files
-RUN python manage.py collectstatic --noinput
-
-# Set proper permissions
-RUN chown -R appuser:appuser /usr/src/app
-
-# Switch to non-root user
+# Switch to non-root user before collecting static files
 USER appuser
+
+# Collect static files as non-root user
+RUN python manage.py collectstatic --noinput
 
 # Expose port
 EXPOSE 8000
