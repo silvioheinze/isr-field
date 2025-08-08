@@ -55,10 +55,7 @@ RUN chmod +x /entrypoint.sh
 RUN mkdir -p /usr/src/app/media /usr/src/app/staticfiles && \
     chown -R appuser:appuser /usr/src/app
 
-# Switch to non-root user
-USER appuser
-
-# Set entrypoint
+# Set entrypoint (will run as root, then switch to appuser)
 ENTRYPOINT ["/entrypoint.sh"]
 
 # Expose port
