@@ -76,6 +76,64 @@ Required environment variables for production:
 - `POSTGRES_USER`: Database user
 - `POSTGRES_PASSWORD`: Database password
 
+### Email Configuration (SMTP)
+
+To enable password reset emails and other email functionality, configure SMTP settings:
+
+```bash
+# Email backend (use SMTP for production)
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+
+# SMTP server configuration
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_USE_SSL=False
+EMAIL_HOST_USER=your-email@gmail.com
+EMAIL_HOST_PASSWORD=your-app-password
+
+# Email settings
+DEFAULT_FROM_EMAIL=noreply@isrfield.dataplexity.eu
+SERVER_EMAIL=server@isrfield.dataplexity.eu
+EMAIL_SUBJECT_PREFIX=[ISR Field]
+```
+
+#### Common SMTP Providers
+
+**Gmail**:
+```bash
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_HOST_USER=your-email@gmail.com
+EMAIL_HOST_PASSWORD=your-app-password  # Use App Password, not regular password
+```
+
+**Outlook/Hotmail**:
+```bash
+EMAIL_HOST=smtp-mail.outlook.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_HOST_USER=your-email@outlook.com
+EMAIL_HOST_PASSWORD=your-password
+```
+
+**Custom SMTP Server**:
+```bash
+EMAIL_HOST=your-smtp-server.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_HOST_USER=your-username
+EMAIL_HOST_PASSWORD=your-password
+```
+
+#### Testing Email Configuration
+
+Test your SMTP configuration:
+```bash
+docker compose exec app python manage.py test_email --to your-email@example.com
+```
+
 ### Health Checks
 
 The application includes health check endpoints:

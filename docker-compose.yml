@@ -7,14 +7,20 @@ services:
     env_file:
       - .env
     depends_on:
-     - db  
+      db:
+        condition: service_healthy  
   db:
-    image: postgis/postgis
+    image: postgis/postgis:15-3.3
     volumes:
 #      - ./db_backup/read:/docker-entrypoint-initdb.d/:ro
       - postgres_data:/var/lib/postgresql/data/
     env_file:
       - .env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U isruser -d isrfield"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
   nginx:
     build: ./nginx
     volumes:
@@ -26,6 +32,9 @@ services:
       - app      
   admin:
     image: dpage/pgadmin4:latest
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@example.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
     env_file:
       - .env
     depends_on:

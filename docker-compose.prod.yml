@@ -27,6 +27,17 @@ services:
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
       - DJANGO_SETTINGS_MODULE=isrfield.settings
       - DEBUG=False
+      - EMAIL_BACKEND=${EMAIL_BACKEND:-django.core.mail.backends.console.EmailBackend}
+      - EMAIL_HOST=${EMAIL_HOST:-localhost}
+      - EMAIL_PORT=${EMAIL_PORT:-587}
+      - EMAIL_USE_TLS=${EMAIL_USE_TLS:-True}
+      - EMAIL_USE_SSL=${EMAIL_USE_SSL:-False}
+      - EMAIL_HOST_USER=${EMAIL_HOST_USER:-}
+      - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD:-}
+      - EMAIL_TIMEOUT=${EMAIL_TIMEOUT:-20}
+      - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL:-noreply@isrfield.dataplexity.eu}
+      - SERVER_EMAIL=${SERVER_EMAIL:-isrfield@dataplexity.eu}
+      - EMAIL_SUBJECT_PREFIX=${EMAIL_SUBJECT_PREFIX:-[ISR Field] }
     volumes:
       - media_data:/usr/src/app/media
       - static_data:/usr/src/app/staticfiles
