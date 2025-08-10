@@ -36,13 +36,13 @@
                                 </small>
                             </div>
                             <div class="d-grid gap-1">
-                                <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-sm btn-primary">
-                                    <i class="bi bi-eye"></i> View Details
+                                <a href="{% url 'dataset_data_input' dataset.id %}" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-input-cursor"></i> Data Input
                                 </a>
                                 {% if dataset.owner == user %}
                                 <div class="btn-group btn-group-sm" role="group">
-                                    <a href="{% url 'dataset_edit' dataset.id %}" class="btn btn-outline-secondary" title="Edit Dataset">
-                                        <i class="bi bi-pencil"></i>
+                                    <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-outline-secondary" title="View Details">
+                                        <i class="bi bi-eye"></i>
                                     </a>
                                     <a href="{% url 'dataset_access' dataset.id %}" class="btn btn-outline-warning" title="Manage Access">
                                         <i class="bi bi-people"></i>
