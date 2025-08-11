@@ -15,9 +15,9 @@
 [X] group dashboard actions
 [X] add github workflow for docker image
 [X] show more data entries depening on window width
-[ ] adapt colours to isr ci
+[X] adapt colours to isr ci
 [X] add typology feature
-[ ] add typology chooser to data entry fields
+[X] add typology chooser to data entry fields
 [ ] solve multiple points overlays
 [X] remove data entry edit button on data input table
 [X] ajax photo button on data input table

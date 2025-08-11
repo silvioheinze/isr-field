@@ -10,7 +10,8 @@
         width: 100%;
     }
     .geometry-details {
-        background-color: #f8f9fa;
+        background-color: rgba(146, 193, 233, 0.1);
+        border: 1px solid rgba(0, 71, 187, 0.2);
         padding: 20px;
         border-radius: 8px;
         margin-top: 20px;
@@ -26,9 +27,32 @@
         z-index: 1000;
     }
     .selected-circle {
-        stroke: #0056b3 !important;
+        stroke: #FFB81C !important;
         stroke-width: 3 !important;
-        fill-color: #0056b3 !important;
+        fill-color: #FFB81C !important;
+    }
+    
+    /* ISR Brand Colors for map elements */
+    .map-controls .btn-primary {
+        background-color: #0047BB !important;
+        border-color: #0047BB !important;
+    }
+    
+    .map-controls .btn-primary:hover {
+        background-color: #0056d6 !important;
+        border-color: #0056d6 !important;
+    }
+    
+    .map-controls .btn-info {
+        background-color: #92C1E9 !important;
+        border-color: #92C1E9 !important;
+        color: #001A70 !important;
+    }
+    
+    .map-controls .btn-info:hover {
+        background-color: #7db8e0 !important;
+        border-color: #7db8e0 !important;
+        color: #001A70 !important;
     }
 
 </style>
@@ -209,12 +233,12 @@
         bounds = L.latLngBounds();
 
         mapData.forEach(function(point) {
-            var circle = L.circle([point.lat, point.lng], {
-                color: '#007bff',
-                fillColor: '#007bff',
-                fillOpacity: 0.7,
-                radius: 5
-            }).addTo(map);
+                                var circle = L.circle([point.lat, point.lng], {
+                        color: '#0047BB',
+                        fillColor: '#0047BB',
+                        fillOpacity: 0.7,
+                        radius: 5
+                    }).addTo(map);
             
             // Add click handler to show geometry details
             circle.on('click', function() {
@@ -339,8 +363,8 @@
         // Mark current selection
         selectedMarker = circle;
         circle.setStyle({
-            color: '#dc3545',
-            fillColor: '#dc3545',
+            color: '#FFB81C',
+            fillColor: '#FFB81C',
             fillOpacity: 0.9
         });
         
