@@ -19,6 +19,7 @@ class DataSet(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_datasets')
     shared_with = models.ManyToManyField(User, related_name='shared_datasets', blank=True)
     shared_with_groups = models.ManyToManyField('auth.Group', related_name='shared_datasets', blank=True)
+    typology = models.ForeignKey('Typology', on_delete=models.SET_NULL, null=True, blank=True, related_name='datasets')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_public = models.BooleanField(default=False)
@@ -112,4 +113,32 @@ class DataEntryFile(models.Model):
 
     class Meta:
         ordering = ['-upload_date']
-        verbose_name_plural = "Data Entry Files" 
+        verbose_name_plural = "Data Entry Files"
+
+
+class Typology(models.Model):
+    name = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_typologies')
+    
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name_plural = "Typologies"
+
+
+class TypologyEntry(models.Model):
+    typology = models.ForeignKey(Typology, on_delete=models.CASCADE, related_name='entries')
+    code = models.IntegerField()
+    category = models.CharField(max_length=100)
+    name = models.CharField(max_length=255)
+    
+    def __str__(self):
+        return f"{self.code} - {self.name} ({self.category})"
+    
+    class Meta:
+        ordering = ['code']
+        verbose_name_plural = "Typology Entries"
+        unique_together = ['typology', 'code'] 

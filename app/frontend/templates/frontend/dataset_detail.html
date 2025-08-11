@@ -59,6 +59,34 @@
                     </li>
                 </ul>
             </div>
+            
+            <div class="mb-4">
+                <h5>Typology</h5>
+                {% if dataset.typology %}
+                    <div class="card">
+                        <div class="card-body">
+                            <h6>{{ dataset.typology.name }}</h6>
+                            <p class="text-muted mb-2">Created by {{ dataset.typology.created_by.username }} on {{ dataset.typology.created_at|date:"F d, Y" }}</p>
+                            <p class="mb-2"><strong>Entries:</strong> {{ dataset.typology.entries.count }}</p>
+                            {% if dataset.owner == user %}
+                                <a href="{% url 'typology_edit' dataset.typology.id %}" class="btn btn-sm btn-outline-primary">Edit Typology</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <p class="text-muted mb-3">No typology assigned to this dataset.</p>
+                            {% if dataset.owner == user %}
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'typology_create' %}?dataset_id={{ dataset.id }}" class="btn btn-sm btn-success">Create New Typology</a>
+                                    <a href="{% url 'typology_select' dataset.id %}" class="btn btn-sm btn-outline-primary">Select Existing Typology</a>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
         </div>
         
         <div class="col-md-4">

@@ -1,0 +1,171 @@
+{% extends 'frontend/_base.html' %}
+
+{% block title %}Import Typology Entries - {{ typology.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <h2>Import Typology Entries</h2>
+            <p class="text-muted">Import entries for typology: <strong>{{ typology.name }}</strong></p>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Upload CSV File</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data" id="importForm">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="csv_file" class="form-label">Select CSV File</label>
+                            <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv" required>
+                            <div class="form-text">
+                                The CSV should have columns: <code>code</code>, <code>category</code>, <code>name</code>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="skip_header" name="skip_header" checked>
+                                <label class="form-check-label" for="skip_header">
+                                    Skip first row (header)
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="update_existing" name="update_existing">
+                                <label class="form-check-label" for="update_existing">
+                                    Update existing entries (by code)
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">Import Entries</button>
+                        <a href="{% url 'typology_edit' typology.id %}" class="btn btn-secondary">Cancel</a>
+                    </form>
+                </div>
+            </div>
+            
+            {% if preview_data %}
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Preview (First 10 rows)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Category</th>
+                                    <th>Name</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in preview_data %}
+                                <tr>
+                                    <td>{{ row.code }}</td>
+                                    <td>{{ row.category }}</td>
+                                    <td>{{ row.name }}</td>
+                                    <td>
+                                        {% if row.status == 'new' %}
+                                            <span class="badge bg-success">New</span>
+                                        {% elif row.status == 'update' %}
+                                            <span class="badge bg-warning">Update</span>
+                                        {% elif row.status == 'error' %}
+                                            <span class="badge bg-danger">Error</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">CSV Format</h6>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted">
+                        Your CSV file should have the following columns:
+                    </p>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Column</th>
+                                    <th>Required</th>
+                                    <th>Type</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>code</code></td>
+                                    <td>Yes</td>
+                                    <td>Integer</td>
+                                </tr>
+                                <tr>
+                                    <td><code>category</code></td>
+                                    <td>Yes</td>
+                                    <td>Text</td>
+                                </tr>
+                                <tr>
+                                    <td><code>name</code></td>
+                                    <td>Yes</td>
+                                    <td>Text</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <p class="small text-muted mt-3">
+                        <strong>Example:</strong><br>
+                        <code>code,category,name<br>
+                        1,Residential,Apartment<br>
+                        2,Commercial,Office<br>
+                        3,Industrial,Factory</code>
+                    </p>
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0">Current Typology</h6>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted">
+                        <strong>Name:</strong> {{ typology.name }}<br>
+                        <strong>Created by:</strong> {{ typology.created_by.username }}<br>
+                        <strong>Current entries:</strong> {{ typology.entries.count }}<br>
+                        <strong>Used by datasets:</strong> {{ typology.datasets.count }}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('csv_file');
+    const form = document.getElementById('importForm');
+    
+    fileInput.addEventListener('change', function() {
+        const file = this.files[0];
+        if (file) {
+            // You could add client-side validation here
+            console.log('File selected:', file.name);
+        }
+    });
+});
+</script>
+{% endblock %}

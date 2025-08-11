@@ -60,6 +60,9 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'dataset_list' %}">Datasets</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'typology_list' %}">Typologies</a>
+                    </li>
                     {% if user.is_staff %}
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'user_management' %}">Users</a>
@@ -90,7 +93,7 @@
     <!-- Footer -->
     <footer class="bg-light text-center text-muted py-3">
         <div class="container">
-            <p class="mb-0">&copy; 2024 ISR Field. All rights reserved.</p>
+            <p class="mb-0">&copy; 2025 ISR Field App. <a href="https://www.oeaw.ac.at/isr">Impressum</a></p>
         </div>
     </footer>
 

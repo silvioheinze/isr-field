@@ -13,7 +13,7 @@ from django.contrib import messages
 from django.urls import reverse
 from django.contrib.auth.models import Group
 from django import forms
-from .models import AuditLog, DataSet, DataGeometry, DataEntry, DataEntryFile
+from .models import AuditLog, DataSet, DataGeometry, DataEntry, DataEntryFile, Typology, TypologyEntry
 from django.contrib.auth.decorators import login_required, permission_required
 import json
 import csv
@@ -28,7 +28,7 @@ import os
 import mimetypes
 import logging
 from datetime import datetime
-from django.db import connection
+from django.db import connection, IntegrityError
 
 # Set up logging for import debugging
 logger = logging.getLogger(__name__)
@@ -540,28 +540,77 @@ def entry_create_view(request, geometry_id):
         return HttpResponseForbidden('You do not have permission to create entries for this dataset.')
     
     if request.method == 'POST':
-        entry = DataEntry.objects.create(
-            geometry=geometry,
-            name=request.POST.get('name'),
-            usage_code1=int(request.POST.get('usage_code1', 0)),
-            usage_code2=int(request.POST.get('usage_code2', 0)),
-            usage_code3=int(request.POST.get('usage_code3', 0)),
-            cat_inno=int(request.POST.get('cat_inno', 0)),
-            cat_wert=int(request.POST.get('cat_wert', 0)),
-            cat_fili=int(request.POST.get('cat_fili', 0)),
-            year=int(request.POST.get('year', 2024)),
-            user=request.user
-        )
-        
-        # Log the action
-        AuditLog.objects.create(
-            user=request.user,
-            action='created_entry',
-            target=f'entry:{entry.id}'
-        )
-        
-        messages.success(request, 'Entry created successfully.')
-        return redirect('dataset_data_input', dataset_id=dataset.id)
+        try:
+            # Debug logging
+            print(f"POST data: {request.POST}")
+            print(f"FILES: {request.FILES}")
+            
+            # Ensure media directory exists
+            from django.conf import settings
+            import os
+            media_root = settings.MEDIA_ROOT
+            if not os.path.exists(media_root):
+                os.makedirs(media_root)
+                print(f"Created media directory: {media_root}")
+            
+            entry = DataEntry.objects.create(
+                geometry=geometry,
+                name=request.POST.get('name'),
+                usage_code1=int(request.POST.get('usage_code1', 0)),
+                usage_code2=int(request.POST.get('usage_code2', 0)),
+                usage_code3=int(request.POST.get('usage_code3', 0)),
+                cat_inno=int(request.POST.get('cat_inno', 0)),
+                cat_wert=int(request.POST.get('cat_wert', 0)),
+                cat_fili=int(request.POST.get('cat_fili', 0)),
+                year=int(request.POST.get('year', 2024)),
+                user=request.user
+            )
+            
+            # Handle file uploads
+            uploaded_files = request.FILES.getlist('files')
+            for uploaded_file in uploaded_files:
+                # Get file information
+                file_type, _ = mimetypes.guess_type(uploaded_file.name)
+                file_size = uploaded_file.size
+                
+                            # Create the file entry
+            entry_file = DataEntryFile.objects.create(
+                entry=entry,
+                file=uploaded_file,
+                filename=uploaded_file.name,
+                file_type=file_type or 'application/octet-stream',
+                file_size=file_size,
+                description='Photo uploaded with entry creation',
+                upload_user=request.user
+            )
+            
+            # Debug: Print file information after creation
+            print(f"Created file: {entry_file.filename}")
+            print(f"File URL: {entry_file.file.url}")
+            print(f"File path: {entry_file.file.path}")
+            print(f"File exists: {os.path.exists(entry_file.file.path)}")
+            
+            # Log the action
+            AuditLog.objects.create(
+                user=request.user,
+                action='created_entry',
+                target=f'entry:{entry.id}'
+            )
+            
+            # Check if this is an AJAX request
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': True, 'entry_id': entry.id})
+            else:
+                messages.success(request, 'Entry created successfully.')
+                return redirect('dataset_data_input', dataset_id=dataset.id)
+        except Exception as e:
+            # Debug logging
+            print(f"Error creating entry: {str(e)}")
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': str(e)}, status=400)
+            else:
+                messages.error(request, f'Error creating entry: {str(e)}')
+                return redirect('dataset_data_input', dataset_id=dataset.id)
     
     return render(request, 'frontend/entry_create.html', {'geometry': geometry})
 
@@ -720,6 +769,12 @@ def entry_detail_view(request, entry_id):
     
     if not dataset.can_access(request.user):
         return HttpResponseForbidden('You do not have permission to view this entry.')
+    
+    # Debug: Print file information
+    print(f"Entry {entry_id} has {entry.files.count()} files")
+    for file in entry.files.all():
+        print(f"File: {file.filename}, URL: {file.file.url}, Path: {file.file.path}")
+        print(f"File exists: {os.path.exists(file.file.path)}")
     
     return render(request, 'frontend/entry_detail.html', {'entry': entry})
 
@@ -1300,3 +1355,389 @@ def dataset_csv_export_view(request, dataset_id):
     messages.success(request, f'Successfully exported {geometries.count()} geometries with data from {len(years)} years.')
     
     return response
+
+
+@login_required
+def typology_create_view(request):
+    """Create a new typology"""
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        if not name:
+            messages.error(request, 'Typology name is required.')
+            return render(request, 'frontend/typology_create.html', {'form': {'name': {'errors': ['This field is required.']}}})
+        
+        # Create the typology
+        typology = Typology.objects.create(
+            name=name,
+            created_by=request.user
+        )
+        
+        # Process typology entries
+        entry_count = 0
+        for key, value in request.POST.items():
+            if key.startswith('entry_code_'):
+                entry_count += 1
+                code = request.POST.get(f'entry_code_{entry_count}')
+                category = request.POST.get(f'entry_category_{entry_count}')
+                name_entry = request.POST.get(f'entry_name_{entry_count}')
+                
+                if code and category and name_entry:
+                    try:
+                        TypologyEntry.objects.create(
+                            typology=typology,
+                            code=int(code),
+                            category=category,
+                            name=name_entry
+                        )
+                    except ValueError:
+                        messages.error(request, f'Invalid code value: {code}')
+                        typology.delete()
+                        return render(request, 'frontend/typology_create.html', {'form': {'name': {'value': name}}})
+                    except IntegrityError:
+                        messages.error(request, f'Code {code} already exists in this typology.')
+                        typology.delete()
+                        return render(request, 'frontend/typology_create.html', {'form': {'name': {'value': name}}})
+        
+        # Log the action
+        AuditLog.objects.create(
+            user=request.user,
+            action='typology_create',
+            target=f'typology:{typology.id} - {typology.name}'
+        )
+        
+        messages.success(request, f'Typology "{typology.name}" created successfully with {entry_count} entries.')
+        
+        # If dataset_id was provided, assign the typology to that dataset
+        dataset_id = request.GET.get('dataset_id')
+        if dataset_id:
+            try:
+                dataset = DataSet.objects.get(id=dataset_id, owner=request.user)
+                dataset.typology = typology
+                dataset.save()
+                messages.success(request, f'Typology assigned to dataset "{dataset.name}".')
+                return redirect('dataset_detail', dataset_id=dataset.id)
+            except DataSet.DoesNotExist:
+                pass
+        
+        return redirect('dataset_list')
+    
+    return render(request, 'frontend/typology_create.html', {'dataset_id': request.GET.get('dataset_id')})
+
+
+@login_required
+def typology_edit_view(request, typology_id):
+    """Edit an existing typology"""
+    typology = get_object_or_404(Typology, id=typology_id)
+    
+    # Check if user has permission to edit this typology
+    if typology.created_by != request.user:
+        messages.error(request, 'You do not have permission to edit this typology.')
+        return redirect('dataset_list')
+    
+    if request.method == 'POST':
+        # Update typology name
+        name = request.POST.get('name')
+        if name and name != typology.name:
+            typology.name = name
+            typology.save()
+        
+        # Update existing entries
+        for entry in typology.entries.all():
+            code = request.POST.get(f'entry_code_{entry.id}')
+            category = request.POST.get(f'entry_category_{entry.id}')
+            name_entry = request.POST.get(f'entry_name_{entry.id}')
+            
+            if code and category and name_entry:
+                try:
+                    entry.code = int(code)
+                    entry.category = category
+                    entry.name = name_entry
+                    entry.save()
+                except ValueError:
+                    messages.error(request, f'Invalid code value: {code}')
+                    return render(request, 'frontend/typology_edit.html', {'typology': typology})
+                except IntegrityError:
+                    messages.error(request, f'Code {code} already exists in this typology.')
+                    return render(request, 'frontend/typology_edit.html', {'typology': typology})
+        
+        # Add new entries
+        new_entry_count = 0
+        for key, value in request.POST.items():
+            if key.startswith('new_entry_code_'):
+                new_entry_count += 1
+                code = request.POST.get(f'new_entry_code_{new_entry_count}')
+                category = request.POST.get(f'new_entry_category_{new_entry_count}')
+                name_entry = request.POST.get(f'new_entry_name_{new_entry_count}')
+                
+                if code and category and name_entry:
+                    try:
+                        TypologyEntry.objects.create(
+                            typology=typology,
+                            code=int(code),
+                            category=category,
+                            name=name_entry
+                        )
+                    except ValueError:
+                        messages.error(request, f'Invalid code value: {code}')
+                        return render(request, 'frontend/typology_edit.html', {'typology': typology})
+                    except IntegrityError:
+                        messages.error(request, f'Code {code} already exists in this typology.')
+                        return render(request, 'frontend/typology_edit.html', {'typology': typology})
+        
+        # Delete entries marked for deletion
+        delete_entries = request.POST.getlist('delete_entry')
+        for entry_id in delete_entries:
+            try:
+                entry = TypologyEntry.objects.get(id=entry_id, typology=typology)
+                entry.delete()
+            except TypologyEntry.DoesNotExist:
+                pass
+        
+        # Log the action
+        AuditLog.objects.create(
+            user=request.user,
+            action='typology_edit',
+            target=f'typology:{typology.id} - {typology.name}'
+        )
+        
+        messages.success(request, f'Typology "{typology.name}" updated successfully.')
+        
+        # Redirect back to dataset if dataset_id was provided
+        dataset_id = request.GET.get('dataset_id')
+        if dataset_id:
+            return redirect('dataset_detail', dataset_id=dataset_id)
+        
+        return redirect('dataset_list')
+    
+    return render(request, 'frontend/typology_edit.html', {'typology': typology})
+
+
+@login_required
+def typology_select_view(request, dataset_id):
+    """Select an existing typology for a dataset"""
+    dataset = get_object_or_404(DataSet, id=dataset_id, owner=request.user)
+    
+    if request.method == 'POST':
+        typology_id = request.POST.get('typology_id')
+        if typology_id:
+            try:
+                typology = Typology.objects.get(id=typology_id)
+                dataset.typology = typology
+                dataset.save()
+                
+                # Log the action
+                AuditLog.objects.create(
+                    user=request.user,
+                    action='typology_assign',
+                    target=f'dataset:{dataset.id} assigned typology:{typology.id}'
+                )
+                
+                messages.success(request, f'Typology "{typology.name}" assigned to dataset "{dataset.name}".')
+                return redirect('dataset_detail', dataset_id=dataset.id)
+            except Typology.DoesNotExist:
+                messages.error(request, 'Selected typology does not exist.')
+    
+    # Get all typologies
+    typologies = Typology.objects.all().order_by('-created_at')
+    
+    # Get dataset statistics
+    geometries_count = DataGeometry.objects.filter(dataset=dataset).count()
+    data_entries_count = DataEntry.objects.filter(geometry__dataset=dataset).count()
+    
+    return render(request, 'frontend/typology_select.html', {
+        'dataset': dataset,
+        'typologies': typologies,
+        'geometries_count': geometries_count,
+        'data_entries_count': data_entries_count
+    })
+
+
+@login_required
+def typology_list_view(request):
+    """List all typologies"""
+    typologies = Typology.objects.all().order_by('-created_at')
+    
+    return render(request, 'frontend/typology_list.html', {
+        'typologies': typologies
+    })
+
+
+@login_required
+def typology_import_view(request, typology_id):
+    """Import typology entries from CSV"""
+    typology = get_object_or_404(Typology, id=typology_id)
+    
+    # Check if user has permission to edit this typology
+    if typology.created_by != request.user:
+        messages.error(request, 'You do not have permission to edit this typology.')
+        return redirect('dataset_list')
+    
+    if request.method == 'POST':
+        csv_file = request.FILES.get('csv_file')
+        skip_header = request.POST.get('skip_header') == 'on'
+        update_existing = request.POST.get('update_existing') == 'on'
+        
+        if not csv_file:
+            messages.error(request, 'Please select a CSV file.')
+            return render(request, 'frontend/typology_import.html', {'typology': typology})
+        
+        if not csv_file.name.endswith('.csv'):
+            messages.error(request, 'Please upload a valid CSV file.')
+            return render(request, 'frontend/typology_import.html', {'typology': typology})
+        
+        try:
+            # Read CSV file
+            decoded_file = csv_file.read().decode('utf-8')
+            csv_data = csv.reader(io.StringIO(decoded_file))
+            
+            # Skip header if requested
+            if skip_header:
+                next(csv_data, None)
+            
+            # Process rows
+            imported_count = 0
+            updated_count = 0
+            error_count = 0
+            errors = []
+            
+            for row_num, row in enumerate(csv_data, 1):
+                if len(row) < 3:
+                    errors.append(f"Row {row_num}: Insufficient columns (expected 3, got {len(row)})")
+                    error_count += 1
+                    continue
+                
+                code_str, category, name = row[:3]
+                
+                # Validate code
+                try:
+                    code = int(code_str.strip())
+                except ValueError:
+                    errors.append(f"Row {row_num}: Invalid code '{code_str}' (must be integer)")
+                    error_count += 1
+                    continue
+                
+                # Validate other fields
+                if not category.strip():
+                    errors.append(f"Row {row_num}: Category cannot be empty")
+                    error_count += 1
+                    continue
+                
+                if not name.strip():
+                    errors.append(f"Row {row_num}: Name cannot be empty")
+                    error_count += 1
+                    continue
+                
+                # Check if entry already exists
+                existing_entry = TypologyEntry.objects.filter(typology=typology, code=code).first()
+                
+                if existing_entry:
+                    if update_existing:
+                        # Update existing entry
+                        existing_entry.category = category.strip()
+                        existing_entry.name = name.strip()
+                        existing_entry.save()
+                        updated_count += 1
+                    else:
+                        errors.append(f"Row {row_num}: Code {code} already exists")
+                        error_count += 1
+                else:
+                    # Create new entry
+                    try:
+                        TypologyEntry.objects.create(
+                            typology=typology,
+                            code=code,
+                            category=category.strip(),
+                            name=name.strip()
+                        )
+                        imported_count += 1
+                    except IntegrityError:
+                        errors.append(f"Row {row_num}: Code {code} already exists")
+                        error_count += 1
+            
+            # Log the action
+            AuditLog.objects.create(
+                user=request.user,
+                action='typology_import',
+                target=f'typology:{typology.id} - Imported {imported_count} entries, updated {updated_count} entries'
+            )
+            
+            # Show results
+            if imported_count > 0 or updated_count > 0:
+                success_msg = f'Successfully imported {imported_count} new entries'
+                if updated_count > 0:
+                    success_msg += f' and updated {updated_count} existing entries'
+                success_msg += f' to typology "{typology.name}".'
+                messages.success(request, success_msg)
+            
+            if error_count > 0:
+                error_msg = f'Failed to import {error_count} entries due to errors.'
+                if errors:
+                    error_msg += ' First few errors: ' + '; '.join(errors[:5])
+                messages.warning(request, error_msg)
+            
+            return redirect('typology_edit', typology_id=typology.id)
+            
+        except UnicodeDecodeError:
+            messages.error(request, 'The CSV file contains invalid characters. Please ensure it is UTF-8 encoded.')
+            return render(request, 'frontend/typology_import.html', {'typology': typology})
+        except Exception as e:
+            messages.error(request, f'Error processing CSV file: {str(e)}')
+            return render(request, 'frontend/typology_import.html', {'typology': typology})
+    
+    return render(request, 'frontend/typology_import.html', {'typology': typology})
+
+
+@login_required
+def typology_export_view(request, typology_id):
+    """Export typology entries to CSV"""
+    typology = get_object_or_404(Typology, id=typology_id)
+    
+    # Check if user has access to this typology
+    if typology.created_by != request.user:
+        messages.error(request, 'You do not have permission to export this typology.')
+        return redirect('dataset_list')
+    
+    if request.method == 'POST':
+        filename = request.POST.get('filename', f'{typology.name}_entries')
+        include_header = request.POST.get('include_header') == 'on'
+        sort_by = request.POST.get('sort_by', 'code')
+        
+        # Clean filename
+        filename = "".join(c for c in filename if c.isalnum() or c in (' ', '-', '_')).rstrip()
+        if not filename:
+            filename = f'{typology.name}_entries'
+        
+        # Get entries with sorting
+        if sort_by == 'code':
+            entries = typology.entries.all().order_by('code')
+        elif sort_by == 'category':
+            entries = typology.entries.all().order_by('category', 'code')
+        elif sort_by == 'name':
+            entries = typology.entries.all().order_by('name', 'code')
+        else:
+            entries = typology.entries.all().order_by('code')
+        
+        # Create CSV response
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="{filename}.csv"'
+        
+        writer = csv.writer(response)
+        
+        # Write header if requested
+        if include_header:
+            writer.writerow(['code', 'category', 'name'])
+        
+        # Write data rows
+        for entry in entries:
+            writer.writerow([entry.code, entry.category, entry.name])
+        
+        # Log the action
+        AuditLog.objects.create(
+            user=request.user,
+            action='typology_export',
+            target=f'typology:{typology.id} - Exported {entries.count()} entries'
+        )
+        
+        return response
+    
+    return render(request, 'frontend/typology_export.html', {'typology': typology})

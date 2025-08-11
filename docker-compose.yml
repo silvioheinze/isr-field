@@ -4,6 +4,7 @@ services:
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - ./app:/usr/src/app
+      - ./app/media:/usr/src/app/media
     env_file:
       - .env
     depends_on:
@@ -25,6 +26,7 @@ services:
     build: ./nginx
     volumes:
       - ./app/staticfiles:/home/app/web/staticfiles
+      - ./app/media:/home/app/web/media
 #      - static_volume:/home/app/web/staticfiles
     ports:
       - "80:80"
