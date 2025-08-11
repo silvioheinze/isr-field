@@ -18,7 +18,9 @@
 [X] adapt colours to isr ci
 [X] add typology feature
 [X] add typology chooser to data entry fields
-[ ] solve multiple points overlays
 [X] remove data entry edit button on data input table
 [X] ajax photo button on data input table
 [X] preview image on data entry detail page
+[X] solve multiple points overlays
+[X] add usage name to the form
+[ ] fix data import / problem with entry name
