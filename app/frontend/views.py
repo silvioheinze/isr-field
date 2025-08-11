@@ -363,9 +363,27 @@ def dataset_data_input_view(request, dataset_id):
         
         map_data.append(map_point)
     
+    # Get typology data if linked
+    typology_data = None
+    if dataset.typology:
+        typology_entries = dataset.typology.entries.all().order_by('code')
+        typology_data = {
+            'id': dataset.typology.id,
+            'name': dataset.typology.name,
+            'entries': [
+                {
+                    'code': entry.code,
+                    'category': entry.category,
+                    'name': entry.name
+                }
+                for entry in typology_entries
+            ]
+        }
+    
     return render(request, 'frontend/dataset_data_input.html', {
         'dataset': dataset,
-        'geometries': geometries
+        'geometries': geometries,
+        'typology_data': typology_data
     })
 
 
@@ -573,22 +591,22 @@ def entry_create_view(request, geometry_id):
                 file_type, _ = mimetypes.guess_type(uploaded_file.name)
                 file_size = uploaded_file.size
                 
-                            # Create the file entry
-            entry_file = DataEntryFile.objects.create(
-                entry=entry,
-                file=uploaded_file,
-                filename=uploaded_file.name,
-                file_type=file_type or 'application/octet-stream',
-                file_size=file_size,
-                description='Photo uploaded with entry creation',
-                upload_user=request.user
-            )
-            
-            # Debug: Print file information after creation
-            print(f"Created file: {entry_file.filename}")
-            print(f"File URL: {entry_file.file.url}")
-            print(f"File path: {entry_file.file.path}")
-            print(f"File exists: {os.path.exists(entry_file.file.path)}")
+                # Create the file entry
+                entry_file = DataEntryFile.objects.create(
+                    entry=entry,
+                    file=uploaded_file,
+                    filename=uploaded_file.name,
+                    file_type=file_type or 'application/octet-stream',
+                    file_size=file_size,
+                    description='Photo uploaded with entry creation',
+                    upload_user=request.user
+                )
+                
+                # Debug: Print file information after creation
+                print(f"Created file: {entry_file.filename}")
+                print(f"File URL: {entry_file.file.url}")
+                print(f"File path: {entry_file.file.path}")
+                print(f"File exists: {os.path.exists(entry_file.file.path)}")
             
             # Log the action
             AuditLog.objects.create(

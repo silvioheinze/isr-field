@@ -62,7 +62,15 @@
         <div class="col-12">
             <div id="geometryDetails" class="geometry-details">
                 <div class="d-flex justify-content-between align-items-start mb-2">
-                    <h4 id="geometryTitle">Geometry Details</h4>
+                    <div>
+                        <h4 id="geometryTitle">Geometry Details</h4>
+                        {% if typology_data %}
+                        <small class="text-muted">
+                            <i class="bi bi-tag"></i> Typology: {{ typology_data.name }} 
+                            ({{ typology_data.entries|length }} entries available)
+                        </small>
+                        {% endif %}
+                    </div>
                     <button id="closeDetails" class="btn btn-sm btn-outline-secondary">×</button>
                 </div>
 
@@ -86,6 +94,51 @@
 {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+    // Typology data for usage code selection
+    var typologyData = {% if typology_data %}{{ typology_data|safe }}{% else %}null{% endif %};
+    
+    // Function to create usage code dropdown
+    function createUsageCodeDropdown(fieldId, currentValue) {
+        if (!typologyData || !typologyData.entries) {
+            return `<input type="text" class="form-control form-control-sm" id="${fieldId}" placeholder="Enter usage code" value="${currentValue || ''}">`;
+        }
+        
+        var options = '<option value="">Select usage code...</option>';
+        
+        // Sort entries by code
+        var sortedEntries = typologyData.entries.sort(function(a, b) {
+            return a.code - b.code;
+        });
+        
+        // Group by category
+        var categories = {};
+        sortedEntries.forEach(function(entry) {
+            if (!categories[entry.category]) {
+                categories[entry.category] = [];
+            }
+            categories[entry.category].push(entry);
+        });
+        
+        // Sort categories by their lowest code value
+        var sortedCategories = Object.keys(categories).sort(function(a, b) {
+            var minCodeA = Math.min(...categories[a].map(entry => entry.code));
+            var minCodeB = Math.min(...categories[b].map(entry => entry.code));
+            return minCodeA - minCodeB;
+        });
+        
+        // Add options grouped by category
+        sortedCategories.forEach(function(category) {
+            options += `<optgroup label="${category}">`;
+            categories[category].forEach(function(entry) {
+                var selected = (entry.code == currentValue) ? 'selected' : '';
+                options += `<option value="${entry.code}" ${selected}>${entry.code} - ${entry.name}</option>`;
+            });
+            options += '</optgroup>';
+        });
+        
+        return `<select class="form-control form-control-sm" id="${fieldId}">${options}</select>`;
+    }
+    
     // Initialize map
     var map = L.map('map', {
         zoomControl: false,
@@ -349,7 +402,11 @@
                 entriesHtml += `<th>${sortedEntries[i].year}</th>`;
             }
             
-            entriesHtml += '<th>New Entry <button id="copyFromLastYear" class="btn btn-outline-light btn-sm ms-2"><i class="bi bi-copy"></i> Copy</button></th>';
+            var typologyInfo = '';
+            if (typologyData && typologyData.entries) {
+                typologyInfo = ' <small class="text-muted">(Typology available)</small>';
+            }
+            entriesHtml += '<th>New Entry' + typologyInfo + ' <button id="copyFromLastYear" class="btn btn-outline-light btn-sm ms-2"><i class="bi bi-copy"></i> Copy</button></th>';
             entriesHtml += '</tr></thead>';
             
             // Table body - each field becomes a row
@@ -363,7 +420,7 @@
             for (var i = 0; i < entriesToShow; i++) {
                 entriesHtml += `<td>${sortedEntries[i].usage_code1 || '-'}</td>`;
             }
-            entriesHtml += '<td><input type="text" class="form-control form-control-sm" id="new-usage-code1" placeholder="Enter usage code 1"></td>';
+            entriesHtml += '<td>' + createUsageCodeDropdown('new-usage-code1', '') + '</td>';
             entriesHtml += '</tr>';
             
             // Usage Code 2 row
@@ -372,7 +429,7 @@
             for (var i = 0; i < entriesToShow; i++) {
                 entriesHtml += `<td>${sortedEntries[i].usage_code2 || '-'}</td>`;
             }
-            entriesHtml += '<td><input type="text" class="form-control form-control-sm" id="new-usage-code2" placeholder="Enter usage code 2"></td>';
+            entriesHtml += '<td>' + createUsageCodeDropdown('new-usage-code2', '') + '</td>';
             entriesHtml += '</tr>';
             
             // Usage Code 3 row
@@ -381,7 +438,7 @@
             for (var i = 0; i < entriesToShow; i++) {
                 entriesHtml += `<td>${sortedEntries[i].usage_code3 || '-'}</td>`;
             }
-            entriesHtml += '<td><input type="text" class="form-control form-control-sm" id="new-usage-code3" placeholder="Enter usage code 3"></td>';
+            entriesHtml += '<td>' + createUsageCodeDropdown('new-usage-code3', '') + '</td>';
             entriesHtml += '</tr>';
             
             // Category Innovation row
@@ -454,19 +511,19 @@
             // Usage Code 1 row
             entriesHtml += '<tr>';
             entriesHtml += '<td><strong>Usage Code 1</strong></td>';
-            entriesHtml += '<td><input type="text" class="form-control form-control-sm" id="new-usage-code1" placeholder="Enter usage code 1"></td>';
+            entriesHtml += '<td>' + createUsageCodeDropdown('new-usage-code1', '') + '</td>';
             entriesHtml += '</tr>';
             
             // Usage Code 2 row
             entriesHtml += '<tr>';
             entriesHtml += '<td><strong>Usage Code 2</strong></td>';
-            entriesHtml += '<td><input type="text" class="form-control form-control-sm" id="new-usage-code2" placeholder="Enter usage code 2"></td>';
+            entriesHtml += '<td>' + createUsageCodeDropdown('new-usage-code2', '') + '</td>';
             entriesHtml += '</tr>';
             
             // Usage Code 3 row
             entriesHtml += '<tr>';
             entriesHtml += '<td><strong>Usage Code 3</strong></td>';
-            entriesHtml += '<td><input type="text" class="form-control form-control-sm" id="new-usage-code3" placeholder="Enter usage code 3"></td>';
+            entriesHtml += '<td>' + createUsageCodeDropdown('new-usage-code3', '') + '</td>';
             entriesHtml += '</tr>';
             
             // Category Innovation row
@@ -701,9 +758,28 @@
                     var latestEntry = sortedEntries[0];
                     
                     // Copy values to the new entry fields
-                    document.getElementById('new-usage-code1').value = sortedEntries[0].usage_code1 || '';
-                    document.getElementById('new-usage-code2').value = sortedEntries[0].usage_code2 || '';
-                    document.getElementById('new-usage-code3').value = sortedEntries[0].usage_code3 || '';
+                    // Handle both select and input elements for usage codes
+                    var usageCode1Element = document.getElementById('new-usage-code1');
+                    var usageCode2Element = document.getElementById('new-usage-code2');
+                    var usageCode3Element = document.getElementById('new-usage-code3');
+                    
+                    if (usageCode1Element.tagName === 'SELECT') {
+                        usageCode1Element.value = sortedEntries[0].usage_code1 || '';
+                    } else {
+                        usageCode1Element.value = sortedEntries[0].usage_code1 || '';
+                    }
+                    
+                    if (usageCode2Element.tagName === 'SELECT') {
+                        usageCode2Element.value = sortedEntries[0].usage_code2 || '';
+                    } else {
+                        usageCode2Element.value = sortedEntries[0].usage_code2 || '';
+                    }
+                    
+                    if (usageCode3Element.tagName === 'SELECT') {
+                        usageCode3Element.value = sortedEntries[0].usage_code3 || '';
+                    } else {
+                        usageCode3Element.value = sortedEntries[0].usage_code3 || '';
+                    }
                     document.getElementById('new-cat-inno').value = sortedEntries[0].cat_inno || '';
                     document.getElementById('new-cat-wert').value = sortedEntries[0].cat_wert || '';
                     document.getElementById('new-cat-fili').value = sortedEntries[0].cat_fili || '';
