@@ -54,6 +54,22 @@
         border-color: #7db8e0 !important;
         color: #001A70 !important;
     }
+    
+    /* Point selector styling */
+    .point-selector-card {
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .point-selector-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .point-selector-card.border-primary {
+        border-color: #0047BB !important;
+        background-color: rgba(0, 71, 187, 0.05);
+    }
 
 </style>
 {% endblock %}
@@ -233,12 +249,15 @@
         bounds = L.latLngBounds();
 
         mapData.forEach(function(point) {
-                                var circle = L.circle([point.lat, point.lng], {
-                        color: '#0047BB',
-                        fillColor: '#0047BB',
-                        fillOpacity: 0.7,
-                        radius: 5
-                    }).addTo(map);
+            var circle = L.circle([point.lat, point.lng], {
+                color: '#0047BB',
+                fillColor: '#0047BB',
+                fillOpacity: 0.7,
+                radius: 5
+            }).addTo(map);
+            
+            // Store point ID in circle for reference
+            circle.pointId = point.id;
             
             // Add click handler to show geometry details
             circle.on('click', function() {
@@ -351,11 +370,122 @@
 
     // Function to show geometry details
     function showGeometryDetails(point, circle) {
+        // Check if there are multiple points at the same location
+        var overlappingPoints = getOverlappingPoints(point.lat, point.lng);
+        
+        if (overlappingPoints.length > 1) {
+            // Show point selector for overlapping points
+            showPointSelector(overlappingPoints, circle);
+        } else {
+            // Show single point details
+            showSinglePointDetails(point, circle);
+        }
+    }
+    
+    // Function to get all points at the same coordinates
+    function getOverlappingPoints(lat, lng) {
+        var tolerance = 0.000001; // Very small tolerance for exact coordinates
+        return mapData.filter(function(p) {
+            return Math.abs(p.lat - lat) < tolerance && Math.abs(p.lng - lng) < tolerance;
+        });
+    }
+    
+    // Function to show point selector for overlapping points
+    function showPointSelector(points, clickedCircle) {
         // Remove previous selection
         if (selectedMarker) {
             selectedMarker.setStyle({
-                color: '#007bff',
-                fillColor: '#007bff',
+                color: '#0047BB',
+                fillColor: '#0047BB',
+                fillOpacity: 0.7
+            });
+        }
+        
+        // Mark clicked circle as selected
+        selectedMarker = clickedCircle;
+        clickedCircle.setStyle({
+            color: '#FFB81C',
+            fillColor: '#FFB81C',
+            fillOpacity: 0.9
+        });
+        
+        // Show details section
+        document.getElementById('geometryDetails').classList.add('active');
+        
+        // Create point selector interface
+        var selectorHtml = `
+            <div class="mb-3">
+                <h5>Multiple Points Found</h5>
+                <p class="text-muted">Click on a point below to view its details:</p>
+                <div class="row">
+        `;
+        
+        points.forEach(function(point, index) {
+            var isSelected = point.id === clickedCircle.pointId;
+            var cardClass = isSelected ? 'border-primary' : 'border-secondary';
+            var btnClass = isSelected ? 'btn-primary' : 'btn-outline-primary';
+            
+            selectorHtml += `
+                <div class="col-md-6 col-lg-4 mb-2">
+                    <div class="card ${cardClass} point-selector-card" data-point-id="${point.id}">
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>${point.id_kurz}</strong><br>
+                                    <small class="text-muted">${point.address}</small><br>
+                                    <small class="text-muted">${point.entries_count} entries</small>
+                                </div>
+                                <button class="btn btn-sm ${btnClass} select-point-btn" data-point-id="${point.id}">
+                                    Select
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        selectorHtml += `
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('geometryInfo').innerHTML = selectorHtml;
+        
+        // Add click handlers for point selection
+        document.querySelectorAll('.select-point-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pointId = this.getAttribute('data-point-id');
+                var selectedPoint = mapData.find(p => p.id == pointId);
+                var selectedCircle = markers.find(m => m.pointId == pointId);
+                
+                if (selectedPoint && selectedCircle) {
+                    showSinglePointDetails(selectedPoint, selectedCircle);
+                }
+            });
+        });
+        
+        // Add click handlers for card selection
+        document.querySelectorAll('.point-selector-card').forEach(function(card) {
+            card.addEventListener('click', function() {
+                var pointId = this.getAttribute('data-point-id');
+                var selectedPoint = mapData.find(p => p.id == pointId);
+                var selectedCircle = markers.find(m => m.pointId == pointId);
+                
+                if (selectedPoint && selectedCircle) {
+                    showSinglePointDetails(selectedPoint, selectedCircle);
+                }
+            });
+        });
+    }
+    
+    // Function to show single point details (original functionality)
+    function showSinglePointDetails(point, circle) {
+        // Remove previous selection
+        if (selectedMarker) {
+            selectedMarker.setStyle({
+                color: '#0047BB',
+                fillColor: '#0047BB',
                 fillOpacity: 0.7
             });
         }
