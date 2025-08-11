@@ -69,13 +69,13 @@
                 <div id="map"></div>
                 <div class="map-controls">
                     <button id="addPointBtn" class="btn btn-primary btn-sm">
-                        <i class="bi bi-geo-alt"></i> Add Point Mode
+                        <i class="bi bi-geo-alt"></i> Add
                     </button>
-                    <button id="currentLocationBtn" class="btn btn-info btn-sm mt-1">
-                        <i class="bi bi-geo-alt-fill"></i> My Location
+                    <button id="currentLocationBtn" class="btn btn-info btn-sm mt-1" title="My Location">
+                        <i class="bi bi-geo-alt-fill"></i>
                     </button>
                     <button id="refreshDataBtn" class="btn btn-secondary btn-sm mt-1">
-                        <i class="bi bi-arrow-clockwise"></i> Refresh Data
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
                     </button>
                 </div>
             </div>
@@ -272,11 +272,11 @@
                     // Load data for the visible area
                     loadMapData().then(() => {
                         // Reset button
-                        document.getElementById('refreshDataBtn').innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh Data';
+                        document.getElementById('refreshDataBtn').innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh';
                         document.getElementById('refreshDataBtn').disabled = false;
                     }).catch(() => {
                         // Reset button on error
-                        document.getElementById('refreshDataBtn').innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh Data';
+                        document.getElementById('refreshDataBtn').innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh';
                         document.getElementById('refreshDataBtn').disabled = false;
                     });
                 },
@@ -285,11 +285,11 @@
                     console.log('Geolocation failed, loading all data');
                     loadMapData().then(() => {
                         // Reset button
-                        document.getElementById('refreshDataBtn').innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh Data';
+                        document.getElementById('refreshDataBtn').innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh';
                         document.getElementById('refreshDataBtn').disabled = false;
                     }).catch(() => {
                         // Reset button on error
-                        document.getElementById('refreshDataBtn').innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh Data';
+                        document.getElementById('refreshDataBtn').innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh';
                         document.getElementById('refreshDataBtn').disabled = false;
                     });
                 },
@@ -340,11 +340,11 @@
         // Reload data without bounds to maintain zoom level
         loadMapData().then(() => {
             // Reset button
-            this.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh Data';
+            this.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh';
             this.disabled = false;
         }).catch(() => {
             // Reset button on error
-            this.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh Data';
+            this.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh';
             this.disabled = false;
         });
     });
