@@ -425,6 +425,14 @@
             var cardClass = isSelected ? 'border-primary' : 'border-secondary';
             var btnClass = isSelected ? 'btn-primary' : 'btn-outline-primary';
             
+            // Find the entry with the highest year
+            var latestEntry = null;
+            if (point.entries && point.entries.length > 0) {
+                latestEntry = point.entries.reduce(function(latest, current) {
+                    return (current.year > latest.year) ? current : latest;
+                });
+            }
+            
             selectorHtml += `
                 <div class="col-md-6 col-lg-4 mb-2">
                     <div class="card ${cardClass} point-selector-card" data-point-id="${point.id}">
@@ -433,6 +441,7 @@
                                 <div>
                                     <strong>${point.id_kurz}</strong><br>
                                     <small class="text-muted">${point.address}</small><br>
+                                    ${latestEntry ? `<small class="text-muted">Latest: ${latestEntry.name} (${latestEntry.year})</small><br>` : ''}
                                     <small class="text-muted">${point.entries_count} entries</small>
                                 </div>
                                 <button class="btn btn-sm ${btnClass} select-point-btn" data-point-id="${point.id}">
