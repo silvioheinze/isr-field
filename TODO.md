@@ -26,3 +26,5 @@
 [ ] fix data import / problem with entry name
 [X] adapt dashboard design
 [X] fix create typology form
+[X] remove quick actions in typology overview
+[ ] add about datasets info box similar to typology overview template
