@@ -29,11 +29,68 @@
                 <div class="card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">Typology Entries</h5>
-                        <button type="button" class="btn btn-sm btn-success" id="addEntryBtn">
-                            <i class="bi bi-plus-circle"></i> Add Entry
-                        </button>
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-sm btn-info" id="importCsvBtn" name="importCsvBtn">
+                                <i class="bi bi-upload"></i> Import CSV
+                            </button>
+                            <button type="button" class="btn btn-sm btn-success" id="addEntryBtn" name="addEntryBtn">
+                                <i class="bi bi-plus-circle"></i> Add Entry
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body">
+                        <!-- CSV Import Section -->
+                        <div id="csvImportSection" style="display: none;" class="mb-4">
+                            <div class="card border-info">
+                                <div class="card-header bg-info text-white">
+                                    <h6 class="mb-0">Import Typology Entries from CSV</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="csvFile" class="form-label">CSV File</label>
+                                                <input type="file" class="form-control" id="csvFile" name="csvFile" accept=".csv">
+                                                <div class="form-text">Upload a CSV file with columns: code, category, name</div>
+                                            </div>
+                                            <div class="mb-3">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="skipHeader" name="skipHeader" checked>
+                                                    <label class="form-check-label" for="skipHeader">
+                                                        Skip first row (header)
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <button type="button" class="btn btn-info" id="previewCsvBtn" name="previewCsvBtn">
+                                                <i class="bi bi-eye"></i> Preview CSV
+                                            </button>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div id="csvPreview" style="display: none;">
+                                                <h6>CSV Preview:</h6>
+                                                <div class="table-responsive">
+                                                    <table class="table table-sm table-striped" id="previewTable">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Code</th>
+                                                                <th>Category</th>
+                                                                <th>Name</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody id="previewTableBody">
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                                <button type="button" class="btn btn-success" id="importCsvDataBtn" name="importCsvDataBtn">
+                                                    <i class="bi bi-check-circle"></i> Import Data
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <div id="entriesContainer">
                             <!-- Entries will be added here dynamically -->
                         </div>
@@ -61,6 +118,8 @@
                             <li><strong>Category:</strong> Grouping category</li>
                             <li><strong>Name:</strong> Descriptive name</li>
                         </ul>
+                        <br>
+                        <strong>CSV Import:</strong> You can import entries from a CSV file with columns: code, category, name
                     </p>
                 </div>
             </div>
@@ -72,7 +131,15 @@
 document.addEventListener('DOMContentLoaded', function() {
     const entriesContainer = document.getElementById('entriesContainer');
     const addEntryBtn = document.getElementById('addEntryBtn');
+    const importCsvBtn = document.getElementById('importCsvBtn');
+    const csvImportSection = document.getElementById('csvImportSection');
+    const csvFile = document.getElementById('csvFile');
+    const previewCsvBtn = document.getElementById('previewCsvBtn');
+    const importCsvDataBtn = document.getElementById('importCsvDataBtn');
+    const csvPreview = document.getElementById('csvPreview');
+    const previewTableBody = document.getElementById('previewTableBody');
     let entryCount = 0;
+    let csvData = [];
     
     function addEntry() {
         entryCount++;
@@ -89,7 +156,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <input type="text" class="form-control" name="entry_name_${entryCount}" placeholder="Name" required>
             </div>
             <div class="col-md-2">
-                <button type="button" class="btn btn-sm btn-outline-danger remove-entry">Remove</button>
+                <button type="button" class="btn btn-sm btn-outline-danger remove-entry" name="remove_entry_${entryCount}">Remove</button>
             </div>
         `;
         
@@ -100,10 +167,149 @@ document.addEventListener('DOMContentLoaded', function() {
         entriesContainer.appendChild(entryDiv);
     }
     
+    // CSV Import functionality
+    importCsvBtn.addEventListener('click', function() {
+        csvImportSection.style.display = csvImportSection.style.display === 'none' ? 'block' : 'none';
+    });
+    
+    previewCsvBtn.addEventListener('click', function() {
+        const file = csvFile.files[0];
+        if (!file) {
+            alert('Please select a CSV file first.');
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const text = e.target.result;
+            // Handle different line endings (Windows \r\n, Unix \n, Mac \r)
+            const lines = text.split(/\r?\n/);
+            const skipHeader = document.getElementById('skipHeader').checked;
+            
+            csvData = [];
+            const startIndex = skipHeader ? 1 : 0;
+            
+            for (let i = startIndex; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (line) {
+                    const columns = line.split(',').map(col => col.trim().replace(/"/g, ''));
+                    if (columns.length >= 3) {
+                        csvData.push({
+                            code: columns[0],
+                            category: columns[1],
+                            name: columns[2]
+                        });
+                    }
+                }
+            }
+            
+            console.log('Parsed CSV data:', csvData); // Debug log
+            
+            // Show preview
+            previewTableBody.innerHTML = '';
+            csvData.slice(0, 10).forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${row.code}</td>
+                    <td>${row.category}</td>
+                    <td>${row.name}</td>
+                `;
+                previewTableBody.appendChild(tr);
+            });
+            
+            if (csvData.length > 10) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td colspan="3" class="text-muted">... and ${csvData.length - 10} more rows</td>`;
+                previewTableBody.appendChild(tr);
+            }
+            
+            csvPreview.style.display = 'block';
+        };
+        reader.readAsText(file);
+    });
+    
+    importCsvDataBtn.addEventListener('click', function() {
+        console.log('Import button clicked, csvData length:', csvData.length); // Debug log
+        if (csvData.length === 0) {
+            alert('No CSV data to import. Please preview the CSV file first.');
+            return;
+        }
+        
+        // Clear existing entries
+        entriesContainer.innerHTML = '';
+        entryCount = 0;
+        
+        // Add entries from CSV
+        csvData.forEach(row => {
+            entryCount++;
+            const entryDiv = document.createElement('div');
+            entryDiv.className = 'row mb-3 entry-row';
+            entryDiv.innerHTML = `
+                <div class="col-md-2">
+                    <input type="number" class="form-control" name="entry_code_${entryCount}" value="${row.code}" required>
+                </div>
+                <div class="col-md-3">
+                    <input type="text" class="form-control" name="entry_category_${entryCount}" value="${row.category}" required>
+                </div>
+                <div class="col-md-5">
+                    <input type="text" class="form-control" name="entry_name_${entryCount}" value="${row.name}" required>
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-entry" name="remove_entry_${entryCount}">Remove</button>
+                </div>
+            `;
+            
+            entryDiv.querySelector('.remove-entry').addEventListener('click', function() {
+                entryDiv.remove();
+            });
+            
+            entriesContainer.appendChild(entryDiv);
+        });
+        
+        // Hide import section
+        csvImportSection.style.display = 'none';
+        csvPreview.style.display = 'none';
+        csvFile.value = '';
+        
+        alert(`Successfully imported ${csvData.length} entries from CSV.`);
+    });
+    
     addEntryBtn.addEventListener('click', addEntry);
     
     // Add initial entry
     addEntry();
+    
+    // Form validation before submission
+    document.querySelector('form').addEventListener('submit', function(e) {
+        // Remove any empty entry rows before submission
+        const emptyRows = document.querySelectorAll('.entry-row');
+        emptyRows.forEach(row => {
+            const codeInput = row.querySelector('input[name^="entry_code_"]');
+            const categoryInput = row.querySelector('input[name^="entry_category_"]');
+            const nameInput = row.querySelector('input[name^="entry_name_"]');
+            
+            if (!codeInput.value.trim() && !categoryInput.value.trim() && !nameInput.value.trim()) {
+                row.remove();
+            }
+        });
+        
+        // Ensure all form controls have names
+        const formControls = document.querySelectorAll('input, select, textarea');
+        formControls.forEach(control => {
+            if (!control.name && control.type !== 'button' && control.type !== 'submit' && control.type !== 'reset') {
+                console.warn('Form control without name:', control);
+                control.name = 'unnamed_' + Math.random().toString(36).substr(2, 9);
+            }
+        });
+        
+        // Validate that we have at least one entry
+        const validEntries = document.querySelectorAll('.entry-row').length;
+        if (validEntries === 0) {
+            e.preventDefault();
+            alert('Please add at least one typology entry before creating the typology.');
+            return false;
+        }
+    });
 });
 </script>
 {% endblock %}

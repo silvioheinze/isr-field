@@ -1437,7 +1437,7 @@ def typology_create_view(request):
             except DataSet.DoesNotExist:
                 pass
         
-        return redirect('dataset_list')
+        return redirect('typology_list')
     
     return render(request, 'frontend/typology_create.html', {'dataset_id': request.GET.get('dataset_id')})
 
@@ -1525,7 +1525,7 @@ def typology_edit_view(request, typology_id):
         if dataset_id:
             return redirect('dataset_detail', dataset_id=dataset_id)
         
-        return redirect('dataset_list')
+        return redirect('typology_list')
     
     return render(request, 'frontend/typology_edit.html', {'typology': typology})
 

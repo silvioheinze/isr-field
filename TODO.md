@@ -25,3 +25,4 @@
 [X] add usage name to the form
 [ ] fix data import / problem with entry name
 [X] adapt dashboard design
+[X] fix create typology form
