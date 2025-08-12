@@ -24,3 +24,4 @@
 [X] solve multiple points overlays
 [X] add usage name to the form
 [ ] fix data import / problem with entry name
+[X] adapt dashboard design

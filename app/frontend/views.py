@@ -69,14 +69,14 @@ class GroupForm(forms.ModelForm):
         fields = ['name']
 
 @login_required
-def topbar_view(request):
+def dashboard_view(request):
     """Dashboard view with user's accessible datasets"""
     accessible_datasets = []
     for dataset in DataSet.objects.all():
         if dataset.can_access(request.user):
             accessible_datasets.append(dataset)
     
-    return render(request, 'frontend/topbar.html', {
+    return render(request, 'frontend/dashboard.html', {
         'datasets': accessible_datasets[:5]  # Show first 5 datasets
     })
 

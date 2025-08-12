@@ -57,7 +57,7 @@ urlpatterns = [
     path('typologies/<int:typology_id>/export/', frontend_views.typology_export_view, name='typology_export'),
     path('datasets/<int:dataset_id>/select-typology/', frontend_views.typology_select_view, name='typology_select'),
     path('health/', frontend_views.health_check_view, name='health_check'),
-    path('', frontend_views.topbar_view, name='topbar'),
+    path('', frontend_views.dashboard_view, name='dashboard'),
 ]
 
 # Serve media files during development
