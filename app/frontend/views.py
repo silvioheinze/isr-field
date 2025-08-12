@@ -143,7 +143,8 @@ def user_management_view(request):
     if not is_manager(request.user):
         return HttpResponseForbidden('You do not have permission to view this page.')
     users = User.objects.all()
-    return render(request, 'frontend/user_management.html', {'users': users})
+    groups = Group.objects.all()
+    return render(request, 'frontend/user_management.html', {'users': users, 'groups': groups})
 
 @login_required
 def edit_user_view(request, user_id):

@@ -23,8 +23,9 @@
 [X] preview image on data entry detail page
 [X] solve multiple points overlays
 [X] add usage name to the form
-[ ] fix data import / problem with entry name
 [X] adapt dashboard design
 [X] fix create typology form
 [X] remove quick actions in typology overview
-[ ] add about datasets info box similar to typology overview template
+[X] add about datasets info box similar to typology overview template
+[X] normize the buttons
+[ ] fix data import / problem with entry name
