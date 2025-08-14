@@ -7,9 +7,15 @@
     <div class="row">
         <div class="col-md-8">
             <div class="card">
-                <div class="card-header bg-success text-white">
+                <div class="card-header {% if errors and import_summary.entries_created == 0 %}bg-warning text-dark{% elif errors %}bg-warning text-dark{% else %}bg-success text-white{% endif %}">
                     <h4 class="mb-0">
-                        <i class="bi bi-check-circle"></i> Import Completed Successfully
+                        {% if errors and import_summary.entries_created == 0 %}
+                            <i class="bi bi-exclamation-triangle"></i> Import Completed with Errors
+                        {% elif errors %}
+                            <i class="bi bi-exclamation-triangle"></i> Import Completed with Warnings
+                        {% else %}
+                            <i class="bi bi-check-circle"></i> Import Completed Successfully
+                        {% endif %}
                     </h4>
                 </div>
                 <div class="card-body">
@@ -78,9 +84,13 @@
                     {% endif %}
                     
                     {% if errors %}
-                    <div class="alert alert-warning">
-                        <h6>Import Warnings:</h6>
-                        <p>The import completed successfully, but there were some issues:</p>
+                    <div class="alert {% if import_summary.entries_created == 0 %}alert-danger{% else %}alert-warning{% endif %}">
+                        <h6>{% if import_summary.entries_created == 0 %}Import Errors:{% else %}Import Warnings:{% endif %}</h6>
+                        {% if import_summary.entries_created == 0 %}
+                            <p>The import failed to process any data. Please check the following issues:</p>
+                        {% else %}
+                            <p>The import completed successfully, but there were some issues:</p>
+                        {% endif %}
                         <ul>
                             {% for error in errors %}
                             <li>{{ error }}</li>

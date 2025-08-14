@@ -28,4 +28,4 @@
 [X] remove quick actions in typology overview
 [X] add about datasets info box similar to typology overview template
 [X] normize the buttons
-[ ] fix data import / problem with entry name
+[X] fix data import / problem with entry name

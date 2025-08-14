@@ -1050,6 +1050,23 @@ def dataset_csv_import_view(request, dataset_id):
                         
                         logger.debug(f"Row {row_num}: Year columns detected: {list(year_columns.keys())}")
                         
+                        # Helper function to safely convert to integer, treating 'NA' and '999' as missing
+                        def safe_int_convert(value, default=0):
+                            if not value:
+                                return default
+                            value_str = str(value).strip().upper()
+                            if value_str in ['NA', 'N/A', 'NULL']:
+                                return default
+                            if value_str == '':
+                                return None  # Return None for empty strings
+                            try:
+                                int_value = int(value_str)
+                                if int_value == 999:
+                                    return None  # 999 is missing data in social science coding
+                                return int_value
+                            except ValueError:
+                                return default
+                        
                         # Create entries for each year found
                         logger.debug(f"Row {row_num}: Creating entries for {len(year_columns)} years")
                         for year, year_data in year_columns.items():
@@ -1057,35 +1074,41 @@ def dataset_csv_import_view(request, dataset_id):
                             try:
                                 # Map field names to DataEntry fields
                                 usage_code1 = year_data.get('NUTZUNG', 0)
-                                usage_code2 = year_data.get('CAT_INNO', 0)
-                                usage_code3 = year_data.get('CAT_WERT', 0)
+                                usage_code2 = year_data.get('NUTZUNG_POLY1', 0)
+                                usage_code3 = year_data.get('NUTZUNG_POLY2', 0)
                                 cat_inno = year_data.get('CAT_INNO', 0)
                                 cat_wert = year_data.get('CAT_WERT', 0)
                                 cat_fili = year_data.get('CAT_FILI', 0)
+                                nutzung_name = year_data.get('NUTZUNG_NAME', '').strip()
                                 
-                                # Convert to integers if they exist and are not empty
-                                usage_code1 = int(usage_code1) if usage_code1 and str(usage_code1).strip() else 0
-                                usage_code2 = int(usage_code2) if usage_code2 and str(usage_code2).strip() else 0
-                                usage_code3 = int(usage_code3) if usage_code3 and str(usage_code3).strip() else 0
-                                cat_inno = int(cat_inno) if cat_inno and str(cat_inno).strip() else 0
-                                cat_wert = int(cat_wert) if cat_wert and str(cat_wert).strip() else 0
-                                cat_fili = int(cat_fili) if cat_fili and str(cat_fili).strip() else 0
+                                # Convert to integers safely, treating 'NA' as 0, empty strings as None
+                                usage_code1 = safe_int_convert(usage_code1, 0)
+                                usage_code2 = safe_int_convert(usage_code2, 0)
+                                usage_code3 = safe_int_convert(usage_code3, 0)
+                                cat_inno = safe_int_convert(cat_inno, 0)
+                                cat_wert = safe_int_convert(cat_wert, 0)
+                                cat_fili = safe_int_convert(cat_fili, 0)
                                 
-                                # Create data entry for this year
-                                DataEntry.objects.create(
-                                    geometry=geometry,
-                                    name=f"Entry for {id_kurz} ({year})",
-                                    usage_code1=usage_code1,
-                                    usage_code2=usage_code2,
-                                    usage_code3=usage_code3,
-                                    cat_inno=cat_inno,
-                                    cat_wert=cat_wert,
-                                    cat_fili=cat_fili,
-                                    year=year,
-                                    user=request.user
-                                )
-                                entries_created += 1
-                                import_summary['entries_created'] += 1
+                                # Use NUTZUNG_NAME if available, otherwise leave empty
+                                entry_name = nutzung_name if nutzung_name else ""
+                                
+                                # Only create entry if at least one field has a non-None value
+                                if any(val is not None for val in [usage_code1, usage_code2, usage_code3, cat_inno, cat_wert, cat_fili]):
+                                    # Replace None values with 0 for database storage
+                                    DataEntry.objects.create(
+                                        geometry=geometry,
+                                        name=entry_name,
+                                        usage_code1=usage_code1 if usage_code1 is not None else 0,
+                                        usage_code2=usage_code2 if usage_code2 is not None else 0,
+                                        usage_code3=usage_code3 if usage_code3 is not None else 0,
+                                        cat_inno=cat_inno if cat_inno is not None else 0,
+                                        cat_wert=cat_wert if cat_wert is not None else 0,
+                                        cat_fili=cat_fili if cat_fili is not None else 0,
+                                        year=year,
+                                        user=request.user
+                                    )
+                                    entries_created += 1
+                                    import_summary['entries_created'] += 1
                                 
                             except (ValueError, TypeError) as e:
                                 # If data conversion fails for this year, skip this entry
@@ -1096,34 +1119,39 @@ def dataset_csv_import_view(request, dataset_id):
                         if entries_created == 0:
                             # Fallback to generic data if available
                             usage_code1 = row.get('NUTZUNG')
-                            usage_code2 = row.get('CAT_INNO')
-                            usage_code3 = row.get('CAT_WERT')
+                            usage_code2 = row.get('NUTZUNG_POLY1')
+                            usage_code3 = row.get('NUTZUNG_POLY2')
                             cat_inno = row.get('CAT_INNO')
                             cat_wert = row.get('CAT_WERT')
                             cat_fili = row.get('CAT_FILI')
-                            year = row.get('YEAR') or 2022
+                            year = row.get('YEAR')
+                            nutzung_name = row.get('NUTZUNG_NAME', '').strip()
                             
-                            if any([usage_code1, usage_code2, usage_code3, cat_inno, cat_wert, cat_fili]):
+                            # Convert to integers safely, treating 'NA' as 0, empty strings as None
+                            usage_code1 = safe_int_convert(usage_code1, 0)
+                            usage_code2 = safe_int_convert(usage_code2, 0)
+                            usage_code3 = safe_int_convert(usage_code3, 0)
+                            cat_inno = safe_int_convert(cat_inno, 0)
+                            cat_wert = safe_int_convert(cat_wert, 0)
+                            cat_fili = safe_int_convert(cat_fili, 0)
+                            year = safe_int_convert(year, 2022)
+                            
+                            # Use NUTZUNG_NAME if available, otherwise leave empty
+                            entry_name = nutzung_name if nutzung_name else ""
+                            
+                            # Only create entry if at least one field has a non-None value
+                            if any(val is not None for val in [usage_code1, usage_code2, usage_code3, cat_inno, cat_wert, cat_fili]):
                                 try:
-                                    # Convert to integers
-                                    usage_code1 = int(usage_code1) if usage_code1 and str(usage_code1).strip() else 0
-                                    usage_code2 = int(usage_code2) if usage_code2 and str(usage_code2).strip() else 0
-                                    usage_code3 = int(usage_code3) if usage_code3 and str(usage_code3).strip() else 0
-                                    cat_inno = int(cat_inno) if cat_inno and str(cat_inno).strip() else 0
-                                    cat_wert = int(cat_wert) if cat_wert and str(cat_wert).strip() else 0
-                                    cat_fili = int(cat_fili) if cat_fili and str(cat_fili).strip() else 0
-                                    year = int(year) if year and str(year).strip() else 2022
-                                    
-                                    # Create generic data entry
+                                    # Replace None values with 0 for database storage
                                     DataEntry.objects.create(
                                         geometry=geometry,
-                                        name=f"Entry for {id_kurz} ({year})",
-                                        usage_code1=usage_code1,
-                                        usage_code2=usage_code2,
-                                        usage_code3=usage_code3,
-                                        cat_inno=cat_inno,
-                                        cat_wert=cat_wert,
-                                        cat_fili=cat_fili,
+                                        name=entry_name,
+                                        usage_code1=usage_code1 if usage_code1 is not None else 0,
+                                        usage_code2=usage_code2 if usage_code2 is not None else 0,
+                                        usage_code3=usage_code3 if usage_code3 is not None else 0,
+                                        cat_inno=cat_inno if cat_inno is not None else 0,
+                                        cat_wert=cat_wert if cat_wert is not None else 0,
+                                        cat_fili=cat_fili if cat_fili is not None else 0,
                                         year=year,
                                         user=request.user
                                     )
@@ -1153,25 +1181,25 @@ def dataset_csv_import_view(request, dataset_id):
                 target=f'dataset:{dataset.id} - Imported {imported_count} records'
             )
             
-            if imported_count > 0:
-                # Calculate total counts for the dataset
-                total_geometries = DataGeometry.objects.filter(dataset=dataset).count()
-                total_entries = DataEntry.objects.filter(geometry__dataset=dataset).count()
-                
-                # Ensure import_summary exists
-                if 'import_summary' not in locals():
-                    import_summary = {
-                        'coordinate_system': 4326,
-                        'coordinate_system_name': 'WGS84 (Latitude/Longitude)',
-                        'detection_method': 'auto',
-                        'geometries_created': 0,
-                        'entries_created': 0,
-                        'rows_processed': 0,
-                        'rows_skipped': 0,
-                        'transformation_errors': 0
-                    }
-                
-                # Render import summary page
+            # Calculate total counts for the dataset
+            total_geometries = DataGeometry.objects.filter(dataset=dataset).count()
+            total_entries = DataEntry.objects.filter(geometry__dataset=dataset).count()
+            
+            # Ensure import_summary exists
+            if 'import_summary' not in locals():
+                import_summary = {
+                    'coordinate_system': 4326,
+                    'coordinate_system_name': 'WGS84 (Latitude/Longitude)',
+                    'detection_method': 'auto',
+                    'geometries_created': 0,
+                    'entries_created': 0,
+                    'rows_processed': 0,
+                    'rows_skipped': 0,
+                    'transformation_errors': 0
+                }
+            
+            # Always show import summary page if there are errors or if data was imported
+            if errors or imported_count > 0:
                 return render(request, 'frontend/import_summary.html', {
                     'dataset': dataset,
                     'import_summary': import_summary,
@@ -1180,7 +1208,7 @@ def dataset_csv_import_view(request, dataset_id):
                     'total_entries': total_entries
                 })
             
-            # If no data was imported, redirect to dataset detail with error
+            # If no data was imported and no errors, redirect to dataset detail with error
             messages.error(request, 'No data was imported. Please check your CSV file format.')
             return redirect('dataset_detail', dataset_id=dataset.id)
             

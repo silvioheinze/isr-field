@@ -15,10 +15,17 @@
                     <p>The CSV file should contain the following columns:</p>
                     <ul>
                         <li><strong>ID</strong> - Unique identifier for each geometry point</li>
-                        <li><strong>ADRESSE</strong> - Address of the location</li>
-                        <li><strong>GEB_X, GEB_Y</strong> - X and Y coordinates (or X/Y, LONGITUDE/LATITUDE, LON/LAT)</li>
-                        <li><strong>Year-prefixed columns</strong> - Any columns starting with year (e.g., 2016_NUTZUNG, 2022_CAT_INNO)</li>
-                        <li><strong>Generic columns</strong> - NUTZUNG, CAT_INNO, CAT_WERT, CAT_FILI, YEAR (optional)</li>
+                        <li><strong>ADRESSE</strong> - Address of the location (optional, will use default if missing)</li>
+                        <li><strong>Coordinates</strong> - One of these coordinate column pairs:
+                            <ul>
+                                <li><strong>GEB_X, GEB_Y</strong> - Austrian coordinate format</li>
+                                <li><strong>X, Y</strong> - Generic X/Y coordinates</li>
+                                <li><strong>LONGITUDE, LATITUDE</strong> - WGS84 coordinates</li>
+                                <li><strong>LON, LAT</strong> - Short form WGS84 coordinates</li>
+                            </ul>
+                        </li>
+                        <li><strong>Year-prefixed columns</strong> - Any columns starting with year (e.g., 2016_NUTZUNG, 2022_CAT_INNO, 2020_CAT_WERT, 2016_NUTZUNG_NAME)</li>
+                        <li><strong>Generic columns</strong> - NUTZUNG, NUTZUNG_POLY1, NUTZUNG_POLY2, CAT_INNO, CAT_WERT, CAT_FILI, NUTZUNG_NAME, YEAR (optional)</li>
                     </ul>
                     
                     <h6 class="mt-3">Supported Coordinate Systems:</h6>
@@ -30,12 +37,31 @@
                         <li><strong>Web Mercator (EPSG:3857)</strong> - Web mapping coordinates</li>
                     </ul>
                     
+                    <h6 class="mt-3">Enhanced Auto-Detection:</h6>
+                    <p class="small text-muted">
+                        The system automatically detects coordinate systems based on coordinate ranges:
+                    </p>
+                    <ul class="small">
+                        <li><strong>WGS84</strong>: Latitude 47-49°, Longitude 9-18°</li>
+                        <li><strong>MGI Austria GK M34</strong>: X 500,000-900,000, Y 3,000,000-5,000,000</li>
+                        <li><strong>MGI Austria GK M31</strong>: X 300,000-700,000, Y 3,000,000-5,000,000</li>
+                        <li><strong>MGI Austria GK M28</strong>: X 100,000-500,000, Y 3,000,000-5,000,000</li>
+                        <li><strong>Scaled Austrian Coordinates</strong>: X 100-2,000, Y 330,000-350,000</li>
+                    </ul>
+                    
                     <div class="alert alert-info">
                         <strong>Note:</strong> The import will create geometry points and separate data entries for all years detected in column headers. 
                         If a geometry with the same ID already exists, that row will be skipped.
                         Each geometry may have multiple entries (one for each year found in the data).
                         <br><br>
-                        <strong>Coordinate System:</strong> The system will automatically detect and transform coordinates from common Austrian projections (MGI Austria GK) to WGS84.
+                        <strong>Coordinate System:</strong> The system automatically detects and transforms coordinates from multiple Austrian projections (MGI Austria GK) to WGS84. 
+                        Supports both full-scale and scaled coordinate formats.
+                        <br><br>
+                        <strong>Data Processing:</strong> Year-prefixed columns (e.g., 2016_NUTZUNG) create separate entries for each year. 
+                        Generic columns (e.g., NUTZUNG) create a single entry if no year-specific data is found.
+                        <br><br>
+                        <strong>Entry Names:</strong> Use {YEAR}_NUTZUNG_NAME or NUTZUNG_NAME columns to set custom names for data entries. 
+                        If not provided, entry names will be left empty.
                     </div>
                 </div>
             </div>
@@ -88,9 +114,17 @@
                 <div class="card-body">
                     <h5 class="card-title">Sample CSV Format</h5>
                     <small class="text-muted">
-                        <pre>ID,ADRESSE,2016_NUTZUNG,2016_CAT_INNO,2016_CAT_WERT,2016_CAT_FILI,GEB_X,GEB_Y,2022_NUTZUNG,2022_CAT_INNO,2022_CAT_WERT,2022_CAT_FILI,2020_NUTZUNG,2020_CAT_INNO
-ss16_kg01_001_1,Apollogasse 19,870,999,999,999,656.61,339913.14,870,999,999,999,850,888
-ss16_kg01_001_2,Apollogasse 28,640,0,0,0,636.41,339972.43,640,0,0,0,650,0</pre>
+                        <pre>ID,ADRESSE,2016_NUTZUNG,2016_CAT_INNO,2016_CAT_WERT,2016_CAT_FILI,2016_NUTZUNG_NAME,GEB_X,GEB_Y,2022_NUTZUNG,2022_CAT_INNO,2022_CAT_WERT,2022_CAT_FILI,2022_NUTZUNG_NAME
+ss16_kg01_001_1,Apollogasse 19,870,999,999,999,Residential Building,656.61,339913.14,870,999,999,999,Office Building
+ss16_kg01_001_2,Apollogasse 28,640,0,0,0,Commercial Space,636.41,339972.43,640,0,0,0,Retail Store
+
+Alternative coordinate formats:
+ID,ADRESSE,LONGITUDE,LATITUDE,2016_NUTZUNG,2016_CAT_INNO,2016_NUTZUNG_NAME
+point_001,Test Address,16.3738,48.2082,870,999,Residential Building
+
+Generic data format:
+ID,ADRESSE,X,Y,NUTZUNG,CAT_INNO,CAT_WERT,NUTZUNG_NAME,YEAR
+point_002,Another Address,656610,3399131,870,999,999,Office Building,2022</pre>
                     </small>
                 </div>
             </div>
