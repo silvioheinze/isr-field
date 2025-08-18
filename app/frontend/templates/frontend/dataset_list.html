@@ -44,10 +44,10 @@
                                         {% if dataset.owner == user %}
                                         <div class="btn-group btn-group-sm" role="group">
                                             <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-outline-secondary" title="View Details">
-                                                <i class="bi bi-eye"></i>
+                                                <i class="bi bi-eye"></i> Details
                                             </a>
                                             <a href="{% url 'dataset_access' dataset.id %}" class="btn btn-outline-warning" title="Manage Access">
-                                                <i class="bi bi-people"></i>
+                                                <i class="bi bi-people"></i> Access
                                             </a>
                                         </div>
                                         {% endif %}
