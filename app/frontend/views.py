@@ -178,6 +178,24 @@ def delete_user_view(request, user_id):
     return render(request, 'frontend/delete_user.html', {'user_obj': user})
 
 @login_required
+def create_user_view(request):
+    if not is_manager(request.user):
+        return HttpResponseForbidden('You do not have permission to create users.')
+    if request.method == 'POST':
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            # Set groups
+            group_ids = request.POST.getlist('groups')
+            user.groups.set(Group.objects.filter(id__in=group_ids))
+            messages.success(request, 'User created successfully.')
+            return redirect('user_management')
+    else:
+        form = UserCreationForm()
+    all_groups = Group.objects.all()
+    return render(request, 'frontend/create_user.html', {'form': form, 'all_groups': all_groups})
+
+@login_required
 def create_group_view(request):
     if not is_manager(request.user):
         return HttpResponseForbidden('You do not have permission to create groups.')

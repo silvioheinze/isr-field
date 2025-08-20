@@ -26,6 +26,7 @@ urlpatterns = [
     path('register/', frontend_views.register_view, name='register'),
     path('profile/', frontend_views.profile_view, name='profile'),
     path('users/', frontend_views.user_management_view, name='user_management'),
+    path('users/create/', frontend_views.create_user_view, name='create_user'),
     path('users/edit/<int:user_id>/', frontend_views.edit_user_view, name='edit_user'),
     path('users/delete/<int:user_id>/', frontend_views.delete_user_view, name='delete_user'),
     path('groups/create/', frontend_views.create_group_view, name='create_group'),
