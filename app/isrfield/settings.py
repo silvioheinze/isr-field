@@ -165,6 +165,11 @@ SERVER_EMAIL = os.environ.get('SERVER_EMAIL', 'server@isrfield.dataplexity.eu')
 # Email subject prefix
 EMAIL_SUBJECT_PREFIX = os.environ.get('EMAIL_SUBJECT_PREFIX', '[ISR Field] ')
 
+# Authentication settings
+LOGIN_URL = '/accounts/login/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/accounts/login/'
+
 # Logging configuration for debugging
 LOGGING = {
     'version': 1,

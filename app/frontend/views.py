@@ -1,5 +1,5 @@
 from django.contrib.auth.forms import UserCreationForm
-from django.contrib.auth import login as auth_login
+from django.contrib.auth import login as auth_login, logout
 from django.shortcuts import redirect
 
 from django.contrib.auth.decorators import login_required
@@ -90,6 +90,14 @@ def register_view(request):
     else:
         form = UserCreationForm()
     return render(request, 'frontend/register.html', {'form': form})
+
+
+@login_required
+def logout_view(request):
+    """Custom logout view that handles both GET and POST requests"""
+    logout(request)
+    messages.success(request, 'You have been successfully logged out.')
+    return redirect('login')
 
 
 @login_required

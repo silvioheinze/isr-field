@@ -23,6 +23,7 @@ from frontend import views as frontend_views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('django.contrib.auth.urls')),
+    path('logout/', frontend_views.logout_view, name='logout'),
     path('register/', frontend_views.register_view, name='register'),
     path('profile/', frontend_views.profile_view, name='profile'),
     path('users/', frontend_views.user_management_view, name='user_management'),
