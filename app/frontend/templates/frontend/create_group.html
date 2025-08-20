@@ -8,7 +8,9 @@
     <form method="post">
         {% csrf_token %}
         {{ form.as_p }}
-        <button type="submit" class="btn btn-primary">Create Group</button>
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Create Group
+        </button>
         <a href="{% url 'user_management' %}" class="btn btn-secondary">Cancel</a>
     </form>
 </div>

@@ -99,7 +99,9 @@
                 
                 <div class="d-flex justify-content-between">
                     <a href="{% if dataset_id %}{% url 'dataset_detail' dataset_id %}{% else %}{% url 'dataset_list' %}{% endif %}" class="btn btn-secondary">Cancel</a>
-                    <button type="submit" class="btn btn-primary">Create Typology</button>
+                    <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Create Typology
+                </button>
                 </div>
             </form>
         </div>

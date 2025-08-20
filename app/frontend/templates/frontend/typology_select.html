@@ -54,7 +54,9 @@
                 <div class="card">
                     <div class="card-body text-center">
                         <p class="text-muted">No typologies available.</p>
-                        <a href="{% url 'typology_create' %}?dataset_id={{ dataset.id }}" class="btn btn-success">Create New Typology</a>
+                        <a href="{% url 'typology_create' %}?dataset_id={{ dataset.id }}" class="btn btn-success">
+                            <i class="bi bi-plus-circle"></i> Create New Typology
+                        </a>
                     </div>
                 </div>
             {% endif %}
@@ -81,7 +83,9 @@
                 </div>
                 <div class="card-body">
                     <div class="d-grid gap-2">
-                        <a href="{% url 'typology_create' %}?dataset_id={{ dataset.id }}" class="btn btn-success btn-sm">Create New Typology</a>
+                        <a href="{% url 'typology_create' %}?dataset_id={{ dataset.id }}" class="btn btn-success btn-sm">
+                            <i class="bi bi-plus-circle"></i> Create New Typology
+                        </a>
                         <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-secondary btn-sm">Back to Dataset</a>
                     </div>
                 </div>
