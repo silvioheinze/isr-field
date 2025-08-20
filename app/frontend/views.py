@@ -252,6 +252,39 @@ def modify_user_groups_view(request, user_id):
     return render(request, 'frontend/modify_user_groups.html', {'user_obj': user, 'all_groups': all_groups, 'user_groups': user_groups})
 
 @login_required
+def edit_group_view(request, group_id):
+    """Edit group name and manage group members"""
+    if not is_manager(request.user):
+        return HttpResponseForbidden('You do not have permission to edit groups.')
+    
+    group = get_object_or_404(Group, pk=group_id)
+    all_users = User.objects.all().order_by('username')
+    
+    if request.method == 'POST':
+        # Update group name
+        new_name = request.POST.get('name', '').strip()
+        if new_name and new_name != group.name:
+            group.name = new_name
+            group.save()
+            messages.success(request, f'Group name updated to "{new_name}".')
+        
+        # Update group members
+        user_ids = request.POST.getlist('users')
+        group.user_set.set(User.objects.filter(id__in=user_ids))
+        
+        messages.success(request, f'Group "{group.name}" members updated successfully.')
+        return redirect('user_management')
+    
+    # Get current group members
+    group_members = group.user_set.values_list('id', flat=True)
+    
+    return render(request, 'frontend/edit_group.html', {
+        'group': group,
+        'all_users': all_users,
+        'group_members': group_members
+    })
+
+@login_required
 def dataset_list_view(request):
     """List datasets that the user can access"""
     accessible_datasets = []

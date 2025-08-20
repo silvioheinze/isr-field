@@ -31,6 +31,7 @@ urlpatterns = [
     path('users/edit/<int:user_id>/', frontend_views.edit_user_view, name='edit_user'),
     path('users/delete/<int:user_id>/', frontend_views.delete_user_view, name='delete_user'),
     path('groups/create/', frontend_views.create_group_view, name='create_group'),
+    path('groups/edit/<int:group_id>/', frontend_views.edit_group_view, name='edit_group'),
     path('users/groups/<int:user_id>/', frontend_views.modify_user_groups_view, name='modify_user_groups'),
     path('datasets/', frontend_views.dataset_list_view, name='dataset_list'),
     path('datasets/create/', frontend_views.dataset_create_view, name='dataset_create'),

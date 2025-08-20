@@ -73,11 +73,7 @@
                                         <td>{{ group.name }}</td>
                                         <td>{{ group.user_set.count }} user{{ group.user_set.count|pluralize }}</td>
                                         <td>
-                                            {% if group.user_set.first %}
-                                                <a href="{% url 'modify_user_groups' group.user_set.first.id %}" class="btn btn-sm btn-outline-primary">Manage</a>
-                                            {% else %}
-                                                <span class="text-muted">No users</span>
-                                            {% endif %}
+                                            <a href="{% url 'edit_group' group.id %}" class="btn btn-sm btn-outline-primary">Edit</a>
                                         </td>
                                     </tr>
                                     {% endfor %}

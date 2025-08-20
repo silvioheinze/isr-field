@@ -1,0 +1,120 @@
+{% extends 'frontend/_base.html' %}
+
+{% block title %}Edit Group - {{ group.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <h2>Edit Group: {{ group.name }}</h2>
+            
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Group Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Group Name</label>
+                            <input type="text" class="form-control" id="name" name="name" value="{{ group.name }}" required>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Group Members</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted mb-3">Select users to include in this group:</p>
+                        
+                        <div class="row">
+                            {% for user in all_users %}
+                            <div class="col-md-6 mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="users" value="{{ user.id }}" id="user_{{ user.id }}"
+                                           {% if user.id in group_members %}checked{% endif %}>
+                                    <label class="form-check-label" for="user_{{ user.id }}">
+                                        <strong>{{ user.username }}</strong>
+                                        {% if user.email %}
+                                            <br><small class="text-muted">{{ user.email }}</small>
+                                        {% endif %}
+                                        {% if user.is_staff %}
+                                            <span class="badge bg-warning">Staff</span>
+                                        {% endif %}
+                                        {% if user.is_superuser %}
+                                            <span class="badge bg-danger">Superuser</span>
+                                        {% endif %}
+                                    </label>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        {% if not all_users %}
+                        <p class="text-muted text-center">No users available.</p>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'user_management' %}" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Group Information</h6>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted">
+                        <strong>Current members:</strong> {{ group.user_set.count }} user{{ group.user_set.count|pluralize }}<br>
+                        <strong>Total users:</strong> {{ all_users.count }}<br>
+                        <strong>Created:</strong> System group
+                    </p>
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0">Instructions</h6>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted">
+                        <strong>Group Name:</strong> Change the name of the group<br>
+                        <strong>Members:</strong> Check/uncheck users to add/remove them from the group<br><br>
+                        <strong>Note:</strong> Changes to group membership will affect user permissions immediately.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0">Current Members</h6>
+                </div>
+                <div class="card-body">
+                    {% if group.user_set.all %}
+                        <ul class="list-unstyled mb-0">
+                            {% for user in group.user_set.all %}
+                            <li class="mb-1">
+                                <strong>{{ user.username }}</strong>
+                                {% if user.email %}
+                                    <br><small class="text-muted">{{ user.email }}</small>
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted small mb-0">No members in this group.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
