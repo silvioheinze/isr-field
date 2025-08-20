@@ -1,4 +1,4 @@
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import UserCreationForm, PasswordResetForm, SetPasswordForm
 from django.contrib.auth import login as auth_login, logout
 from django.shortcuts import redirect
 
@@ -29,6 +29,13 @@ import mimetypes
 import logging
 from datetime import datetime
 from django.db import connection, IntegrityError
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.contrib.auth.tokens import default_token_generator
+from django.contrib.sites.shortcuts import get_current_site
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+from django.core.mail import send_mail
 
 # Set up logging for import debugging
 logger = logging.getLogger(__name__)
@@ -51,6 +58,77 @@ def health_check_view(request):
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }, status=500)
+
+
+def password_reset_view(request):
+    """Custom password reset form view"""
+    if request.method == 'POST':
+        form = PasswordResetForm(request.POST)
+        if form.is_valid():
+            email = form.cleaned_data['email']
+            associated_users = User.objects.filter(email=email)
+            if associated_users.exists():
+                for user in associated_users:
+                    subject = "Password Reset Request - ISR Field"
+                    email_template_name = "frontend/password_reset_email.html"
+                    c = {
+                        "email": user.email,
+                        'domain': get_current_site(request).domain,
+                        'site_name': 'ISR Field',
+                        "uid": urlsafe_base64_encode(force_bytes(user.pk)),
+                        "user": user,
+                        'token': default_token_generator.make_token(user),
+                        'protocol': 'https' if request.is_secure() else 'http',
+                    }
+                    email = render_to_string(email_template_name, c)
+                    try:
+                        send_mail(subject, email, settings.DEFAULT_FROM_EMAIL, [user.email], fail_silently=False)
+                    except Exception as e:
+                        messages.error(request, f'Error sending email: {str(e)}')
+                        return render(request, 'frontend/password_reset_form.html', {'form': form})
+                    
+                    messages.success(request, 'Password reset email has been sent. Please check your email.')
+                    return redirect('password_reset_done')
+            else:
+                # Don't reveal if email exists or not for security
+                messages.success(request, 'Password reset email has been sent. Please check your email.')
+                return redirect('password_reset_done')
+    else:
+        form = PasswordResetForm()
+    return render(request, 'frontend/password_reset_form.html', {'form': form})
+
+
+def password_reset_done_view(request):
+    """Password reset done view"""
+    return render(request, 'frontend/password_reset_done.html')
+
+
+def password_reset_confirm_view(request, uidb64, token):
+    """Password reset confirm view"""
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        user = None
+
+    if user is not None and default_token_generator.check_token(user, token):
+        if request.method == 'POST':
+            form = SetPasswordForm(user, request.POST)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'Your password has been successfully reset.')
+                return redirect('password_reset_complete')
+        else:
+            form = SetPasswordForm(user)
+        return render(request, 'frontend/password_reset_confirm.html', {'form': form})
+    else:
+        messages.error(request, 'The password reset link is invalid or has expired.')
+        return redirect('password_reset_form')
+
+
+def password_reset_complete_view(request):
+    """Password reset complete view"""
+    return render(request, 'frontend/password_reset_complete.html')
 
 def get_coordinate_system_name(srid):
     """Get human-readable name for coordinate system SRID"""
