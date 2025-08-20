@@ -1,0 +1,45 @@
+{% extends 'frontend/_base.html' %}
+
+{% block title %}Access Denied - ISR Field{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-4 text-center">
+                    <div class="mb-4">
+                        <i class="bi bi-lock text-danger" style="font-size: 4rem;"></i>
+                    </div>
+                    
+                    <h5 class="mb-3">Permission Required</h5>
+                    <p class="text-muted mb-4">
+                        You do not have the necessary permissions to access this page. 
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        border-radius: 1rem;
+        overflow: hidden;
+    }
+    
+    .alert {
+        border-radius: 0.5rem;
+    }
+    
+    @media (max-width: 576px) {
+        .container {
+            padding: 1rem;
+        }
+        
+        .card-body {
+            padding: 1.5rem;
+        }
+    }
+</style>
+{% endblock %}

@@ -206,7 +206,7 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'typology_list' %}">Typologies</a>
                     </li>
-                    {% if user.is_staff %}
+                    {% if user.is_superuser %}
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'user_management' %}">Users</a>
                     </li>

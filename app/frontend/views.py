@@ -5,7 +5,7 @@ from django.shortcuts import redirect
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 from django.contrib.auth.models import User, Group
-from django.http import HttpResponseForbidden
+
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.forms import UserChangeForm, PasswordChangeForm
 from django.contrib.auth.models import Group
@@ -155,7 +155,9 @@ def dashboard_view(request):
             accessible_datasets.append(dataset)
     
     return render(request, 'frontend/dashboard.html', {
-        'datasets': accessible_datasets[:5]  # Show first 5 datasets
+        'datasets': accessible_datasets[:5],  # Show first 5 datasets
+        'can_create_datasets': is_manager(request.user),
+        'can_create_typologies': is_manager(request.user)
     })
 
 
@@ -222,12 +224,12 @@ def profile_view(request):
 
 
 def is_manager(user):
-    return user.is_authenticated and (user.is_superuser or user.groups.filter(name='manager').exists())
+    return user.is_authenticated and (user.is_superuser or user.is_staff)
 
 @login_required
 def user_management_view(request):
     if not is_manager(request.user):
-        return HttpResponseForbidden('You do not have permission to view this page.')
+        return render(request, 'frontend/403.html', status=403)
     users = User.objects.all()
     groups = Group.objects.all()
     return render(request, 'frontend/user_management.html', {'users': users, 'groups': groups})
@@ -235,7 +237,7 @@ def user_management_view(request):
 @login_required
 def edit_user_view(request, user_id):
     if not is_manager(request.user):
-        return HttpResponseForbidden('You do not have permission to edit users.')
+        return render(request, 'frontend/403.html', status=403)
     user = get_object_or_404(User, pk=user_id)
     if request.method == 'POST':
         # Handle form submission
@@ -275,7 +277,7 @@ def edit_user_view(request, user_id):
 @login_required
 def delete_user_view(request, user_id):
     if not is_manager(request.user):
-        return HttpResponseForbidden('You do not have permission to delete users.')
+        return render(request, 'frontend/403.html', status=403)
     user = get_object_or_404(User, pk=user_id)
     if request.method == 'POST':
         user.delete()
@@ -286,7 +288,7 @@ def delete_user_view(request, user_id):
 @login_required
 def create_user_view(request):
     if not is_manager(request.user):
-        return HttpResponseForbidden('You do not have permission to create users.')
+        return render(request, 'frontend/403.html', status=403)
     if request.method == 'POST':
         form = UserCreationForm(request.POST)
         if form.is_valid():
@@ -304,7 +306,7 @@ def create_user_view(request):
 @login_required
 def create_group_view(request):
     if not is_manager(request.user):
-        return HttpResponseForbidden('You do not have permission to create groups.')
+        return render(request, 'frontend/403.html', status=403)
     if request.method == 'POST':
         form = GroupForm(request.POST)
         if form.is_valid():
@@ -318,7 +320,7 @@ def create_group_view(request):
 @login_required
 def modify_user_groups_view(request, user_id):
     if not is_manager(request.user):
-        return HttpResponseForbidden('You do not have permission to modify user groups.')
+        return render(request, 'frontend/403.html', status=403)
     user = get_object_or_404(User, pk=user_id)
     all_groups = Group.objects.all()
     if request.method == 'POST':
@@ -333,7 +335,7 @@ def modify_user_groups_view(request, user_id):
 def edit_group_view(request, group_id):
     """Edit group name and manage group members"""
     if not is_manager(request.user):
-        return HttpResponseForbidden('You do not have permission to edit groups.')
+        return render(request, 'frontend/403.html', status=403)
     
     group = get_object_or_404(Group, pk=group_id)
     all_users = User.objects.all().order_by('username')
@@ -369,11 +371,16 @@ def dataset_list_view(request):
     for dataset in DataSet.objects.all():
         if dataset.can_access(request.user):
             accessible_datasets.append(dataset)
-    return render(request, 'frontend/dataset_list.html', {'datasets': accessible_datasets})
+    return render(request, 'frontend/dataset_list.html', {
+        'datasets': accessible_datasets,
+        'can_create_datasets': is_manager(request.user)
+    })
 
 @login_required
 def dataset_create_view(request):
     """Create a new dataset"""
+    if not is_manager(request.user):
+        return render(request, 'frontend/403.html', status=403)
     if request.method == 'POST':
         name = request.POST.get('name')
         description = request.POST.get('description', '')
@@ -403,7 +410,7 @@ def dataset_detail_view(request, dataset_id):
     """View dataset details"""
     dataset = get_object_or_404(DataSet, pk=dataset_id)
     if not dataset.can_access(request.user):
-        return HttpResponseForbidden('You do not have permission to view this dataset.')
+        return render(request, 'frontend/403.html', status=403)
     
     # Get counts for geometries and data entries
     geometries_count = DataGeometry.objects.filter(dataset=dataset).count()
@@ -412,7 +419,8 @@ def dataset_detail_view(request, dataset_id):
     return render(request, 'frontend/dataset_detail.html', {
         'dataset': dataset,
         'geometries_count': geometries_count,
-        'data_entries_count': data_entries_count
+        'data_entries_count': data_entries_count,
+        'can_create_typologies': is_manager(request.user)
     })
 
 @login_required
@@ -420,7 +428,7 @@ def dataset_edit_view(request, dataset_id):
     """Edit dataset (only owner can edit)"""
     dataset = get_object_or_404(DataSet, pk=dataset_id)
     if dataset.owner != request.user:
-        return HttpResponseForbidden('You do not have permission to edit this dataset.')
+        return render(request, 'frontend/403.html', status=403)
     
     if request.method == 'POST':
         dataset.name = request.POST.get('name')
@@ -445,7 +453,7 @@ def dataset_access_view(request, dataset_id):
     """Manage dataset access (only owner can manage access)"""
     dataset = get_object_or_404(DataSet, pk=dataset_id)
     if dataset.owner != request.user:
-        return HttpResponseForbidden('You do not have permission to manage access to this dataset.')
+        return render(request, 'frontend/403.html', status=403)
     
     if request.method == 'POST':
         user_ids = request.POST.getlist('shared_users')
@@ -485,7 +493,7 @@ def dataset_data_input_view(request, dataset_id):
     """Data input view with map and entry editing"""
     dataset = get_object_or_404(DataSet, pk=dataset_id)
     if not dataset.can_access(request.user):
-        return HttpResponseForbidden('You do not have permission to view this dataset.')
+        return render(request, 'frontend/403.html', status=403)
     
     # Get all geometries for this dataset with their entries
     geometries = DataGeometry.objects.filter(dataset=dataset).prefetch_related('entries')
@@ -551,7 +559,7 @@ def dataset_map_data_view(request, dataset_id):
     try:
         dataset = get_object_or_404(DataSet, pk=dataset_id)
         if not dataset.can_access(request.user):
-            return HttpResponseForbidden('You do not have permission to view this dataset.')
+            return render(request, 'frontend/403.html', status=403)
         
         # Get map bounds from request parameters
         bounds = request.GET.get('bounds')
@@ -627,7 +635,7 @@ def dataset_clear_data_view(request, dataset_id):
     
     # Only dataset owner can clear data
     if dataset.owner != request.user:
-        return HttpResponseForbidden('You do not have permission to clear data from this dataset.')
+        return render(request, 'frontend/403.html', status=403)
     
     if request.method == 'POST':
         try:
@@ -681,7 +689,7 @@ def entry_edit_view(request, entry_id):
     dataset = geometry.dataset
     
     if not dataset.can_access(request.user):
-        return HttpResponseForbidden('You do not have permission to edit this entry.')
+        return render(request, 'frontend/403.html', status=403)
     
     if request.method == 'POST':
         entry.name = request.POST.get('name')
@@ -713,7 +721,7 @@ def entry_create_view(request, geometry_id):
     dataset = geometry.dataset
     
     if not dataset.can_access(request.user):
-        return HttpResponseForbidden('You do not have permission to create entries for this dataset.')
+        return render(request, 'frontend/403.html', status=403)
     
     if request.method == 'POST':
         try:
@@ -795,7 +803,7 @@ def geometry_create_view(request, dataset_id):
     """Create a new geometry point for a dataset"""
     dataset = get_object_or_404(DataSet, pk=dataset_id)
     if not dataset.can_access(request.user):
-        return HttpResponseForbidden('You do not have permission to create geometries for this dataset.')
+        return render(request, 'frontend/403.html', status=403)
     
     if request.method == 'POST':
         try:
@@ -855,7 +863,7 @@ def file_upload_view(request, entry_id):
     dataset = geometry.dataset
     
     if not dataset.can_access(request.user):
-        return HttpResponseForbidden('You do not have permission to upload files for this entry.')
+        return render(request, 'frontend/403.html', status=403)
     
     if request.method == 'POST':
         uploaded_files = request.FILES.getlist('files')
@@ -898,7 +906,7 @@ def file_download_view(request, file_id):
     dataset = geometry.dataset
     
     if not dataset.can_access(request.user):
-        return HttpResponseForbidden('You do not have permission to download this file.')
+        return render(request, 'frontend/403.html', status=403)
     
     # Check if file exists
     if not os.path.exists(entry_file.file.path):
@@ -919,7 +927,7 @@ def file_delete_view(request, file_id):
     dataset = geometry.dataset
     
     if not dataset.can_access(request.user):
-        return HttpResponseForbidden('You do not have permission to delete this file.')
+        return render(request, 'frontend/403.html', status=403)
     
     if request.method == 'POST':
         # Log the action before deletion
@@ -944,7 +952,7 @@ def entry_detail_view(request, entry_id):
     dataset = geometry.dataset
     
     if not dataset.can_access(request.user):
-        return HttpResponseForbidden('You do not have permission to view this entry.')
+        return render(request, 'frontend/403.html', status=403)
     
     # Debug: Print file information
     print(f"Entry {entry_id} has {entry.files.count()} files")
@@ -963,7 +971,7 @@ def dataset_csv_import_view(request, dataset_id):
     dataset = get_object_or_404(DataSet, pk=dataset_id)
     if not dataset.can_access(request.user):
         logger.warning(f"User {request.user.username} attempted to access dataset {dataset_id} without permission")
-        return HttpResponseForbidden('You do not have permission to import data into this dataset.')
+        return render(request, 'frontend/403.html', status=403)
     
     if request.method == 'POST':
         logger.info("Processing POST request for CSV import")
@@ -1383,7 +1391,7 @@ def import_summary_view(request, dataset_id):
     
     # Check if user has access to this dataset
     if not dataset.can_access(request.user):
-        return HttpResponseForbidden("You do not have permission to view this dataset.")
+        return render(request, 'frontend/403.html', status=403)
     
     # Calculate current dataset statistics
     total_geometries = DataGeometry.objects.filter(dataset=dataset).count()
@@ -1401,7 +1409,7 @@ def import_summary_view(request, dataset_id):
 def debug_import_view(request, dataset_id):
     """Debug view to test CSV import with sample data"""
     if not request.user.is_superuser:
-        return HttpResponseForbidden("Debug view only available to superusers")
+        return render(request, 'frontend/403.html', status=403)
     
     dataset = get_object_or_404(DataSet, id=dataset_id)
     
@@ -1434,7 +1442,7 @@ def dataset_export_options_view(request, dataset_id):
     
     # Check if user has access to this dataset
     if not dataset.can_access(request.user):
-        return HttpResponseForbidden("You do not have permission to export this dataset.")
+        return render(request, 'frontend/403.html', status=403)
     
     # Get dataset statistics
     geometries_count = DataGeometry.objects.filter(dataset=dataset).count()
@@ -1464,7 +1472,7 @@ def dataset_csv_export_view(request, dataset_id):
     
     # Check if user has access to this dataset
     if not dataset.can_access(request.user):
-        return HttpResponseForbidden("You do not have permission to export this dataset.")
+        return render(request, 'frontend/403.html', status=403)
     
     # Get all geometries for this dataset
     geometries = DataGeometry.objects.filter(dataset=dataset).order_by('id_kurz')
@@ -1564,6 +1572,8 @@ def dataset_csv_export_view(request, dataset_id):
 @login_required
 def typology_create_view(request):
     """Create a new typology"""
+    if not is_manager(request.user):
+        return render(request, 'frontend/403.html', status=403)
     if request.method == 'POST':
         name = request.POST.get('name')
         if not name:
@@ -1752,7 +1762,8 @@ def typology_select_view(request, dataset_id):
         'dataset': dataset,
         'typologies': typologies,
         'geometries_count': geometries_count,
-        'data_entries_count': data_entries_count
+        'data_entries_count': data_entries_count,
+        'can_create_typologies': is_manager(request.user)
     })
 
 
@@ -1762,7 +1773,8 @@ def typology_list_view(request):
     typologies = Typology.objects.all().order_by('-created_at')
     
     return render(request, 'frontend/typology_list.html', {
-        'typologies': typologies
+        'typologies': typologies,
+        'can_create_typologies': is_manager(request.user)
     })
 
 

@@ -80,7 +80,7 @@
                     <div class="card">
                         <div class="card-body text-center">
                             <p class="text-muted mb-3">No typology assigned to this dataset.</p>
-                            {% if dataset.owner == user %}
+                            {% if dataset.owner == user and can_create_typologies %}
                                 <div class="btn-group" role="group">
                                     <a href="{% url 'typology_create' %}?dataset_id={{ dataset.id }}" class="btn btn-sm btn-success">
                                         <i class="bi bi-plus-circle"></i> Create New Typology
