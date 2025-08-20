@@ -160,16 +160,36 @@ def edit_user_view(request, user_id):
         return HttpResponseForbidden('You do not have permission to edit users.')
     user = get_object_or_404(User, pk=user_id)
     if request.method == 'POST':
-        form = UserChangeForm(request.POST, instance=user)
-        if form.is_valid():
-            form.save()
-            # Update groups
-            group_ids = request.POST.getlist('groups')
-            user.groups.set(Group.objects.filter(id__in=group_ids))
-            messages.success(request, 'User updated successfully.')
-            return redirect('user_management')
+        # Handle form submission
+        email = request.POST.get('email')
+        is_staff = request.POST.get('is_staff') == 'on'
+        is_superuser = request.POST.get('is_superuser') == 'on'
+        group_ids = request.POST.getlist('groups')
+        
+        # Update user fields
+        user.email = email
+        user.is_staff = is_staff
+        user.is_superuser = is_superuser
+        user.save()
+        
+        # Update groups
+        user.groups.set(Group.objects.filter(id__in=group_ids))
+        
+        # Debug: Print the values to see what's being saved
+        print(f"POST data: {request.POST}")
+        print(f"Email: {email}")
+        print(f"is_staff: {is_staff}")
+        print(f"is_superuser: {is_superuser}")
+        print(f"group_ids: {group_ids}")
+        print(f"Final user.is_staff: {user.is_staff}")
+        print(f"Final user.is_superuser: {user.is_superuser}")
+        
+        messages.success(request, 'User updated successfully.')
+        return redirect('user_management')
     else:
+        # Create form for display
         form = UserChangeForm(instance=user)
+    
     all_groups = Group.objects.all()
     user_groups = user.groups.values_list('id', flat=True)
     return render(request, 'frontend/edit_user.html', {'form': form, 'user_obj': user, 'all_groups': all_groups, 'user_groups': user_groups})
