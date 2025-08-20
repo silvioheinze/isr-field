@@ -36,7 +36,7 @@
                                     <td>{{ user.email }}</td>
                                     <td>{{ user.is_staff }}</td>
                                     <td>{{ user.is_superuser }}</td>
-                                    <td>{% for group in user.groups.all %}{{ group.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+                                    <td>{{ user.groups.count }} group{{ user.groups.count|pluralize }}</td>
                                     <td>
                                         <a href="{% url 'edit_user' user.id %}" class="btn btn-sm btn-primary">Edit</a>
                                         <a href="{% url 'delete_user' user.id %}" class="btn btn-sm btn-danger">Delete</a>
