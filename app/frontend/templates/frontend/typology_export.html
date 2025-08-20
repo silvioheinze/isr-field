@@ -92,7 +92,7 @@
                 <div class="card-body">
                     <p class="small text-muted">
                         <strong>Total entries:</strong> {{ typology.entries.count }}<br>
-                        <strong>Categories:</strong> {{ typology.entries.values_list.category|distinct|count }}<br>
+                        <strong>Categories:</strong> {{ categories_count }}<br>
                         <strong>Code range:</strong> 
                         {% if typology.entries.all %}
                             {{ typology.entries.aggregate.min_code|default:"N/A" }} - {{ typology.entries.aggregate.max_code|default:"N/A" }}

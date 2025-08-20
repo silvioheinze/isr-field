@@ -1656,6 +1656,20 @@ def typology_list_view(request):
 
 
 @login_required
+def typology_detail_view(request, typology_id):
+    """View typology details"""
+    typology = get_object_or_404(Typology, pk=typology_id)
+    entries = typology.entries.all().order_by('code')
+    datasets = typology.datasets.all()
+    
+    return render(request, 'frontend/typology_detail.html', {
+        'typology': typology,
+        'entries': entries,
+        'datasets': datasets
+    })
+
+
+@login_required
 def typology_import_view(request, typology_id):
     """Import typology entries from CSV"""
     typology = get_object_or_404(Typology, id=typology_id)
@@ -1833,4 +1847,10 @@ def typology_export_view(request, typology_id):
         
         return response
     
-    return render(request, 'frontend/typology_export.html', {'typology': typology})
+    # Calculate categories count
+    categories_count = typology.entries.values('category').distinct().count()
+    
+    return render(request, 'frontend/typology_export.html', {
+        'typology': typology,
+        'categories_count': categories_count
+    })

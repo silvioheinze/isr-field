@@ -30,4 +30,4 @@
 [X] normize the buttons
 [X] fix data import / problem with entry name
 [X] format edit user template
-[ ] add detail view to typology
+[X] add detail view to typology

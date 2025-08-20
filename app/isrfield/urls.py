@@ -54,6 +54,7 @@ urlpatterns = [
     path('geometries/<int:geometry_id>/entries/create/', frontend_views.entry_create_view, name='entry_create'),
     path('typologies/', frontend_views.typology_list_view, name='typology_list'),
     path('typologies/create/', frontend_views.typology_create_view, name='typology_create'),
+    path('typologies/<int:typology_id>/', frontend_views.typology_detail_view, name='typology_detail'),
     path('typologies/<int:typology_id>/edit/', frontend_views.typology_edit_view, name='typology_edit'),
     path('typologies/<int:typology_id>/import/', frontend_views.typology_import_view, name='typology_import'),
     path('typologies/<int:typology_id>/export/', frontend_views.typology_export_view, name='typology_export'),

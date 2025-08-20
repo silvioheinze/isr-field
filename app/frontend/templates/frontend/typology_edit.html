@@ -30,9 +30,6 @@
                             <a href="{% url 'typology_import' typology.id %}" class="btn btn-sm btn-info">
                                 <i class="bi bi-upload"></i> Import CSV
                             </a>
-                            <a href="{% url 'typology_export' typology.id %}" class="btn btn-sm btn-outline-success">
-                                <i class="bi bi-download"></i> Export CSV
-                            </a>
                             <button type="button" class="btn btn-sm btn-success" id="addEntryBtn">
                                 <i class="bi bi-plus-circle"></i> Add New Entry
                             </button>
@@ -81,7 +78,7 @@
                 </div>
                 
                 <div class="d-flex justify-content-between">
-                    <a href="{% if dataset_id %}{% url 'dataset_detail' dataset_id %}{% else %}{% url 'dataset_list' %}{% endif %}" class="btn btn-secondary">Cancel</a>
+                    <a href="{% url 'typology_detail' typology.id %}" class="btn btn-secondary">Cancel</a>
                     <button type="submit" class="btn btn-primary">Save Changes</button>
                 </div>
             </form>

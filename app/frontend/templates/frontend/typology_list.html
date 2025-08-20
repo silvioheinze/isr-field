@@ -43,10 +43,13 @@
                                 {% endif %}
                                 
                                 <div class="d-grid gap-2">
+                                    <a href="{% url 'typology_detail' typology.id %}" class="btn btn-outline-primary btn-sm">
+                                        <i class="bi bi-eye"></i> View Details
+                                    </a>
                                     {% if typology.created_by == user %}
-                                        <a href="{% url 'typology_edit' typology.id %}" class="btn btn-primary btn-sm">Edit Typology</a>
-                                    {% else %}
-                                        <a href="{% url 'typology_edit' typology.id %}" class="btn btn-outline-secondary btn-sm">View Details</a>
+                                        <a href="{% url 'typology_edit' typology.id %}" class="btn btn-primary btn-sm">
+                                            <i class="bi bi-pencil"></i> Edit Typology
+                                        </a>
                                     {% endif %}
                                 </div>
                             </div>
