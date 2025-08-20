@@ -4,32 +4,118 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
+    <title>Login - ISR Field</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
 </head>
-<body>
-<div class="container mt-5" style="max-width: 400px;">
-    <h2 class="mb-4">Login</h2>
-    {% if form.errors %}
-        <div class="alert alert-danger">Invalid username or password.</div>
-    {% endif %}
-    <form method="post" action="">
-        {% csrf_token %}
-        <div class="mb-3">
-            <label for="id_username" class="form-label">Username</label>
-            <input type="text" name="username" autofocus required class="form-control" id="id_username">
+<body class="bg-light">
+<div class="container-fluid">
+    <div class="row justify-content-center min-vh-100 align-items-center">
+        <div class="col-12 col-sm-8 col-md-6 col-lg-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white text-center py-3">
+                    <h4 class="mb-0">
+                        <i class="bi bi-box-arrow-in-right"></i> Login to ISR Field
+                    </h4>
+                </div>
+                <div class="card-body p-4">
+                    {% if form.errors %}
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            Invalid username or password.
+                        </div>
+                    {% endif %}
+                    
+                    <form method="post" action="">
+                        {% csrf_token %}
+                        
+                        <!-- Username Field -->
+                        <div class="mb-3">
+                            <label for="id_username" class="form-label fw-semibold">
+                                <i class="bi bi-person"></i> Username
+                            </label>
+                            <input type="text" name="username" autofocus required class="form-control" id="id_username">
+                        </div>
+
+                        <!-- Password Field -->
+                        <div class="mb-4">
+                            <label for="id_password" class="form-label fw-semibold">
+                                <i class="bi bi-lock"></i> Password
+                            </label>
+                            <input type="password" name="password" required class="form-control" id="id_password">
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-check-circle"></i> Login
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                <div class="card-footer bg-light text-center py-3">
+                    <p class="mb-0 small">
+                        Don't have an account? 
+                        <a href="{% url 'register' %}" class="text-decoration-none fw-semibold">Register here</a>
+                    </p>
+                    <p class="mb-0 small mt-2">
+                        <a href="{% url 'password_reset_form' %}" class="text-decoration-none">
+                            <i class="bi bi-key"></i> Forgot your password?
+                        </a>
+                    </p>
+                </div>
+            </div>
         </div>
-        <div class="mb-3">
-            <label for="id_password" class="form-label">Password</label>
-            <input type="password" name="password" required class="form-control" id="id_password">
-        </div>
-        <button type="submit" class="btn btn-primary w-100">Login</button>
-    </form>
-    <div class="mt-3">
-        <a href="{% url 'password_reset_form' %}">Forgot password?</a> |
-        <a href="{% url 'register' %}">Register</a>
     </div>
 </div>
+
+<style>
+    .form-control {
+        border-radius: 0.5rem;
+        border: 1px solid #dee2e6;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+    }
+    
+    .form-control:focus {
+        border-color: #0047BB;
+        box-shadow: 0 0 0 0.2rem rgba(0, 71, 187, 0.25);
+    }
+    
+    .btn {
+        border-radius: 0.5rem;
+        font-weight: 500;
+    }
+    
+    .card {
+        border-radius: 1rem;
+        overflow: hidden;
+    }
+    
+    .card-header {
+        background-color: #0047BB !important;
+    }
+    
+    .alert {
+        border-radius: 0.5rem;
+    }
+    
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding: 1rem;
+        }
+        
+        .card-body {
+            padding: 1.5rem;
+        }
+        
+        .btn-lg {
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+        }
+    }
+</style>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html> 
