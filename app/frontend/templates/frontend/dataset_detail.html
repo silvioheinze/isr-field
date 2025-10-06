@@ -61,6 +61,104 @@
             </div>
             
             <div class="mb-4">
+                <h5>Field Configuration</h5>
+                <div class="card">
+                    <div class="card-body">
+                        <p class="text-muted mb-3">Configure which fields are available for data entry in this dataset.</p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Usage Code Fields</h6>
+                                <ul class="list-unstyled">
+                                    <li><strong>{{ field_config.usage_code1_label }}:</strong> {% if field_config.usage_code1_enabled %}<span class="text-success">Enabled</span>{% else %}<span class="text-muted">Disabled</span>{% endif %}</li>
+                                    <li><strong>{{ field_config.usage_code2_label }}:</strong> {% if field_config.usage_code2_enabled %}<span class="text-success">Enabled</span>{% else %}<span class="text-muted">Disabled</span>{% endif %}</li>
+                                    <li><strong>{{ field_config.usage_code3_label }}:</strong> {% if field_config.usage_code3_enabled %}<span class="text-success">Enabled</span>{% else %}<span class="text-muted">Disabled</span>{% endif %}</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Category Fields</h6>
+                                <ul class="list-unstyled">
+                                    <li><strong>{{ field_config.cat_inno_label }}:</strong> {% if field_config.cat_inno_enabled %}<span class="text-success">Enabled</span>{% else %}<span class="text-muted">Disabled</span>{% endif %}</li>
+                                    <li><strong>{{ field_config.cat_wert_label }}:</strong> {% if field_config.cat_wert_enabled %}<span class="text-success">Enabled</span>{% else %}<span class="text-muted">Disabled</span>{% endif %}</li>
+                                    <li><strong>{{ field_config.cat_fili_label }}:</strong> {% if field_config.cat_fili_enabled %}<span class="text-success">Enabled</span>{% else %}<span class="text-muted">Disabled</span>{% endif %}</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <h6>Other Fields</h6>
+                                <ul class="list-unstyled">
+                                    <li><strong>{{ field_config.year_label }}:</strong> {% if field_config.year_enabled %}<span class="text-success">Enabled</span>{% else %}<span class="text-muted">Disabled</span>{% endif %}</li>
+                                    <li><strong>{{ field_config.name_label }}:</strong> {% if field_config.name_enabled %}<span class="text-success">Enabled</span>{% else %}<span class="text-muted">Disabled</span>{% endif %}</li>
+                                </ul>
+                            </div>
+                        </div>
+                        {% if dataset.owner == user %}
+                            <div class="mt-3">
+                                <a href="{% url 'dataset_field_config' dataset.id %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-gear"></i> Configure Fields
+                                </a>
+                                <a href="{% url 'custom_fields_manage' dataset.id %}" class="btn btn-sm btn-outline-success">
+                                    <i class="bi bi-plus-circle"></i> Manage Custom Fields
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-4">
+                <h5>Custom Fields</h5>
+                <div class="card">
+                    <div class="card-body">
+                        {% if custom_fields %}
+                            <p class="text-muted mb-3">Additional fields configured for this dataset.</p>
+                            <div class="row">
+                                {% for field in custom_fields %}
+                                    <div class="col-md-6 mb-3">
+                                        <div class="card border-left-primary">
+                                            <div class="card-body">
+                                                <h6 class="card-title">
+                                                    {{ field.label }}
+                                                    {% if field.required %}<span class="badge bg-warning text-dark">Required</span>{% endif %}
+                                                    {% if not field.enabled %}<span class="badge bg-secondary">Disabled</span>{% endif %}
+                                                </h6>
+                                                <p class="card-text">
+                                                    <small class="text-muted">
+                                                        <strong>Type:</strong> {{ field.get_field_type_display }}<br>
+                                                        <strong>Name:</strong> {{ field.name }}<br>
+                                                        {% if field.help_text %}<strong>Help:</strong> {{ field.help_text }}<br>{% endif %}
+                                                        {% if field.field_type == 'choice' and field.choices %}
+                                                            <strong>Choices:</strong> {{ field.choices|truncatechars:50 }}
+                                                        {% endif %}
+                                                    </small>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center">
+                                <p class="text-muted mb-3">No custom fields configured for this dataset.</p>
+                                {% if dataset.owner == user %}
+                                    <a href="{% url 'custom_field_create' dataset.id %}" class="btn btn-sm btn-success">
+                                        <i class="bi bi-plus-circle"></i> Add Custom Field
+                                    </a>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                        {% if dataset.owner == user and custom_fields %}
+                            <div class="mt-3">
+                                <a href="{% url 'custom_fields_manage' dataset.id %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-gear"></i> Manage Custom Fields
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-4">
                 <h5>Typology</h5>
                 {% if dataset.typology %}
                     <div class="card">

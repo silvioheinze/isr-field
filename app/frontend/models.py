@@ -141,4 +141,83 @@ class TypologyEntry(models.Model):
     class Meta:
         ordering = ['code']
         verbose_name_plural = "Typology Entries"
-        unique_together = ['typology', 'code'] 
+        unique_together = ['typology', 'code']
+
+
+class DatasetFieldConfig(models.Model):
+    """Configuration for dataset fields - allows customization of field names and visibility per dataset"""
+    dataset = models.OneToOneField(DataSet, on_delete=models.CASCADE, related_name='field_config')
+    
+    # Usage Code fields
+    usage_code1_label = models.CharField(max_length=100, default='Usage Code 1')
+    usage_code1_enabled = models.BooleanField(default=True)
+    usage_code2_label = models.CharField(max_length=100, default='Usage Code 2')
+    usage_code2_enabled = models.BooleanField(default=True)
+    usage_code3_label = models.CharField(max_length=100, default='Usage Code 3')
+    usage_code3_enabled = models.BooleanField(default=True)
+    
+    # Category fields
+    cat_inno_label = models.CharField(max_length=100, default='Category Innovation')
+    cat_inno_enabled = models.BooleanField(default=True)
+    cat_wert_label = models.CharField(max_length=100, default='Category Value')
+    cat_wert_enabled = models.BooleanField(default=True)
+    cat_fili_label = models.CharField(max_length=100, default='Category Filial')
+    cat_fili_enabled = models.BooleanField(default=True)
+    
+    # Year field
+    year_label = models.CharField(max_length=100, default='Year')
+    year_enabled = models.BooleanField(default=True)
+    
+    # Entry name field
+    name_label = models.CharField(max_length=100, default='Entry Name')
+    name_enabled = models.BooleanField(default=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"Field Config for {self.dataset.name}"
+    
+    class Meta:
+        verbose_name = "Dataset Field Configuration"
+        verbose_name_plural = "Dataset Field Configurations"
+
+
+class CustomField(models.Model):
+    """Custom fields that can be added to datasets"""
+    FIELD_TYPE_CHOICES = [
+        ('text', 'Text'),
+        ('integer', 'Integer'),
+        ('decimal', 'Decimal'),
+        ('boolean', 'Boolean'),
+        ('date', 'Date'),
+        ('choice', 'Choice'),
+    ]
+    
+    dataset = models.ForeignKey(DataSet, on_delete=models.CASCADE, related_name='custom_fields')
+    name = models.CharField(max_length=100, help_text="Field name (will be used as column name)")
+    label = models.CharField(max_length=100, help_text="Display label for the field")
+    field_type = models.CharField(max_length=20, choices=FIELD_TYPE_CHOICES, default='text')
+    required = models.BooleanField(default=False)
+    enabled = models.BooleanField(default=True)
+    help_text = models.TextField(blank=True, null=True, help_text="Help text to display to users")
+    choices = models.TextField(blank=True, null=True, help_text="Comma-separated choices for choice fields")
+    order = models.PositiveIntegerField(default=0, help_text="Display order (0 = first)")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.label} ({self.dataset.name})"
+    
+    def get_choices_list(self):
+        """Get choices as a list for choice fields"""
+        if self.field_type == 'choice' and self.choices:
+            return [choice.strip() for choice in self.choices.split(',') if choice.strip()]
+        return []
+    
+    class Meta:
+        ordering = ['order', 'name']
+        verbose_name = "Custom Field"
+        verbose_name_plural = "Custom Fields"
+        unique_together = ['dataset', 'name']  # Field names must be unique per dataset 

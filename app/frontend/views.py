@@ -13,7 +13,7 @@ from django.contrib import messages
 from django.urls import reverse
 from django.contrib.auth.models import Group
 from django import forms
-from .models import AuditLog, DataSet, DataGeometry, DataEntry, DataEntryFile, Typology, TypologyEntry
+from .models import AuditLog, DataSet, DataGeometry, DataEntry, DataEntryFile, Typology, TypologyEntry, DatasetFieldConfig, CustomField
 from django.contrib.auth.decorators import login_required, permission_required
 import json
 import csv
@@ -39,6 +39,99 @@ from django.core.mail import send_mail
 
 # Set up logging for import debugging
 logger = logging.getLogger(__name__)
+
+class DatasetFieldConfigForm(forms.ModelForm):
+    """Form for configuring dataset field settings"""
+    
+    class Meta:
+        model = DatasetFieldConfig
+        fields = [
+            'usage_code1_label', 'usage_code1_enabled',
+            'usage_code2_label', 'usage_code2_enabled', 
+            'usage_code3_label', 'usage_code3_enabled',
+            'cat_inno_label', 'cat_inno_enabled',
+            'cat_wert_label', 'cat_wert_enabled',
+            'cat_fili_label', 'cat_fili_enabled',
+            'year_label', 'year_enabled',
+            'name_label', 'name_enabled'
+        ]
+        widgets = {
+            'usage_code1_label': forms.TextInput(attrs={'class': 'form-control'}),
+            'usage_code1_enabled': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'usage_code2_label': forms.TextInput(attrs={'class': 'form-control'}),
+            'usage_code2_enabled': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'usage_code3_label': forms.TextInput(attrs={'class': 'form-control'}),
+            'usage_code3_enabled': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'cat_inno_label': forms.TextInput(attrs={'class': 'form-control'}),
+            'cat_inno_enabled': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'cat_wert_label': forms.TextInput(attrs={'class': 'form-control'}),
+            'cat_wert_enabled': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'cat_fili_label': forms.TextInput(attrs={'class': 'form-control'}),
+            'cat_fili_enabled': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'year_label': forms.TextInput(attrs={'class': 'form-control'}),
+            'year_enabled': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'name_label': forms.TextInput(attrs={'class': 'form-control'}),
+            'name_enabled': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+class CustomFieldForm(forms.ModelForm):
+    """Form for creating and editing custom fields"""
+    
+    class Meta:
+        model = CustomField
+        fields = ['name', 'label', 'field_type', 'required', 'enabled', 'help_text', 'choices', 'order']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'field_name'}),
+            'label': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Display Label'}),
+            'field_type': forms.Select(attrs={'class': 'form-select'}),
+            'required': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'enabled': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'help_text': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'choices': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Option 1, Option 2, Option 3'}),
+            'order': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
+        }
+    
+    def clean_name(self):
+        """Validate field name"""
+        name = self.cleaned_data.get('name')
+        if name:
+            # Convert to lowercase and replace spaces with underscores
+            name = name.lower().replace(' ', '_')
+            # Remove any non-alphanumeric characters except underscores
+            import re
+            name = re.sub(r'[^a-z0-9_]', '', name)
+            # Ensure it starts with a letter
+            if name and not name[0].isalpha():
+                name = 'field_' + name
+        return name
+    
+    def clean_choices(self):
+        """Validate choices for choice fields"""
+        choices = self.cleaned_data.get('choices')
+        field_type = self.cleaned_data.get('field_type')
+        
+        if field_type == 'choice' and not choices:
+            raise forms.ValidationError("Choices are required for choice fields.")
+        
+        return choices
+
+
+class CustomFieldInlineFormSet(forms.BaseInlineFormSet):
+    """Formset for managing multiple custom fields"""
+    
+    def clean(self):
+        """Validate the formset"""
+        if any(self.errors):
+            return
+        
+        names = []
+        for form in self.forms:
+            if form.cleaned_data and not form.cleaned_data.get('DELETE', False):
+                name = form.cleaned_data.get('name')
+                if name in names:
+                    raise forms.ValidationError(f"Field name '{name}' is duplicated.")
+                names.append(name)
 
 def health_check_view(request):
     """Health check endpoint for Docker container"""
@@ -416,11 +509,130 @@ def dataset_detail_view(request, dataset_id):
     geometries_count = DataGeometry.objects.filter(dataset=dataset).count()
     data_entries_count = DataEntry.objects.filter(geometry__dataset=dataset).count()
     
+    # Get or create field configuration
+    field_config, created = DatasetFieldConfig.objects.get_or_create(dataset=dataset)
+    
+    # Get custom fields for this dataset
+    custom_fields = CustomField.objects.filter(dataset=dataset).order_by('order', 'name')
+    
     return render(request, 'frontend/dataset_detail.html', {
         'dataset': dataset,
         'geometries_count': geometries_count,
         'data_entries_count': data_entries_count,
-        'can_create_typologies': is_manager(request.user)
+        'can_create_typologies': is_manager(request.user),
+        'field_config': field_config,
+        'custom_fields': custom_fields
+    })
+
+@login_required
+def dataset_field_config_view(request, dataset_id):
+    """Edit dataset field configuration (only owner can edit)"""
+    dataset = get_object_or_404(DataSet, pk=dataset_id)
+    if dataset.owner != request.user:
+        return render(request, 'frontend/403.html', status=403)
+    
+    # Get or create field configuration
+    field_config, created = DatasetFieldConfig.objects.get_or_create(dataset=dataset)
+    
+    # Get custom fields for this dataset
+    custom_fields = CustomField.objects.filter(dataset=dataset).order_by('order', 'name')
+    
+    if request.method == 'POST':
+        form = DatasetFieldConfigForm(request.POST, instance=field_config)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Field configuration updated successfully.')
+            return redirect('dataset_detail', dataset_id=dataset.id)
+    else:
+        form = DatasetFieldConfigForm(instance=field_config)
+    
+    return render(request, 'frontend/dataset_field_config.html', {
+        'dataset': dataset,
+        'form': form,
+        'custom_fields': custom_fields
+    })
+
+@login_required
+def custom_fields_manage_view(request, dataset_id):
+    """Manage custom fields for a dataset (only owner can edit)"""
+    dataset = get_object_or_404(DataSet, pk=dataset_id)
+    if dataset.owner != request.user:
+        return render(request, 'frontend/403.html', status=403)
+    
+    custom_fields = CustomField.objects.filter(dataset=dataset).order_by('order', 'name')
+    
+    return render(request, 'frontend/custom_fields_manage.html', {
+        'dataset': dataset,
+        'custom_fields': custom_fields
+    })
+
+@login_required
+def custom_field_create_view(request, dataset_id):
+    """Create a new custom field (only owner can edit)"""
+    dataset = get_object_or_404(DataSet, pk=dataset_id)
+    if dataset.owner != request.user:
+        return render(request, 'frontend/403.html', status=403)
+    
+    if request.method == 'POST':
+        form = CustomFieldForm(request.POST)
+        if form.is_valid():
+            custom_field = form.save(commit=False)
+            custom_field.dataset = dataset
+            custom_field.save()
+            messages.success(request, f'Custom field "{custom_field.label}" created successfully.')
+            return redirect('custom_fields_manage', dataset_id=dataset.id)
+    else:
+        form = CustomFieldForm()
+    
+    return render(request, 'frontend/custom_field_form.html', {
+        'dataset': dataset,
+        'form': form,
+        'title': 'Create Custom Field'
+    })
+
+@login_required
+def custom_field_edit_view(request, dataset_id, field_id):
+    """Edit a custom field (only owner can edit)"""
+    dataset = get_object_or_404(DataSet, pk=dataset_id)
+    if dataset.owner != request.user:
+        return render(request, 'frontend/403.html', status=403)
+    
+    custom_field = get_object_or_404(CustomField, pk=field_id, dataset=dataset)
+    
+    if request.method == 'POST':
+        form = CustomFieldForm(request.POST, instance=custom_field)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Custom field "{custom_field.label}" updated successfully.')
+            return redirect('custom_fields_manage', dataset_id=dataset.id)
+    else:
+        form = CustomFieldForm(instance=custom_field)
+    
+    return render(request, 'frontend/custom_field_form.html', {
+        'dataset': dataset,
+        'form': form,
+        'title': 'Edit Custom Field',
+        'custom_field': custom_field
+    })
+
+@login_required
+def custom_field_delete_view(request, dataset_id, field_id):
+    """Delete a custom field (only owner can edit)"""
+    dataset = get_object_or_404(DataSet, pk=dataset_id)
+    if dataset.owner != request.user:
+        return render(request, 'frontend/403.html', status=403)
+    
+    custom_field = get_object_or_404(CustomField, pk=field_id, dataset=dataset)
+    
+    if request.method == 'POST':
+        field_name = custom_field.label
+        custom_field.delete()
+        messages.success(request, f'Custom field "{field_name}" deleted successfully.')
+        return redirect('custom_fields_manage', dataset_id=dataset.id)
+    
+    return render(request, 'frontend/custom_field_delete.html', {
+        'dataset': dataset,
+        'custom_field': custom_field
     })
 
 @login_required

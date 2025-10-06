@@ -1,0 +1,90 @@
+{% extends 'frontend/_base.html' %}
+
+{% block title %}Delete Custom Field - {{ dataset.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-exclamation-triangle"></i> Delete Custom Field
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>Warning:</strong> This action cannot be undone. All data stored in this field will be permanently lost.
+                    </div>
+                    
+                    <h5>Field Details</h5>
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Label:</strong> {{ custom_field.label }}<br>
+                                    <strong>Name:</strong> {{ custom_field.name }}<br>
+                                    <strong>Type:</strong> {{ custom_field.get_field_type_display }}
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Required:</strong> {% if custom_field.required %}Yes{% else %}No{% endif %}<br>
+                                    <strong>Enabled:</strong> {% if custom_field.enabled %}Yes{% else %}No{% endif %}<br>
+                                    <strong>Order:</strong> {{ custom_field.order }}
+                                </div>
+                            </div>
+                            {% if custom_field.help_text %}
+                                <hr>
+                                <strong>Help Text:</strong> {{ custom_field.help_text }}
+                            {% endif %}
+                            {% if custom_field.field_type == 'choice' and custom_field.choices %}
+                                <hr>
+                                <strong>Choices:</strong> {{ custom_field.choices }}
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <form method="post" class="mt-4">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'custom_fields_manage' dataset.id %}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-trash"></i> Delete Field
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card {
+    border: 1px solid #e9ecef;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.bg-danger {
+    background-color: #dc3545 !important;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+    border-color: #bd2130;
+}
+
+.alert-warning {
+    background-color: #fff3cd;
+    border-color: #ffeaa7;
+    color: #856404;
+}
+</style>
+{% endblock %}
