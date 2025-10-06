@@ -214,8 +214,10 @@ class DatasetFieldConfigViewTest(TestCase):
         response = self.client.get(reverse('dataset_detail', args=[self.dataset.id]))
         
         self.assertEqual(response.status_code, 200)
-        self.assertIn('field_config', response.context)
-        self.assertEqual(response.context['field_config'], self.config)
+        self.assertIn('all_fields', response.context)
+        # Check that standard fields are present
+        all_fields = response.context['all_fields']
+        self.assertTrue(all_fields.filter(is_standard_field=True).exists())
     
     def test_dataset_field_config_view_get(self):
         """Test GET request to field configuration view"""
@@ -223,32 +225,31 @@ class DatasetFieldConfigViewTest(TestCase):
         response = self.client.get(reverse('dataset_field_config', args=[self.dataset.id]))
         
         self.assertEqual(response.status_code, 200)
-        self.assertIn('form', response.context)
+        self.assertIn('all_fields', response.context)
         self.assertIn('dataset', response.context)
         self.assertEqual(response.context['dataset'], self.dataset)
+        # Check that standard fields are present
+        all_fields = response.context['all_fields']
+        self.assertTrue(all_fields.filter(is_standard_field=True).exists())
     
     def test_dataset_field_config_view_post_valid(self):
         """Test POST request with valid data to field configuration view"""
         self.client.login(username='testuser', password='testpass123')
         
-        form_data = {
-            'usage_code1_label': 'Updated Usage 1',
-            'usage_code1_enabled': False,
-            'usage_code2_label': 'Updated Usage 2',
-            'usage_code2_enabled': True,
-            'usage_code3_label': 'Updated Usage 3',
-            'usage_code3_enabled': True,
-            'cat_inno_label': 'Updated Innovation',
-            'cat_inno_enabled': True,
-            'cat_wert_label': 'Updated Value',
-            'cat_wert_enabled': True,
-            'cat_fili_label': 'Updated Filial',
-            'cat_fili_enabled': True,
-            'year_label': 'Updated Year',
-            'year_enabled': True,
-            'name_label': 'Updated Name',
-            'name_enabled': True
-        }
+        # First, access the field config page to create standard fields
+        self.client.get(reverse('dataset_field_config', args=[self.dataset.id]))
+        
+        # Get the standard fields for this dataset
+        from frontend.models import CustomField
+        standard_fields = CustomField.objects.filter(dataset=self.dataset, is_standard_field=True)
+        
+        form_data = {}
+        for field in standard_fields:
+            form_data[f'field_{field.id}_label'] = f'Updated {field.label}'
+            form_data[f'field_{field.id}_enabled'] = 'on'
+            form_data[f'field_{field.id}_required'] = 'on' if field.name == 'year' else ''
+            form_data[f'field_{field.id}_help_text'] = f'Help for {field.label}'
+            form_data[f'field_{field.id}_order'] = field.order
         
         response = self.client.post(reverse('dataset_field_config', args=[self.dataset.id]), form_data)
         
@@ -256,10 +257,13 @@ class DatasetFieldConfigViewTest(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(response, reverse('dataset_detail', args=[self.dataset.id]))
         
-        # Check that the configuration was updated
-        updated_config = DatasetFieldConfig.objects.get(id=self.config.id)
-        self.assertEqual(updated_config.usage_code1_label, 'Updated Usage 1')
-        self.assertFalse(updated_config.usage_code1_enabled)
+        # Check that the fields were updated
+        updated_fields = CustomField.objects.filter(dataset=self.dataset, is_standard_field=True)
+        for field in updated_fields:
+            field.refresh_from_db()
+            # Check that the label starts with "Updated"
+            self.assertTrue(field.label.startswith('Updated'))
+            self.assertTrue(field.enabled)
     
     def test_dataset_field_config_view_unauthorized_user(self):
         """Test that unauthorized users cannot access field configuration"""
@@ -300,92 +304,91 @@ class DatasetFieldConfigIntegrationTest(TestCase):
         )
     
     def test_automatic_field_config_creation(self):
-        """Test that field config is automatically created when viewing dataset"""
-        # Initially no field config should exist
-        self.assertFalse(DatasetFieldConfig.objects.filter(dataset=self.dataset).exists())
+        """Test that standard fields are automatically created when viewing dataset"""
+        from frontend.models import CustomField
+        
+        # Initially no standard fields should exist
+        self.assertFalse(CustomField.objects.filter(dataset=self.dataset, is_standard_field=True).exists())
         
         self.client.login(username='testuser', password='testpass123')
         response = self.client.get(reverse('dataset_detail', args=[self.dataset.id]))
         
-        # After viewing dataset detail, field config should be created
-        self.assertTrue(DatasetFieldConfig.objects.filter(dataset=self.dataset).exists())
-        config = DatasetFieldConfig.objects.get(dataset=self.dataset)
+        # After viewing dataset detail, standard fields should be created
+        self.assertTrue(CustomField.objects.filter(dataset=self.dataset, is_standard_field=True).exists())
+        standard_fields = CustomField.objects.filter(dataset=self.dataset, is_standard_field=True)
         
-        # Check default values
-        self.assertEqual(config.usage_code1_label, 'Usage Code 1')
-        self.assertTrue(config.usage_code1_enabled)
+        # Check that we have the expected standard fields
+        field_names = [field.name for field in standard_fields]
+        expected_fields = ['name', 'usage_code1', 'usage_code2', 'usage_code3', 'cat_inno', 'cat_wert', 'cat_fili', 'year']
+        for expected_field in expected_fields:
+            self.assertIn(expected_field, field_names)
     
     def test_field_configuration_workflow(self):
         """Test complete workflow of configuring dataset fields"""
+        from frontend.models import CustomField
+        
         self.client.login(username='testuser', password='testpass123')
         
-        # 1. View dataset detail (should create field config)
+        # 1. View dataset detail (should create standard fields)
         response = self.client.get(reverse('dataset_detail', args=[self.dataset.id]))
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(DatasetFieldConfig.objects.filter(dataset=self.dataset).exists())
+        self.assertTrue(CustomField.objects.filter(dataset=self.dataset, is_standard_field=True).exists())
         
         # 2. Access field configuration page
         response = self.client.get(reverse('dataset_field_config', args=[self.dataset.id]))
         self.assertEqual(response.status_code, 200)
         
         # 3. Update field configuration
-        form_data = {
-            'usage_code1_label': 'Primary Usage',
-            'usage_code1_enabled': True,
-            'usage_code2_label': 'Secondary Usage',
-            'usage_code2_enabled': False,
-            'usage_code3_label': 'Tertiary Usage',
-            'usage_code3_enabled': True,
-            'cat_inno_label': 'Innovation Category',
-            'cat_inno_enabled': True,
-            'cat_wert_label': 'Value Category',
-            'cat_wert_enabled': False,
-            'cat_fili_label': 'Filial Category',
-            'cat_fili_enabled': True,
-            'year_label': 'Data Year',
-            'year_enabled': True,
-            'name_label': 'Entry Name',
-            'name_enabled': True
-        }
+        standard_fields = CustomField.objects.filter(dataset=self.dataset, is_standard_field=True)
+        form_data = {}
+        for field in standard_fields:
+            form_data[f'field_{field.id}_label'] = f'Updated {field.label}'
+            form_data[f'field_{field.id}_enabled'] = 'on'
+            form_data[f'field_{field.id}_required'] = 'on' if field.name == 'year' else ''
+            form_data[f'field_{field.id}_help_text'] = f'Help for {field.label}'
+            form_data[f'field_{field.id}_order'] = field.order
         
         response = self.client.post(reverse('dataset_field_config', args=[self.dataset.id]), form_data)
         self.assertEqual(response.status_code, 302)
         
         # 4. Verify changes were saved
-        updated_config = DatasetFieldConfig.objects.get(dataset=self.dataset)
-        self.assertEqual(updated_config.usage_code1_label, 'Primary Usage')
-        self.assertTrue(updated_config.usage_code1_enabled)
-        self.assertEqual(updated_config.usage_code2_label, 'Secondary Usage')
-        self.assertFalse(updated_config.usage_code2_enabled)
-        self.assertEqual(updated_config.cat_inno_label, 'Innovation Category')
-        self.assertTrue(updated_config.cat_inno_enabled)
-        self.assertEqual(updated_config.cat_wert_label, 'Value Category')
-        self.assertFalse(updated_config.cat_wert_enabled)
+        updated_fields = CustomField.objects.filter(dataset=self.dataset, is_standard_field=True)
+        for field in updated_fields:
+            field.refresh_from_db()
+            self.assertEqual(field.label, f'Updated {field.label}')
+            self.assertTrue(field.enabled)
     
     def test_field_configuration_display_in_dataset_detail(self):
         """Test that field configuration is properly displayed in dataset detail"""
-        # Create a field config with custom values
-        config = DatasetFieldConfig.objects.create(
+        from frontend.models import CustomField
+        
+        # Create custom fields with custom values
+        CustomField.objects.create(
             dataset=self.dataset,
-            usage_code1_label='Custom Usage 1',
-            usage_code1_enabled=True,
-            usage_code2_label='Custom Usage 2',
-            usage_code2_enabled=False,
-            cat_inno_label='Custom Innovation',
-            cat_inno_enabled=True,
-            cat_wert_label='Custom Value',
-            cat_wert_enabled=False
+            name='custom_field_1',
+            label='Custom Field 1',
+            field_type='text',
+            is_standard_field=False,
+            enabled=True,
+            required=False
+        )
+        CustomField.objects.create(
+            dataset=self.dataset,
+            name='custom_field_2',
+            label='Custom Field 2',
+            field_type='integer',
+            is_standard_field=False,
+            enabled=False,
+            required=True
         )
         
         self.client.login(username='testuser', password='testpass123')
         response = self.client.get(reverse('dataset_detail', args=[self.dataset.id]))
         
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Custom Usage 1')
-        self.assertContains(response, 'Custom Usage 2')
-        self.assertContains(response, 'Custom Innovation')
-        self.assertContains(response, 'Custom Value')
-        self.assertContains(response, 'Configure Fields')
+        self.assertContains(response, 'Custom Field 1')
+        self.assertContains(response, 'Custom Field 2')
+        self.assertContains(response, 'Configure All Fields')
     
     def test_field_configuration_permissions(self):
         """Test that only dataset owners can configure fields"""
@@ -855,9 +858,7 @@ class CustomFieldIntegrationTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Field 1')
         self.assertContains(response, 'Field 2')
-        self.assertContains(response, 'First custom field')
-        self.assertContains(response, 'Option A, Option B, Option C')
-        self.assertContains(response, 'Manage Custom Fields')
+        self.assertContains(response, 'Configure All Fields')
     
     def test_custom_fields_workflow(self):
         """Test complete workflow of managing custom fields"""

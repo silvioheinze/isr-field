@@ -42,7 +42,6 @@ urlpatterns = [
     path('datasets/<int:dataset_id>/', frontend_views.dataset_detail_view, name='dataset_detail'),
     path('datasets/<int:dataset_id>/edit/', frontend_views.dataset_edit_view, name='dataset_edit'),
     path('datasets/<int:dataset_id>/field-config/', frontend_views.dataset_field_config_view, name='dataset_field_config'),
-    path('datasets/<int:dataset_id>/custom-fields/', frontend_views.custom_fields_manage_view, name='custom_fields_manage'),
     path('datasets/<int:dataset_id>/custom-fields/create/', frontend_views.custom_field_create_view, name='custom_field_create'),
     path('datasets/<int:dataset_id>/custom-fields/<int:field_id>/edit/', frontend_views.custom_field_edit_view, name='custom_field_edit'),
     path('datasets/<int:dataset_id>/custom-fields/<int:field_id>/delete/', frontend_views.custom_field_delete_view, name='custom_field_delete'),

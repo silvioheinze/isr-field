@@ -79,6 +79,7 @@ class DataEntry(models.Model):
     cat_fili = models.IntegerField()
     year = models.IntegerField()
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_entries')
+    custom_fields = models.JSONField(default=dict, blank=True, help_text="Custom field values for this entry")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -194,10 +195,23 @@ class CustomField(models.Model):
         ('choice', 'Choice'),
     ]
     
+    # Standard field types that map to existing DataEntry fields
+    STANDARD_FIELD_CHOICES = [
+        ('name', 'Entry Name'),
+        ('usage_code1', 'Usage Code 1'),
+        ('usage_code2', 'Usage Code 2'),
+        ('usage_code3', 'Usage Code 3'),
+        ('cat_inno', 'Category Innovation'),
+        ('cat_wert', 'Category Value'),
+        ('cat_fili', 'Category Facility'),
+        ('year', 'Year'),
+    ]
+    
     dataset = models.ForeignKey(DataSet, on_delete=models.CASCADE, related_name='custom_fields')
     name = models.CharField(max_length=100, help_text="Field name (will be used as column name)")
     label = models.CharField(max_length=100, help_text="Display label for the field")
     field_type = models.CharField(max_length=20, choices=FIELD_TYPE_CHOICES, default='text')
+    is_standard_field = models.BooleanField(default=False, help_text="Whether this is a standard field (name, usage_code1, etc.)")
     required = models.BooleanField(default=False)
     enabled = models.BooleanField(default=True)
     help_text = models.TextField(blank=True, null=True, help_text="Help text to display to users")

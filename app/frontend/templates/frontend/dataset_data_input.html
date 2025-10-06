@@ -79,22 +79,42 @@
     <!-- CSRF Token for JavaScript -->
     {% csrf_token %}
     
+    <!-- Field Configuration Data -->
+    <script>
+        window.allFields = [
+            {% for field in all_fields %}
+            {
+                id: {{ field.id }},
+                name: "{{ field.name }}",
+                label: "{{ field.label }}",
+                field_type: "{{ field.field_type }}",
+                is_standard_field: {{ field.is_standard_field|yesno:"true,false" }},
+                required: {{ field.required|yesno:"true,false" }},
+                enabled: {{ field.enabled|yesno:"true,false" }},
+                help_text: "{{ field.help_text|default:"" }}",
+                choices: "{{ field.choices|default:"" }}",
+                order: {{ field.order }}
+            }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ];
+    </script>
+
     <!-- Map Section -->
     <div class="row g-0">
             <div class="position-relative">
-                <div id="map"></div>
-                <div class="map-controls">
-                    <button id="addPointBtn" class="btn btn-primary btn-sm">
+                    <div id="map"></div>
+                    <div class="map-controls">
+                        <button id="addPointBtn" class="btn btn-primary btn-sm">
                         <i class="bi bi-geo-alt"></i> Add
-                    </button>
+                        </button>
                     <button id="currentLocationBtn" class="btn btn-info btn-sm mt-1" title="My Location">
                         <i class="bi bi-geo-alt-fill"></i>
-                    </button>
-                    <button id="refreshDataBtn" class="btn btn-secondary btn-sm mt-1">
+                        </button>
+                        <button id="refreshDataBtn" class="btn btn-secondary btn-sm mt-1">
                         <i class="bi bi-arrow-clockwise"></i> Refresh
-                    </button>
-                </div>
+                        </button>
             </div>
+        </div>
     </div>
 
     <!-- Selected Geometry Details Section -->
@@ -103,7 +123,7 @@
             <div id="geometryDetails" class="geometry-details">
                 <div class="d-flex justify-content-between align-items-start mb-2">
                     <div>
-                        <h4 id="geometryTitle">Geometry Details</h4>
+                    <h4 id="geometryTitle">Geometry Details</h4>
                         {% if typology_data %}
                         <small class="text-muted">
                             <i class="bi bi-tag"></i> Typology: {{ typology_data.name }} 
@@ -113,7 +133,7 @@
                     </div>
                     <button id="closeDetails" class="btn btn-sm btn-outline-secondary">×</button>
                 </div>
-
+                
                 <div id="geometryInfo">
                     <!-- Geometry information will be populated by JavaScript -->
                 </div>
@@ -122,10 +142,10 @@
                     <div id="entriesList">
                         <!-- Entries will be populated by JavaScript -->
                     </div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
 
 </div>
@@ -177,6 +197,55 @@
         });
         
         return `<select class="form-control form-control-sm" id="${fieldId}">${options}</select>`;
+    }
+    
+    // Function to create custom field input based on field type
+    function createCustomFieldInput(field) {
+        let html = '';
+        const fieldId = 'new-custom-' + field.name;
+        
+        switch (field.field_type) {
+            case 'text':
+                html = '<input type="text" class="form-control form-control-sm" id="' + fieldId + '" placeholder="Enter ' + field.label.toLowerCase() + '">';
+                break;
+                
+            case 'integer':
+                html = '<input type="number" class="form-control form-control-sm" id="' + fieldId + '" placeholder="Enter ' + field.label.toLowerCase() + '">';
+                break;
+                
+            case 'decimal':
+                html = '<input type="number" step="0.01" class="form-control form-control-sm" id="' + fieldId + '" placeholder="Enter ' + field.label.toLowerCase() + '">';
+                break;
+                
+            case 'boolean':
+                html = '<select class="form-control form-control-sm" id="' + fieldId + '">';
+                html += '<option value="">Select option</option>';
+                html += '<option value="true">Yes</option>';
+                html += '<option value="false">No</option>';
+                html += '</select>';
+                break;
+                
+            case 'date':
+                html = '<input type="date" class="form-control form-control-sm" id="' + fieldId + '">';
+                break;
+                
+            case 'choice':
+                html = '<select class="form-control form-control-sm" id="' + fieldId + '">';
+                html += '<option value="">Select option</option>';
+                if (field.choices) {
+                    const choices = field.choices.split(',').map(choice => choice.trim());
+                    choices.forEach(function(choice) {
+                        html += '<option value="' + choice + '">' + choice + '</option>';
+                    });
+                }
+                html += '</select>';
+                break;
+                
+            default:
+                html = '<input type="text" class="form-control form-control-sm" id="' + fieldId + '" placeholder="Enter ' + field.label.toLowerCase() + '">';
+        }
+        
+        return html;
     }
     
     // Initialize map
@@ -678,53 +747,42 @@
             // Table body for first entry
             entriesHtml += '<tbody>';
             
-            // Entry Name row
-            entriesHtml += '<tr>';
-            entriesHtml += '<td><strong>Entry Name</strong></td>';
-            entriesHtml += '<td><input type="text" class="form-control form-control-sm" id="new-entry-name" placeholder="Enter entry name" value="' + point.id_kurz + '"></td>';
-            entriesHtml += '</tr>';
-            
-            // Usage Code 1 row
-            entriesHtml += '<tr>';
-            entriesHtml += '<td><strong>Usage Code 1</strong></td>';
-            entriesHtml += '<td>' + createUsageCodeDropdown('new-usage-code1', '') + '</td>';
-            entriesHtml += '</tr>';
-            
-            // Usage Code 2 row
-            entriesHtml += '<tr>';
-            entriesHtml += '<td><strong>Usage Code 2</strong></td>';
-            entriesHtml += '<td>' + createUsageCodeDropdown('new-usage-code2', '') + '</td>';
-            entriesHtml += '</tr>';
-            
-            // Usage Code 3 row
-            entriesHtml += '<tr>';
-            entriesHtml += '<td><strong>Usage Code 3</strong></td>';
-            entriesHtml += '<td>' + createUsageCodeDropdown('new-usage-code3', '') + '</td>';
-            entriesHtml += '</tr>';
-            
-            // Category Innovation row
-            entriesHtml += '<tr>';
-            entriesHtml += '<td><strong>Category Innovation</strong></td>';
-            entriesHtml += '<td><input type="text" class="form-control form-control-sm" id="new-cat-inno" placeholder="Enter category innovation"></td>';
-            entriesHtml += '</tr>';
-            
-            // Category Value row
-            entriesHtml += '<tr>';
-            entriesHtml += '<td><strong>Category Value</strong></td>';
-            entriesHtml += '<td><input type="text" class="form-control form-control-sm" id="new-cat-wert" placeholder="Enter category value"></td>';
-            entriesHtml += '</tr>';
-            
-            // Category Facility row
-            entriesHtml += '<tr>';
-            entriesHtml += '<td><strong>Category Facility</strong></td>';
-            entriesHtml += '<td><input type="text" class="form-control form-control-sm" id="new-cat-fili" placeholder="Enter category facility"></td>';
-            entriesHtml += '</tr>';
-            
-            // Year row
-            entriesHtml += '<tr>';
-            entriesHtml += '<td><strong>Year</strong></td>';
-            entriesHtml += '<td><input type="number" class="form-control form-control-sm" id="new-year" placeholder="Enter year" value="' + new Date().getFullYear() + '"></td>';
-            entriesHtml += '</tr>';
+            // All fields (both standard and custom)
+            if (window.allFields && window.allFields.length > 0) {
+                // Sort fields by order
+                const sortedFields = window.allFields.sort((a, b) => a.order - b.order);
+                
+                sortedFields.forEach(function(field) {
+                    if (field.enabled) {
+                        entriesHtml += '<tr>';
+                        entriesHtml += '<td><strong>' + field.label;
+                        if (field.required) {
+                            entriesHtml += ' <span class="text-danger">*</span>';
+                        }
+                        entriesHtml += '</strong>';
+                        if (field.help_text) {
+                            entriesHtml += '<br><small class="text-muted">' + field.help_text + '</small>';
+                        }
+                        entriesHtml += '</td>';
+                        
+                        // Create input based on field type and whether it's standard or custom
+                        if (field.is_standard_field) {
+                            if (field.name === 'name') {
+                                entriesHtml += '<td><input type="text" class="form-control form-control-sm" id="new-' + field.name + '" placeholder="Enter ' + field.label.toLowerCase() + '" value="' + point.id_kurz + '"></td>';
+                            } else if (field.name.startsWith('usage_code')) {
+                                entriesHtml += '<td>' + createUsageCodeDropdown('new-' + field.name, '') + '</td>';
+                            } else if (field.name === 'year') {
+                                entriesHtml += '<td><input type="number" class="form-control form-control-sm" id="new-' + field.name + '" placeholder="Enter ' + field.label.toLowerCase() + '" value="' + new Date().getFullYear() + '"></td>';
+                            } else {
+                                entriesHtml += '<td><input type="text" class="form-control form-control-sm" id="new-' + field.name + '" placeholder="Enter ' + field.label.toLowerCase() + '"></td>';
+                            }
+                        } else {
+                            entriesHtml += '<td>' + createCustomFieldInput(field) + '</td>';
+                        }
+                        entriesHtml += '</tr>';
+                    }
+                });
+            }
             
             // Actions row
             entriesHtml += '<tr>';
@@ -879,36 +937,36 @@
                 var timestamp = Date.now();
                 var idKurz = 'GEO_' + timestamp + '_' + Math.round(lat * 1000000) + '_' + Math.round(lng * 1000000);
                 
-                // Create form and submit
-                var form = document.createElement('form');
-                form.method = 'POST';
-                form.action = '{% url "geometry_create" dataset.id %}';
-                
-                // Get CSRF token
-                var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-                var csrfInput = document.createElement('input');
-                csrfInput.type = 'hidden';
-                csrfInput.name = 'csrfmiddlewaretoken';
-                csrfInput.value = csrfToken;
-                form.appendChild(csrfInput);
-                
-                var inputs = [
-                    {name: 'address', value: address.trim()},
+                    // Create form and submit
+                    var form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = '{% url "geometry_create" dataset.id %}';
+                    
+                    // Get CSRF token
+                    var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                    var csrfInput = document.createElement('input');
+                    csrfInput.type = 'hidden';
+                    csrfInput.name = 'csrfmiddlewaretoken';
+                    csrfInput.value = csrfToken;
+                    form.appendChild(csrfInput);
+                    
+                    var inputs = [
+                        {name: 'address', value: address.trim()},
                     {name: 'id_kurz', value: idKurz},
-                    {name: 'lat', value: lat},
-                    {name: 'lng', value: lng}
-                ];
-                
-                inputs.forEach(function(input) {
-                    var inputElement = document.createElement('input');
-                    inputElement.type = 'hidden';
-                    inputElement.name = input.name;
-                    inputElement.value = input.value;
-                    form.appendChild(inputElement);
-                });
-                
-                document.body.appendChild(form);
-                form.submit();
+                        {name: 'lat', value: lat},
+                        {name: 'lng', value: lng}
+                    ];
+                    
+                    inputs.forEach(function(input) {
+                        var inputElement = document.createElement('input');
+                        inputElement.type = 'hidden';
+                        inputElement.name = input.name;
+                        inputElement.value = input.value;
+                        form.appendChild(inputElement);
+                    });
+                    
+                    document.body.appendChild(form);
+                    form.submit();
             } else {
                 alert('Address is required.');
             }
@@ -1011,24 +1069,48 @@
                 var currentPoint = mapData.find(p => p.lat === selectedMarker.getLatLng().lat && p.lng === selectedMarker.getLatLng().lng);
                 if (currentPoint) {
                     // Collect form data
-                    var formData = {
-                        name: document.getElementById('new-entry-name').value || currentPoint.id_kurz,
-                        year: document.getElementById('new-year').value,
-                        usage_code1: document.getElementById('new-usage-code1').value || '0',
-                        usage_code2: document.getElementById('new-usage-code2').value || '0',
-                        usage_code3: document.getElementById('new-usage-code3').value || '0',
-                        cat_inno: document.getElementById('new-cat-inno').value || '0',
-                        cat_wert: document.getElementById('new-cat-wert').value || '0',
-                        cat_fili: document.getElementById('new-cat-fili').value || '0'
-                    };
+                    var formData = {};
+                    
+                    // Add all enabled fields
+                    if (window.allFields && window.allFields.length > 0) {
+                        window.allFields.forEach(function(field) {
+                            if (field.enabled) {
+                                if (field.is_standard_field) {
+                                    var fieldElement = document.getElementById('new-' + field.name);
+                                    if (fieldElement) {
+                                        formData[field.name] = fieldElement.value;
+                                    }
+                                } else {
+                                    var fieldElement = document.getElementById('new-custom-' + field.name);
+                                    if (fieldElement) {
+                                        formData['custom_' + field.name] = fieldElement.value;
+                                    }
+                                }
+                            }
+                        });
+                    }
                     
                     console.log('Form data being sent:', formData);
                     console.log('Uploaded files:', uploadedFiles);
                     
                     // Validate required fields
-                    if (!formData.year) {
-                        alert('Year is a required field.');
-                        return;
+                    if (window.allFields && window.allFields.length > 0) {
+                        for (var i = 0; i < window.allFields.length; i++) {
+                            var field = window.allFields[i];
+                            if (field.enabled && field.required) {
+                                var fieldElement;
+                                if (field.is_standard_field) {
+                                    fieldElement = document.getElementById('new-' + field.name);
+                                } else {
+                                    fieldElement = document.getElementById('new-custom-' + field.name);
+                                }
+                                
+                                if (!fieldElement || !fieldElement.value) {
+                                    alert(field.label + ' is a required field.');
+                                    return;
+                                }
+                            }
+                        }
                     }
                     
                     // Create FormData for file upload

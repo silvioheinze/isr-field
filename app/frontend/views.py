@@ -509,66 +509,104 @@ def dataset_detail_view(request, dataset_id):
     geometries_count = DataGeometry.objects.filter(dataset=dataset).count()
     data_entries_count = DataEntry.objects.filter(geometry__dataset=dataset).count()
     
-    # Get or create field configuration
-    field_config, created = DatasetFieldConfig.objects.get_or_create(dataset=dataset)
+    # Get all fields for this dataset (both standard and custom)
+    all_fields = CustomField.objects.filter(dataset=dataset).order_by('order', 'name')
     
-    # Get custom fields for this dataset
-    custom_fields = CustomField.objects.filter(dataset=dataset).order_by('order', 'name')
+    # If no standard fields exist, create them
+    if not all_fields.filter(is_standard_field=True).exists():
+        standard_fields = [
+            {'name': 'name', 'label': 'Entry Name', 'field_type': 'text', 'order': 0},
+            {'name': 'usage_code1', 'label': 'Usage Code 1', 'field_type': 'integer', 'order': 1},
+            {'name': 'usage_code2', 'label': 'Usage Code 2', 'field_type': 'integer', 'order': 2},
+            {'name': 'usage_code3', 'label': 'Usage Code 3', 'field_type': 'integer', 'order': 3},
+            {'name': 'cat_inno', 'label': 'Category Innovation', 'field_type': 'integer', 'order': 4},
+            {'name': 'cat_wert', 'label': 'Category Value', 'field_type': 'integer', 'order': 5},
+            {'name': 'cat_fili', 'label': 'Category Facility', 'field_type': 'integer', 'order': 6},
+            {'name': 'year', 'label': 'Year', 'field_type': 'integer', 'order': 7},
+        ]
+        
+        for field_data in standard_fields:
+            CustomField.objects.create(
+                dataset=dataset,
+                name=field_data['name'],
+                label=field_data['label'],
+                field_type=field_data['field_type'],
+                is_standard_field=True,
+                required=(field_data['name'] == 'year'),
+                enabled=True,
+                order=field_data['order']
+            )
+        
+        # Refresh the queryset
+        all_fields = CustomField.objects.filter(dataset=dataset).order_by('order', 'name')
     
     return render(request, 'frontend/dataset_detail.html', {
         'dataset': dataset,
         'geometries_count': geometries_count,
         'data_entries_count': data_entries_count,
         'can_create_typologies': is_manager(request.user),
-        'field_config': field_config,
-        'custom_fields': custom_fields
+        'all_fields': all_fields
     })
 
 @login_required
 def dataset_field_config_view(request, dataset_id):
-    """Edit dataset field configuration (only owner can edit)"""
+    """Manage all fields for a dataset (only owner can edit)"""
     dataset = get_object_or_404(DataSet, pk=dataset_id)
     if dataset.owner != request.user:
         return render(request, 'frontend/403.html', status=403)
     
-    # Get or create field configuration
-    field_config, created = DatasetFieldConfig.objects.get_or_create(dataset=dataset)
+    # Get all fields for this dataset (both standard and custom)
+    all_fields = CustomField.objects.filter(dataset=dataset).order_by('order', 'name')
     
-    # Get custom fields for this dataset
-    custom_fields = CustomField.objects.filter(dataset=dataset).order_by('order', 'name')
+    # If no standard fields exist, create them
+    if not all_fields.filter(is_standard_field=True).exists():
+        standard_fields = [
+            {'name': 'name', 'label': 'Entry Name', 'field_type': 'text', 'order': 0},
+            {'name': 'usage_code1', 'label': 'Usage Code 1', 'field_type': 'integer', 'order': 1},
+            {'name': 'usage_code2', 'label': 'Usage Code 2', 'field_type': 'integer', 'order': 2},
+            {'name': 'usage_code3', 'label': 'Usage Code 3', 'field_type': 'integer', 'order': 3},
+            {'name': 'cat_inno', 'label': 'Category Innovation', 'field_type': 'integer', 'order': 4},
+            {'name': 'cat_wert', 'label': 'Category Value', 'field_type': 'integer', 'order': 5},
+            {'name': 'cat_fili', 'label': 'Category Facility', 'field_type': 'integer', 'order': 6},
+            {'name': 'year', 'label': 'Year', 'field_type': 'integer', 'order': 7},
+        ]
+        
+        for field_data in standard_fields:
+            CustomField.objects.create(
+                dataset=dataset,
+                name=field_data['name'],
+                label=field_data['label'],
+                field_type=field_data['field_type'],
+                is_standard_field=True,
+                required=(field_data['name'] == 'year'),
+                enabled=True,
+                order=field_data['order']
+            )
+        
+        # Refresh the queryset
+        all_fields = CustomField.objects.filter(dataset=dataset).order_by('order', 'name')
     
     if request.method == 'POST':
-        form = DatasetFieldConfigForm(request.POST, instance=field_config)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Field configuration updated successfully.')
-            return redirect('dataset_detail', dataset_id=dataset.id)
-    else:
-        form = DatasetFieldConfigForm(instance=field_config)
+        # Handle field updates
+        for field in all_fields:
+            field.enabled = request.POST.get(f'field_{field.id}_enabled') == 'on'
+            field.required = request.POST.get(f'field_{field.id}_required') == 'on'
+            field.label = request.POST.get(f'field_{field.id}_label', field.label)
+            field.help_text = request.POST.get(f'field_{field.id}_help_text', '')
+            field.order = int(request.POST.get(f'field_{field.id}_order', field.order))
+            field.save()
+        
+        messages.success(request, 'Field configuration updated successfully.')
+        return redirect('dataset_detail', dataset_id=dataset.id)
     
     return render(request, 'frontend/dataset_field_config.html', {
         'dataset': dataset,
-        'form': form,
-        'custom_fields': custom_fields
-    })
-
-@login_required
-def custom_fields_manage_view(request, dataset_id):
-    """Manage custom fields for a dataset (only owner can edit)"""
-    dataset = get_object_or_404(DataSet, pk=dataset_id)
-    if dataset.owner != request.user:
-        return render(request, 'frontend/403.html', status=403)
-    
-    custom_fields = CustomField.objects.filter(dataset=dataset).order_by('order', 'name')
-    
-    return render(request, 'frontend/custom_fields_manage.html', {
-        'dataset': dataset,
-        'custom_fields': custom_fields
+        'all_fields': all_fields
     })
 
 @login_required
 def custom_field_create_view(request, dataset_id):
-    """Create a new custom field (only owner can edit)"""
+    """Create a new custom field for a dataset (only owner can create)"""
     dataset = get_object_or_404(DataSet, pk=dataset_id)
     if dataset.owner != request.user:
         return render(request, 'frontend/403.html', status=403)
@@ -578,9 +616,10 @@ def custom_field_create_view(request, dataset_id):
         if form.is_valid():
             custom_field = form.save(commit=False)
             custom_field.dataset = dataset
+            custom_field.is_standard_field = False  # This is a custom field
             custom_field.save()
             messages.success(request, f'Custom field "{custom_field.label}" created successfully.')
-            return redirect('custom_fields_manage', dataset_id=dataset.id)
+            return redirect('dataset_field_config', dataset_id=dataset.id)
     else:
         form = CustomFieldForm()
     
@@ -604,7 +643,7 @@ def custom_field_edit_view(request, dataset_id, field_id):
         if form.is_valid():
             form.save()
             messages.success(request, f'Custom field "{custom_field.label}" updated successfully.')
-            return redirect('custom_fields_manage', dataset_id=dataset.id)
+            return redirect('dataset_field_config', dataset_id=dataset.id)
     else:
         form = CustomFieldForm(instance=custom_field)
     
@@ -617,7 +656,7 @@ def custom_field_edit_view(request, dataset_id, field_id):
 
 @login_required
 def custom_field_delete_view(request, dataset_id, field_id):
-    """Delete a custom field (only owner can edit)"""
+    """Delete a custom field (only owner can delete)"""
     dataset = get_object_or_404(DataSet, pk=dataset_id)
     if dataset.owner != request.user:
         return render(request, 'frontend/403.html', status=403)
@@ -628,12 +667,13 @@ def custom_field_delete_view(request, dataset_id, field_id):
         field_name = custom_field.label
         custom_field.delete()
         messages.success(request, f'Custom field "{field_name}" deleted successfully.')
-        return redirect('custom_fields_manage', dataset_id=dataset.id)
+        return redirect('dataset_field_config', dataset_id=dataset.id)
     
     return render(request, 'frontend/custom_field_delete.html', {
         'dataset': dataset,
         'custom_field': custom_field
     })
+
 
 @login_required
 def dataset_edit_view(request, dataset_id):
@@ -758,10 +798,14 @@ def dataset_data_input_view(request, dataset_id):
             ]
         }
     
+    # Get all enabled fields for this dataset (both standard and custom)
+    all_fields = CustomField.objects.filter(dataset=dataset, enabled=True).order_by('order', 'name')
+    
     return render(request, 'frontend/dataset_data_input.html', {
         'dataset': dataset,
         'geometries': geometries,
-        'typology_data': typology_data
+        'typology_data': typology_data,
+        'all_fields': all_fields
     })
 
 
@@ -949,18 +993,57 @@ def entry_create_view(request, geometry_id):
                 os.makedirs(media_root)
                 print(f"Created media directory: {media_root}")
             
-            entry = DataEntry.objects.create(
-                geometry=geometry,
-                name=request.POST.get('name'),
-                usage_code1=int(request.POST.get('usage_code1', 0)),
-                usage_code2=int(request.POST.get('usage_code2', 0)),
-                usage_code3=int(request.POST.get('usage_code3', 0)),
-                cat_inno=int(request.POST.get('cat_inno', 0)),
-                cat_wert=int(request.POST.get('cat_wert', 0)),
-                cat_fili=int(request.POST.get('cat_fili', 0)),
-                year=int(request.POST.get('year', 2024)),
-                user=request.user
-            )
+            # Get all enabled fields for this dataset
+            all_fields = CustomField.objects.filter(dataset=dataset, enabled=True)
+            
+            # Prepare entry data
+            entry_data = {
+                'geometry': geometry,
+                'user': request.user
+            }
+            
+            # Handle standard fields
+            for field in all_fields:
+                if field.is_standard_field:
+                    field_value = request.POST.get(field.name)
+                    if field_value:
+                        if field.field_type == 'integer':
+                            try:
+                                entry_data[field.name] = int(field_value)
+                            except ValueError:
+                                entry_data[field.name] = 0
+                        else:
+                            entry_data[field.name] = field_value
+            
+            # Create the entry
+            entry = DataEntry.objects.create(**entry_data)
+            
+            # Handle custom fields (non-standard fields)
+            custom_fields_data = {}
+            for field in all_fields:
+                if not field.is_standard_field:
+                    field_value = request.POST.get(f'custom_{field.name}')
+                    if field_value:
+                        # Convert value based on field type
+                        if field.field_type == 'integer':
+                            try:
+                                custom_fields_data[field.name] = int(field_value)
+                            except ValueError:
+                                custom_fields_data[field.name] = 0
+                        elif field.field_type == 'decimal':
+                            try:
+                                custom_fields_data[field.name] = float(field_value)
+                            except ValueError:
+                                custom_fields_data[field.name] = 0.0
+                        elif field.field_type == 'boolean':
+                            custom_fields_data[field.name] = field_value.lower() == 'true'
+                        else:
+                            custom_fields_data[field.name] = field_value
+            
+            # Update entry with custom fields
+            if custom_fields_data:
+                entry.custom_fields = custom_fields_data
+                entry.save()
             
             # Handle file uploads
             uploaded_files = request.FILES.getlist('files')
@@ -985,30 +1068,24 @@ def entry_create_view(request, geometry_id):
                 print(f"File URL: {entry_file.file.url}")
                 print(f"File path: {entry_file.file.path}")
                 print(f"File exists: {os.path.exists(entry_file.file.path)}")
-            
-            # Log the action
-            AuditLog.objects.create(
-                user=request.user,
-                action='created_entry',
-                target=f'entry:{entry.id}'
-            )
-            
+        
+        # Log the action
+            target=f'entry:{entry.id}'
+        except Exception as e:
+            # Debug logging
+            print(f"Error creating entry: {str(e)}")
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return JsonResponse({"success": False, "error": str(e)}, status=400)
+            else:
+                messages.error(request, f"Error creating entry: {str(e)}")
+                return redirect("dataset_data_input", dataset_id=dataset.id)
+        
             # Check if this is an AJAX request
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'success': True, 'entry_id': entry.id})
             else:
                 messages.success(request, 'Entry created successfully.')
                 return redirect('dataset_data_input', dataset_id=dataset.id)
-        except Exception as e:
-            # Debug logging
-            print(f"Error creating entry: {str(e)}")
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({'success': False, 'error': str(e)}, status=400)
-            else:
-                messages.error(request, f'Error creating entry: {str(e)}')
-                return redirect('dataset_data_input', dataset_id=dataset.id)
-    
-    return render(request, 'frontend/entry_create.html', {'geometry': geometry})
 
 @login_required
 def geometry_create_view(request, dataset_id):
@@ -1485,7 +1562,7 @@ def dataset_csv_import_view(request, dataset_id):
                                         user=request.user
                                     )
                                     entries_created += 1
-                                    import_summary['entries_created'] += 1
+                                    import_summary["entries_created"] += 1
                                 
                             except (ValueError, TypeError) as e:
                                 # If data conversion fails for this year, skip this entry
@@ -1564,17 +1641,17 @@ def dataset_csv_import_view(request, dataset_id):
             
             # Ensure import_summary exists
             if 'import_summary' not in locals():
-                import_summary = {
-                    'coordinate_system': 4326,
-                    'coordinate_system_name': 'WGS84 (Latitude/Longitude)',
-                    'detection_method': 'auto',
-                    'geometries_created': 0,
-                    'entries_created': 0,
-                    'rows_processed': 0,
-                    'rows_skipped': 0,
-                    'transformation_errors': 0
-                }
-            
+                    import_summary = {
+                        'coordinate_system': 4326,
+                        'coordinate_system_name': 'WGS84 (Latitude/Longitude)',
+                        'detection_method': 'auto',
+                        'geometries_created': 0,
+                        'entries_created': 0,
+                        'rows_processed': 0,
+                        'rows_skipped': 0,
+                        'transformation_errors': 0
+                    }
+                
             # Always show import summary page if there are errors or if data was imported
             if errors or imported_count > 0:
                 return render(request, 'frontend/import_summary.html', {
