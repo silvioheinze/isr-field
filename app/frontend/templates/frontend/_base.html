@@ -206,11 +206,6 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'typology_list' %}">Typologies</a>
                     </li>
-                    {% if user.is_superuser %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'user_management' %}">Users</a>
-                    </li>
-                    {% endif %}
                 </ul>
                 <ul class="navbar-nav">
                     <li class="nav-item dropdown">
@@ -219,6 +214,10 @@
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><a class="dropdown-item" href="{% url 'profile' %}">Profile</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            {% if user.is_superuser %}
+                            <li><a class="dropdown-item" href="{% url 'user_management' %}">Users</a></li>
+                            {% endif %}
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'logout' %}">Logout</a></li>
                         </ul>
