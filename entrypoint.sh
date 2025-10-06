@@ -11,8 +11,7 @@ if [ -d "/usr/src/app/media" ]; then
 fi
 
 # Switch to appuser and run Django commands
-exec su appuser -c "
-python manage.py collectstatic --noinput --clear
+python manage.py collectstatic --noinput
 python manage.py migrate
-exec $@
-"
+
+exec "$@"
