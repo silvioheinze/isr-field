@@ -19,6 +19,7 @@ RUN apt-get update && \
         libjpeg-dev \
         tzdata \
         gettext \
+        curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Set timezone
@@ -39,3 +40,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy project
 COPY ./app/ .
+
+# Add health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health/ || exit 1
