@@ -1,0 +1,116 @@
+{% extends 'datasets/_base.html' %}
+
+{% block title %}User Management - ISR Field{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>User Management</h2>
+            </div>
+            
+            <!-- Users Section -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Users</h5>
+                    <a href="{% url 'create_user' %}" class="btn btn-primary btn-sm">
+                        <i class="bi bi-plus-circle"></i> Create New User
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Email</th>
+                                    <th>Is Staff</th>
+                                    <th>Is Superuser</th>
+                                    <th>Groups</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in users %}
+                                <tr>
+                                    <td>{{ user.username }}</td>
+                                    <td>{{ user.email }}</td>
+                                    <td>{{ user.is_staff }}</td>
+                                    <td>{{ user.is_superuser }}</td>
+                                    <td>{{ user.groups.count }} group{{ user.groups.count|pluralize }}</td>
+                                    <td>
+                                        <a href="{% url 'edit_user' user.id %}" class="btn btn-sm btn-primary">Edit</a>
+                                        <a href="{% url 'delete_user' user.id %}" class="btn btn-sm btn-danger">Delete</a>
+                                        <a href="{% url 'modify_user_groups' user.id %}" class="btn btn-sm btn-warning">Groups</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Groups Section -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Groups</h5>
+                    <a href="{% url 'create_group' %}" class="btn btn-primary btn-sm">
+                        <i class="bi bi-plus-circle"></i> Create New Group
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if groups %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Group Name</th>
+                                        <th>Members</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for group in groups %}
+                                    <tr>
+                                        <td>{{ group.name }}</td>
+                                        <td>{{ group.user_set.count }} user{{ group.user_set.count|pluralize }}</td>
+                                        <td>
+                                            <a href="{% url 'edit_group' group.id %}" class="btn btn-sm btn-outline-primary">Edit</a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center">No groups available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">About User Management</h6>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted">
+                        Manage users and groups to control access to datasets and features.<br><br>
+                        <strong>Features:</strong>
+                        <ul class="small">
+                            <li>Create and manage user accounts</li>
+                            <li>Assign users to groups for permissions</li>
+                            <li>Control dataset access and sharing</li>
+                            <li>Manage staff and superuser privileges</li>
+                            <li>Track user activities and changes</li>
+                        </ul>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,136 @@
+{% extends 'datasets/_base.html' %}
+
+{% block title %}Clear Data - {{ dataset.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-exclamation-triangle"></i> Clear Dataset Data
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <h5 class="alert-heading">⚠️ Warning: This action cannot be undone!</h5>
+                        <p class="mb-0">
+                            You are about to permanently delete <strong>ALL</strong> data from the dataset 
+                            "<strong>{{ dataset.name }}</strong>". This includes:
+                        </p>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h3 class="text-danger">{{ geometry_count }}</h3>
+                                    <p class="mb-0">Geometry Points</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h3 class="text-danger">{{ entry_count }}</h3>
+                                    <p class="mb-0">Data Entries</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h3 class="text-danger">{{ file_count }}</h3>
+                                    <p class="mb-0">Uploaded Files</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <h6>What will be deleted:</h6>
+                        <ul class="mb-0">
+                            <li>All geometry points and their spatial coordinates</li>
+                            <li>All data entries with usage codes and categories</li>
+                            <li>All uploaded files and photos</li>
+                            <li>All associated metadata and relationships</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="alert alert-success">
+                        <h6>What will be preserved:</h6>
+                        <ul class="mb-0">
+                            <li>The dataset itself (name, description, access settings)</li>
+                            <li>Dataset ownership and sharing permissions</li>
+                            <li>Audit logs of this deletion action</li>
+                        </ul>
+                    </div>
+                    
+                    <form method="post" id="clearDataForm">
+                        {% csrf_token %}
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="confirmCheck" required>
+                            <label class="form-check-label" for="confirmCheck">
+                                I understand that this action will permanently delete all data and cannot be undone
+                            </label>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label for="confirmationText">Type "DELETE" to confirm:</label>
+                            <input type="text" class="form-control" id="confirmationText" name="confirmation_text" 
+                                   placeholder="DELETE" required pattern="DELETE" 
+                                   title="Please type DELETE to confirm">
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-danger" id="clearButton" disabled>
+                                <i class="bi bi-trash"></i> Clear All Data
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const confirmCheck = document.getElementById('confirmCheck');
+    const confirmationText = document.getElementById('confirmationText');
+    const clearButton = document.getElementById('clearButton');
+    const form = document.getElementById('clearDataForm');
+    
+    function updateButtonState() {
+        const isChecked = confirmCheck.checked;
+        const isTextCorrect = confirmationText.value === 'DELETE';
+        clearButton.disabled = !(isChecked && isTextCorrect);
+    }
+    
+    confirmCheck.addEventListener('change', updateButtonState);
+    confirmationText.addEventListener('input', updateButtonState);
+    
+    form.addEventListener('submit', function(e) {
+        if (!confirmCheck.checked || confirmationText.value !== 'DELETE') {
+            e.preventDefault();
+            alert('Please check the confirmation box and type "DELETE" to proceed.');
+            return false;
+        }
+        
+        // Final confirmation
+        if (!confirm('Are you absolutely sure you want to delete ALL data from this dataset? This action cannot be undone.')) {
+            e.preventDefault();
+            return false;
+        }
+        
+        // Show loading state
+        clearButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Clearing Data...';
+        clearButton.disabled = true;
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,216 @@
+{% extends 'datasets/_base.html' %}
+
+{% block title %}{{ dataset.name }} - Dataset Details{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <h2>{{ dataset.name }}</h2>
+            <p class="text-muted">Created by {{ dataset.owner.username }} on {{ dataset.created_at|date:"F d, Y" }}</p>
+            
+            {% if dataset.description %}
+                <div class="mb-4">
+                    <h5>Description</h5>
+                    <p>{{ dataset.description }}</p>
+                </div>
+            {% endif %}
+            
+            <div class="mb-4">
+                <h5>Dataset Statistics</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h3 class="text-primary">{{ geometries_count }}</h3>
+                                <p class="mb-0">Geometry Points</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h3 class="text-success">{{ data_entries_count }}</h3>
+                                <p class="mb-0">Data Entries</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-4">
+                <h5>Access Information</h5>
+                <ul class="list-unstyled">
+                    <li><strong>Owner:</strong> {{ dataset.owner.username }}</li>
+                    <li><strong>Public:</strong> {% if dataset.is_public %}Yes{% else %}No{% endif %}</li>
+                    <li><strong>Shared with users:</strong> 
+                        {% if dataset.shared_with.all %}
+                            {% for user in dataset.shared_with.all %}{{ user.username }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                        {% else %}
+                            No users
+                        {% endif %}
+                    </li>
+                    <li><strong>Shared with groups:</strong> 
+                        {% if dataset.shared_with_groups.all %}
+                            {% for group in dataset.shared_with_groups.all %}{{ group.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                        {% else %}
+                            No groups
+                        {% endif %}
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="mb-4">
+                <h5>Field Configuration</h5>
+                <div class="card">
+                    <div class="card-body">
+                        <p class="text-muted mb-3">Configure which fields are available for data entry in this dataset.</p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Standard Fields</h6>
+                                <ul class="list-unstyled">
+                                    {% for field in all_fields %}
+                                        {% if field.is_standard_field %}
+                                            <li>
+                                                <strong>{{ field.label }}:</strong> 
+                                                {% if field.enabled %}<span class="text-success">Enabled</span>{% else %}<span class="text-muted">Disabled</span>{% endif %}
+                                                {% if field.required %}<span class="badge bg-warning text-dark">Required</span>{% endif %}
+                                            </li>
+                                        {% endif %}
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Custom Fields</h6>
+                                <ul class="list-unstyled">
+                                    {% for field in all_fields %}
+                                        {% if not field.is_standard_field %}
+                                            <li>
+                                                <strong>{{ field.label }}:</strong> 
+                                                {% if field.enabled %}<span class="text-success">Enabled</span>{% else %}<span class="text-muted">Disabled</span>{% endif %}
+                                                {% if field.required %}<span class="badge bg-warning text-dark">Required</span>{% endif %}
+                                                <span class="badge bg-info">{{ field.get_field_type_display }}</span>
+                                            </li>
+                                        {% endif %}
+                                    {% empty %}
+                                        <li class="text-muted">No custom fields configured.</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                        {% if dataset.owner == user %}
+                            <div class="mt-3">
+                                <a href="{% url 'dataset_field_config' dataset.id %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-gear"></i> Configure All Fields
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-4">
+                <h5>Typology</h5>
+                {% if dataset.typology %}
+                    <div class="card">
+                        <div class="card-body">
+                            <h6>{{ dataset.typology.name }}</h6>
+                            <p class="text-muted mb-2">Created by {{ dataset.typology.created_by.username }} on {{ dataset.typology.created_at|date:"F d, Y" }}</p>
+                            <p class="mb-2"><strong>Entries:</strong> {{ dataset.typology.entries.count }}</p>
+                            <div class="btn-group" role="group">
+                                <a href="{% url 'typology_detail' dataset.typology.id %}" class="btn btn-sm btn-outline-info">View Details</a>
+                                {% if dataset.owner == user %}
+                                    <a href="{% url 'typology_edit' dataset.typology.id %}" class="btn btn-sm btn-outline-primary">Edit Typology</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <p class="text-muted mb-3">No typology assigned to this dataset.</p>
+                            {% if dataset.owner == user and can_create_typologies %}
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'typology_create' %}?dataset_id={{ dataset.id }}" class="btn btn-sm btn-success">
+                                        <i class="bi bi-plus-circle"></i> Create New Typology
+                                    </a>
+                                    <a href="{% url 'typology_select' dataset.id %}" class="btn btn-sm btn-outline-primary">Select Existing Typology</a>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <!-- Dataset Management Actions -->
+            {% if dataset.owner == user %}
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-gear"></i> Dataset Management</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'dataset_edit' dataset.id %}" class="btn btn-primary btn-sm">
+                            <i class="bi bi-pencil"></i> Edit Dataset
+                        </a>
+                        <a href="{% url 'dataset_access' dataset.id %}" class="btn btn-warning btn-sm">
+                            <i class="bi bi-people"></i> Manage Access
+                        </a>
+                        <a href="{% url 'dataset_clear_data' dataset.id %}" class="btn btn-danger btn-sm">
+                            <i class="bi bi-trash"></i> Clear Data
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Data Import/Export Actions -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-arrow-left-right"></i> Import & Export</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'dataset_csv_import' dataset.id %}" class="btn btn-success btn-sm">
+                            <i class="bi bi-upload"></i> Import CSV
+                        </a>
+                        <a href="{% url 'dataset_export_options' dataset.id %}" class="btn btn-outline-success btn-sm">
+                            <i class="bi bi-download"></i> Export CSV
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Data Input Actions -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-pencil-square"></i> Data Input</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'dataset_data_input' dataset.id %}" class="btn btn-info btn-sm">
+                            <i class="bi bi-map"></i> Interactive Map
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Navigation -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-arrow-left"></i> Navigation</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'dataset_list' %}" class="btn btn-secondary btn-sm">
+                            <i class="bi bi-list"></i> Back to Datasets
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

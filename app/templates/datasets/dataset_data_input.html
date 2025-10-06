@@ -1,0 +1,1183 @@
+{% extends 'datasets/_base.html' %}
+
+{% block title %}Data Input - {{ dataset.name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+    #map {
+        height: 500px;
+        width: 100%;
+    }
+    .geometry-details {
+        background-color: rgba(146, 193, 233, 0.1);
+        border: 1px solid rgba(0, 71, 187, 0.2);
+        padding: 20px;
+        border-radius: 8px;
+        margin-top: 20px;
+        display: none;
+    }
+    .geometry-details.active {
+        display: block;
+    }
+    .map-controls {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 1000;
+    }
+    .selected-circle {
+        stroke: #FFB81C !important;
+        stroke-width: 3 !important;
+        fill-color: #FFB81C !important;
+    }
+    
+    /* ISR Brand Colors for map elements */
+    .map-controls .btn-primary {
+        background-color: #0047BB !important;
+        border-color: #0047BB !important;
+    }
+    
+    .map-controls .btn-primary:hover {
+        background-color: #0056d6 !important;
+        border-color: #0056d6 !important;
+    }
+    
+    .map-controls .btn-info {
+        background-color: #92C1E9 !important;
+        border-color: #92C1E9 !important;
+        color: #001A70 !important;
+    }
+    
+    .map-controls .btn-info:hover {
+        background-color: #7db8e0 !important;
+        border-color: #7db8e0 !important;
+        color: #001A70 !important;
+    }
+    
+    /* Point selector styling */
+    .point-selector-card {
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .point-selector-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .point-selector-card.border-primary {
+        border-color: #0047BB !important;
+        background-color: rgba(0, 71, 187, 0.05);
+    }
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- CSRF Token for JavaScript -->
+    {% csrf_token %}
+    
+    <!-- Field Configuration Data -->
+    <script>
+        window.allFields = [
+            {% for field in all_fields %}
+            {
+                id: {{ field.id }},
+                name: "{{ field.name }}",
+                label: "{{ field.label }}",
+                field_type: "{{ field.field_type }}",
+                is_standard_field: {{ field.is_standard_field|yesno:"true,false" }},
+                required: {{ field.required|yesno:"true,false" }},
+                enabled: {{ field.enabled|yesno:"true,false" }},
+                help_text: "{{ field.help_text|default:"" }}",
+                choices: "{{ field.choices|default:"" }}",
+                order: {{ field.order }}
+            }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ];
+    </script>
+
+    <!-- Map Section -->
+    <div class="row g-0">
+            <div class="position-relative">
+                    <div id="map"></div>
+                    <div class="map-controls">
+                        <button id="addPointBtn" class="btn btn-primary btn-sm">
+                        <i class="bi bi-geo-alt"></i> Add
+                        </button>
+                    <button id="currentLocationBtn" class="btn btn-info btn-sm mt-1" title="My Location">
+                        <i class="bi bi-geo-alt-fill"></i>
+                        </button>
+                        <button id="refreshDataBtn" class="btn btn-secondary btn-sm mt-1">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                        </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Selected Geometry Details Section -->
+    <div class="row">
+        <div class="col-12">
+            <div id="geometryDetails" class="geometry-details">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                    <h4 id="geometryTitle">Geometry Details</h4>
+                        {% if typology_data %}
+                        <small class="text-muted">
+                            <i class="bi bi-tag"></i> Typology: {{ typology_data.name }} 
+                            ({{ typology_data.entries|length }} entries available)
+                        </small>
+                        {% endif %}
+                    </div>
+                    <button id="closeDetails" class="btn btn-sm btn-outline-secondary">×</button>
+                </div>
+                
+                <div id="geometryInfo">
+                    <!-- Geometry information will be populated by JavaScript -->
+                </div>
+                
+                <div id="entriesSection">
+                    <div id="entriesList">
+                        <!-- Entries will be populated by JavaScript -->
+                    </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    // Typology data for usage code selection
+    var typologyData = {% if typology_data %}{{ typology_data|safe }}{% else %}null{% endif %};
+    
+    // Function to create usage code dropdown
+    function createUsageCodeDropdown(fieldId, currentValue) {
+        if (!typologyData || !typologyData.entries) {
+            return `<input type="text" class="form-control form-control-sm" id="${fieldId}" placeholder="Enter usage code" value="${currentValue || ''}">`;
+        }
+        
+        var options = '<option value="">Select usage code...</option>';
+        
+        // Sort entries by code
+        var sortedEntries = typologyData.entries.sort(function(a, b) {
+            return a.code - b.code;
+        });
+        
+        // Group by category
+        var categories = {};
+        sortedEntries.forEach(function(entry) {
+            if (!categories[entry.category]) {
+                categories[entry.category] = [];
+            }
+            categories[entry.category].push(entry);
+        });
+        
+        // Sort categories by their lowest code value
+        var sortedCategories = Object.keys(categories).sort(function(a, b) {
+            var minCodeA = Math.min(...categories[a].map(entry => entry.code));
+            var minCodeB = Math.min(...categories[b].map(entry => entry.code));
+            return minCodeA - minCodeB;
+        });
+        
+        // Add options grouped by category
+        sortedCategories.forEach(function(category) {
+            options += `<optgroup label="${category}">`;
+            categories[category].forEach(function(entry) {
+                var selected = (entry.code == currentValue) ? 'selected' : '';
+                options += `<option value="${entry.code}" ${selected}>${entry.code} - ${entry.name}</option>`;
+            });
+            options += '</optgroup>';
+        });
+        
+        return `<select class="form-control form-control-sm" id="${fieldId}">${options}</select>`;
+    }
+    
+    // Function to create custom field input based on field type
+    function createCustomFieldInput(field) {
+        let html = '';
+        const fieldId = 'new-custom-' + field.name;
+        
+        switch (field.field_type) {
+            case 'text':
+                html = '<input type="text" class="form-control form-control-sm" id="' + fieldId + '" placeholder="Enter ' + field.label.toLowerCase() + '">';
+                break;
+                
+            case 'integer':
+                html = '<input type="number" class="form-control form-control-sm" id="' + fieldId + '" placeholder="Enter ' + field.label.toLowerCase() + '">';
+                break;
+                
+            case 'decimal':
+                html = '<input type="number" step="0.01" class="form-control form-control-sm" id="' + fieldId + '" placeholder="Enter ' + field.label.toLowerCase() + '">';
+                break;
+                
+            case 'boolean':
+                html = '<select class="form-control form-control-sm" id="' + fieldId + '">';
+                html += '<option value="">Select option</option>';
+                html += '<option value="true">Yes</option>';
+                html += '<option value="false">No</option>';
+                html += '</select>';
+                break;
+                
+            case 'date':
+                html = '<input type="date" class="form-control form-control-sm" id="' + fieldId + '">';
+                break;
+                
+            case 'choice':
+                html = '<select class="form-control form-control-sm" id="' + fieldId + '">';
+                html += '<option value="">Select option</option>';
+                if (field.choices) {
+                    const choices = field.choices.split(',').map(choice => choice.trim());
+                    choices.forEach(function(choice) {
+                        html += '<option value="' + choice + '">' + choice + '</option>';
+                    });
+                }
+                html += '</select>';
+                break;
+                
+            default:
+                html = '<input type="text" class="form-control form-control-sm" id="' + fieldId + '" placeholder="Enter ' + field.label.toLowerCase() + '">';
+        }
+        
+        return html;
+    }
+    
+    // Initialize map
+    var map = L.map('map', {
+        zoomControl: false,
+        scrollWheelZoom: false,
+        doubleClickZoom: false,
+        boxZoom: false,
+        keyboard: false,
+        dragging: true,
+        touchZoom: false,
+        tap: false
+    }).setView([48.2082, 16.3738], 18); // Vienna coordinates as default with maximum zoom
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Global variables
+    var mapData = [];
+    var markers = [];
+    var bounds = L.latLngBounds();
+    var addPointMode = false;
+    var tempMarker = null;
+    var selectedMarker = null;
+    var currentLocationMarker = null;
+    var userLocation = null;
+
+    // Load map data from API with optional bounds
+    function loadMapData(mapBounds = null) {
+        // Use full URL with current origin to avoid CORS issues
+        var url = window.location.origin + '/datasets/{{ dataset.id }}/map-data/';
+        if (mapBounds) {
+            var boundsStr = mapBounds.getSouth() + ',' + mapBounds.getWest() + ',' + 
+                           mapBounds.getNorth() + ',' + mapBounds.getEast();
+            url += '?bounds=' + encodeURIComponent(boundsStr);
+        }
+        
+        console.log('Making request to:', url);
+        console.log('Current location:', window.location.href);
+        
+        return fetch(url, {
+            credentials: 'same-origin'  // Include cookies for authentication
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (!data || !data.map_data) {
+                    throw new Error('Invalid data format received');
+                }
+                mapData = data.map_data;
+                addMarkersToMap();
+            })
+            .catch(error => {
+                console.error('Error loading map data:', error);
+                alert('Error loading map data: ' + error.message);
+                throw error;
+            });
+    }
+
+    // Add markers to map
+    function addMarkersToMap() {
+        // Clear existing markers
+        markers.forEach(marker => map.removeLayer(marker));
+        markers = [];
+        bounds = L.latLngBounds();
+
+        mapData.forEach(function(point) {
+            var circle = L.circle([point.lat, point.lng], {
+                color: '#0047BB',
+                fillColor: '#0047BB',
+                fillOpacity: 0.7,
+                radius: 5
+            }).addTo(map);
+            
+            // Store point ID in circle for reference
+            circle.pointId = point.id;
+            
+            // Add click handler to show geometry details
+            circle.on('click', function() {
+                showGeometryDetails(point, circle);
+            });
+            
+            markers.push(circle);
+            bounds.extend([point.lat, point.lng]);
+        });
+
+        // Keep zoom level at 18, don't fit bounds
+        // map.fitBounds(bounds); // Removed to maintain zoom level 18
+    }
+
+    // Get user location and initialize map
+    function initializeMapWithUserLocation() {
+        if (navigator.geolocation) {
+            // Show loading state
+            document.getElementById('refreshDataBtn').innerHTML = '<i class="bi bi-hourglass-split"></i> Getting Location...';
+            document.getElementById('refreshDataBtn').disabled = true;
+            
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    var lat = position.coords.latitude;
+                    var lng = position.coords.longitude;
+                    userLocation = {lat: lat, lng: lng};
+                    
+                    // Set view to user location at maximum level
+                    map.setView([lat, lng], 18);
+                    
+                    // Load data for the visible area
+                    loadMapData().then(() => {
+                        // Reset button
+                        document.getElementById('refreshDataBtn').innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh';
+                        document.getElementById('refreshDataBtn').disabled = false;
+                    }).catch(() => {
+                        // Reset button on error
+                        document.getElementById('refreshDataBtn').innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh';
+                        document.getElementById('refreshDataBtn').disabled = false;
+                    });
+                },
+                function(error) {
+                    // If geolocation fails, load all data with default view
+                    console.log('Geolocation failed, loading all data');
+                    loadMapData().then(() => {
+                        // Reset button
+                        document.getElementById('refreshDataBtn').innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh';
+                        document.getElementById('refreshDataBtn').disabled = false;
+                    }).catch(() => {
+                        // Reset button on error
+                        document.getElementById('refreshDataBtn').innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh';
+                        document.getElementById('refreshDataBtn').disabled = false;
+                    });
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 60000
+                }
+            );
+        } else {
+            // Geolocation not supported, load all data
+            loadMapData();
+        }
+    }
+
+    // Initialize map with user location
+    initializeMapWithUserLocation();
+
+    // Auto-load data when map is moved (with debouncing)
+    var mapMoveTimeout;
+    map.on('moveend', function() {
+        // Clear previous timeout
+        clearTimeout(mapMoveTimeout);
+        
+        // Set new timeout to avoid too many requests
+        mapMoveTimeout = setTimeout(function() {
+            loadMapData();
+        }, 500); // Wait 500ms after user stops moving the map
+    });
+
+    // Refresh data button - now loads data for current map bounds
+    document.getElementById('refreshDataBtn').addEventListener('click', function() {
+        // Show loading state
+        this.innerHTML = '<i class="bi bi-hourglass-split"></i> Loading...';
+        this.disabled = true;
+        
+        // Clear current selection
+        if (selectedMarker) {
+            selectedMarker.setStyle({
+                color: '#007bff',
+                fillColor: '#007bff',
+                fillOpacity: 0.7
+            });
+            selectedMarker = null;
+        }
+        document.getElementById('geometryDetails').classList.remove('active');
+        
+        // Reload data without bounds to maintain zoom level
+        loadMapData().then(() => {
+            // Reset button
+            this.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh';
+            this.disabled = false;
+        }).catch(() => {
+            // Reset button on error
+            this.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh';
+            this.disabled = false;
+        });
+    });
+
+    // Function to show geometry details
+    function showGeometryDetails(point, circle) {
+        // Check if there are multiple points at the same location
+        var overlappingPoints = getOverlappingPoints(point.lat, point.lng);
+        
+        if (overlappingPoints.length > 1) {
+            // Show point selector for overlapping points
+            showPointSelector(overlappingPoints, circle);
+        } else {
+            // Show single point details
+            showSinglePointDetails(point, circle);
+        }
+    }
+    
+    // Function to get all points at the same coordinates
+    function getOverlappingPoints(lat, lng) {
+        var tolerance = 0.000001; // Very small tolerance for exact coordinates
+        return mapData.filter(function(p) {
+            return Math.abs(p.lat - lat) < tolerance && Math.abs(p.lng - lng) < tolerance;
+        });
+    }
+    
+    // Function to show point selector for overlapping points
+    function showPointSelector(points, clickedCircle) {
+        // Remove previous selection
+        if (selectedMarker) {
+            selectedMarker.setStyle({
+                color: '#0047BB',
+                fillColor: '#0047BB',
+                fillOpacity: 0.7
+            });
+        }
+        
+        // Mark clicked circle as selected
+        selectedMarker = clickedCircle;
+        clickedCircle.setStyle({
+            color: '#FFB81C',
+            fillColor: '#FFB81C',
+            fillOpacity: 0.9
+        });
+        
+        // Show details section
+        document.getElementById('geometryDetails').classList.add('active');
+        
+        // Create point selector interface
+        var selectorHtml = `
+            <div class="mb-3">
+                <h5>Multiple Points Found</h5>
+                <p class="text-muted">Click on a point below to view its details:</p>
+                <div class="row">
+        `;
+        
+        points.forEach(function(point, index) {
+            var isSelected = point.id === clickedCircle.pointId;
+            var cardClass = isSelected ? 'border-primary' : 'border-secondary';
+            var btnClass = isSelected ? 'btn-primary' : 'btn-outline-primary';
+            
+            // Find the entry with the highest year
+            var latestEntry = null;
+            if (point.entries && point.entries.length > 0) {
+                latestEntry = point.entries.reduce(function(latest, current) {
+                    return (current.year > latest.year) ? current : latest;
+                });
+            }
+            
+            selectorHtml += `
+                <div class="col-md-6 col-lg-4 mb-2">
+                    <div class="card ${cardClass} point-selector-card" data-point-id="${point.id}">
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>${point.id_kurz}</strong><br>
+                                    <small class="text-muted">${point.address}</small><br>
+                                    ${latestEntry ? `<small class="text-muted">Latest: ${latestEntry.name} (${latestEntry.year})</small><br>` : ''}
+                                    <small class="text-muted">${point.entries_count} entries</small>
+                                </div>
+                                <button class="btn btn-sm ${btnClass} select-point-btn" data-point-id="${point.id}">
+                                    Select
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        selectorHtml += `
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('geometryInfo').innerHTML = selectorHtml;
+        
+        // Add click handlers for point selection
+        document.querySelectorAll('.select-point-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var pointId = this.getAttribute('data-point-id');
+                var selectedPoint = mapData.find(p => p.id == pointId);
+                var selectedCircle = markers.find(m => m.pointId == pointId);
+                
+                if (selectedPoint && selectedCircle) {
+                    showSinglePointDetails(selectedPoint, selectedCircle);
+                }
+            });
+        });
+        
+        // Add click handlers for card selection
+        document.querySelectorAll('.point-selector-card').forEach(function(card) {
+            card.addEventListener('click', function() {
+                var pointId = this.getAttribute('data-point-id');
+                var selectedPoint = mapData.find(p => p.id == pointId);
+                var selectedCircle = markers.find(m => m.pointId == pointId);
+                
+                if (selectedPoint && selectedCircle) {
+                    showSinglePointDetails(selectedPoint, selectedCircle);
+                }
+            });
+        });
+    }
+    
+    // Function to show single point details (original functionality)
+    function showSinglePointDetails(point, circle) {
+        // Remove previous selection
+        if (selectedMarker) {
+            selectedMarker.setStyle({
+                color: '#0047BB',
+                fillColor: '#0047BB',
+                fillOpacity: 0.7
+            });
+        }
+        
+        // Mark current selection
+        selectedMarker = circle;
+        circle.setStyle({
+            color: '#FFB81C',
+            fillColor: '#FFB81C',
+            fillOpacity: 0.9
+        });
+        
+        // Show details section
+        document.getElementById('geometryDetails').classList.add('active');
+        
+        // Populate geometry information
+        document.getElementById('geometryTitle').textContent = point.address;
+        
+        // Get years from all entries
+        var years = [];
+        if (point.entries && point.entries.length > 0) {
+            years = point.entries.map(entry => entry.year).sort((a, b) => a - b);
+        }
+        
+        var geometryInfo = `
+            <div class="row">
+                <div class="col-md-6">
+                    <ul class="list-unstyled">
+                        <li><strong>Years:</strong> ${years.length > 0 ? years.join(', ') : 'No entries'}</li>
+                    </ul>
+                </div>
+            </div>
+        `;
+        document.getElementById('geometryInfo').innerHTML = geometryInfo;
+        
+        // Populate entries
+        var entriesHtml = '';
+        if (point.entries && point.entries.length > 0) {
+            // Sort entries by year to get the latest
+            var sortedEntries = point.entries.sort(function(a, b) {
+                return b.year - a.year;
+            });
+            
+            // Determine how many entries to show based on window width
+            var windowWidth = window.innerWidth;
+            var entriesToShow = 1; // Always show at least the latest entry
+            
+            if (windowWidth >= 1400) {
+                entriesToShow = Math.min(5, sortedEntries.length); // Show up to 5 entries on very large screens
+            } else if (windowWidth >= 1200) {
+                entriesToShow = Math.min(4, sortedEntries.length); // Show up to 4 entries on large screens
+            } else if (windowWidth >= 992) {
+                entriesToShow = Math.min(3, sortedEntries.length); // Show up to 3 entries on medium screens
+            } else if (windowWidth >= 768) {
+                entriesToShow = Math.min(2, sortedEntries.length); // Show up to 2 entries on small screens
+            }
+            
+            var latestEntry = sortedEntries[0];
+            
+            entriesHtml = '<div class="table-responsive"><table class="table table-striped table-hover">';
+            
+            // Table header - show multiple years and new entry column
+            entriesHtml += '<thead class="table-dark"><tr>';
+            entriesHtml += '<th>Field</th>';
+            
+            // Add headers for the entries to show
+            for (var i = 0; i < entriesToShow; i++) {
+                entriesHtml += `<th>${sortedEntries[i].year}</th>`;
+            }
+            
+            var typologyInfo = '';
+            if (typologyData && typologyData.entries) {
+                typologyInfo = ' <small class="text-muted">(Typology available)</small>';
+            }
+            entriesHtml += '<th>New Entry' + typologyInfo + ' <button id="copyFromLastYear" class="btn btn-outline-light btn-sm ms-2"><i class="bi bi-copy"></i> Copy</button></th>';
+            entriesHtml += '</tr></thead>';
+            
+            // Table body - each field becomes a row
+            entriesHtml += '<tbody>';
+            
+            // Entry Name row
+            entriesHtml += '<tr>';
+            entriesHtml += '<td><strong>Entry Name</strong></td>';
+            for (var i = 0; i < entriesToShow; i++) {
+                entriesHtml += `<td>${sortedEntries[i].name || '-'}</td>`;
+            }
+            entriesHtml += '<td><input type="text" class="form-control form-control-sm" id="new-entry-name" placeholder="Enter entry name" value="' + point.id_kurz + '"></td>';
+            entriesHtml += '</tr>';
+            
+            // Usage Code 1 row
+            entriesHtml += '<tr>';
+            entriesHtml += '<td><strong>Usage Code 1</strong></td>';
+            for (var i = 0; i < entriesToShow; i++) {
+                entriesHtml += `<td>${sortedEntries[i].usage_code1 || '-'}</td>`;
+            }
+            entriesHtml += '<td>' + createUsageCodeDropdown('new-usage-code1', '') + '</td>';
+            entriesHtml += '</tr>';
+            
+            // Usage Code 2 row
+            entriesHtml += '<tr>';
+            entriesHtml += '<td><strong>Usage Code 2</strong></td>';
+            for (var i = 0; i < entriesToShow; i++) {
+                entriesHtml += `<td>${sortedEntries[i].usage_code2 || '-'}</td>`;
+            }
+            entriesHtml += '<td>' + createUsageCodeDropdown('new-usage-code2', '') + '</td>';
+            entriesHtml += '</tr>';
+            
+            // Usage Code 3 row
+            entriesHtml += '<tr>';
+            entriesHtml += '<td><strong>Usage Code 3</strong></td>';
+            for (var i = 0; i < entriesToShow; i++) {
+                entriesHtml += `<td>${sortedEntries[i].usage_code3 || '-'}</td>`;
+            }
+            entriesHtml += '<td>' + createUsageCodeDropdown('new-usage-code3', '') + '</td>';
+            entriesHtml += '</tr>';
+            
+            // Category Innovation row
+            entriesHtml += '<tr>';
+            entriesHtml += '<td><strong>Category Innovation</strong></td>';
+            for (var i = 0; i < entriesToShow; i++) {
+                entriesHtml += `<td>${sortedEntries[i].cat_inno || '-'}</td>`;
+            }
+            entriesHtml += '<td><input type="text" class="form-control form-control-sm" id="new-cat-inno" placeholder="Enter category innovation"></td>';
+            entriesHtml += '</tr>';
+            
+            // Category Value row
+            entriesHtml += '<tr>';
+            entriesHtml += '<td><strong>Category Value</strong></td>';
+            for (var i = 0; i < entriesToShow; i++) {
+                entriesHtml += `<td>${sortedEntries[i].cat_wert || '-'}</td>`;
+            }
+            entriesHtml += '<td><input type="text" class="form-control form-control-sm" id="new-cat-wert" placeholder="Enter category value"></td>';
+            entriesHtml += '</tr>';
+            
+            // Category Facility row
+            entriesHtml += '<tr>';
+            entriesHtml += '<td><strong>Category Facility</strong></td>';
+            for (var i = 0; i < entriesToShow; i++) {
+                entriesHtml += `<td>${sortedEntries[i].cat_fili || '-'}</td>`;
+            }
+            entriesHtml += '<td><input type="text" class="form-control form-control-sm" id="new-cat-fili" placeholder="Enter category facility"></td>';
+            entriesHtml += '</tr>';
+            
+            // Year row
+            entriesHtml += '<tr>';
+            entriesHtml += '<td><strong>Year</strong></td>';
+            for (var i = 0; i < entriesToShow; i++) {
+                entriesHtml += `<td>${sortedEntries[i].year}</td>`;
+            }
+            entriesHtml += '<td><input type="number" class="form-control form-control-sm" id="new-year" placeholder="Enter year" value="' + new Date().getFullYear() + '"></td>';
+            entriesHtml += '</tr>';
+            
+            // Actions row
+            entriesHtml += '<tr>';
+            entriesHtml += '<td><strong>Actions</strong></td>';
+            for (var i = 0; i < entriesToShow; i++) {
+                entriesHtml += `<td>
+                    <a href="/entries/${sortedEntries[i].id}/edit/" class="btn btn-outline-secondary btn-sm">Edit</a>
+                </td>`;
+            }
+            entriesHtml += '<td><input type="file" id="photo-upload-new" accept="image/*" style="display: none;"><button class="btn btn-outline-primary btn-sm" onclick="document.getElementById(\'photo-upload-new\').click()">Add Photo</button></td>';
+            entriesHtml += '</tr>';
+            
+            entriesHtml += '</tbody></table></div>';
+            
+            // Add save button below the table
+            entriesHtml += '<div class="mt-3 d-flex justify-content-end">';
+            entriesHtml += '<button id="saveNewEntry" class="btn btn-success">';
+            entriesHtml += '<i class="bi bi-save"></i> Save New Entry';
+            entriesHtml += '</button>';
+            entriesHtml += '</div>';
+        } else {
+            entriesHtml = '<div class="table-responsive"><table class="table table-striped table-hover">';
+            
+            // Table header for first entry
+            entriesHtml += '<thead class="table-dark"><tr>';
+            entriesHtml += '<th>Field</th>';
+            entriesHtml += '<th>New Entry</th>';
+            entriesHtml += '</tr></thead>';
+            
+            // Table body for first entry
+            entriesHtml += '<tbody>';
+            
+            // All fields (both standard and custom)
+            if (window.allFields && window.allFields.length > 0) {
+                // Sort fields by order
+                const sortedFields = window.allFields.sort((a, b) => a.order - b.order);
+                
+                sortedFields.forEach(function(field) {
+                    if (field.enabled) {
+                        entriesHtml += '<tr>';
+                        entriesHtml += '<td><strong>' + field.label;
+                        if (field.required) {
+                            entriesHtml += ' <span class="text-danger">*</span>';
+                        }
+                        entriesHtml += '</strong>';
+                        if (field.help_text) {
+                            entriesHtml += '<br><small class="text-muted">' + field.help_text + '</small>';
+                        }
+                        entriesHtml += '</td>';
+                        
+                        // Create input based on field type and whether it's standard or custom
+                        if (field.is_standard_field) {
+                            if (field.name === 'name') {
+                                entriesHtml += '<td><input type="text" class="form-control form-control-sm" id="new-' + field.name + '" placeholder="Enter ' + field.label.toLowerCase() + '" value="' + point.id_kurz + '"></td>';
+                            } else if (field.name.startsWith('usage_code')) {
+                                entriesHtml += '<td>' + createUsageCodeDropdown('new-' + field.name, '') + '</td>';
+                            } else if (field.name === 'year') {
+                                entriesHtml += '<td><input type="number" class="form-control form-control-sm" id="new-' + field.name + '" placeholder="Enter ' + field.label.toLowerCase() + '" value="' + new Date().getFullYear() + '"></td>';
+                            } else {
+                                entriesHtml += '<td><input type="text" class="form-control form-control-sm" id="new-' + field.name + '" placeholder="Enter ' + field.label.toLowerCase() + '"></td>';
+                            }
+                        } else {
+                            entriesHtml += '<td>' + createCustomFieldInput(field) + '</td>';
+                        }
+                        entriesHtml += '</tr>';
+                    }
+                });
+            }
+            
+            // Actions row
+            entriesHtml += '<tr>';
+            entriesHtml += '<td><strong>Actions</strong></td>';
+            entriesHtml += '<td><input type="file" id="photo-upload-first" accept="image/*" style="display: none;"><button class="btn btn-outline-primary btn-sm" onclick="document.getElementById(\'photo-upload-first\').click()">Add Photo</button></td>';
+            entriesHtml += '</tr>';
+            
+            entriesHtml += '</tbody></table></div>';
+            
+            // Add save button below the table
+            entriesHtml += '<div class="mt-3 d-flex justify-content-end">';
+            entriesHtml += '<button id="saveNewEntry" class="btn btn-success">';
+            entriesHtml += '<i class="bi bi-save"></i> Save New Entry';
+            entriesHtml += '</button>';
+            entriesHtml += '</div>';
+        }
+        document.getElementById('entriesList').innerHTML = entriesHtml;
+    }
+
+    // Close details button
+    document.getElementById('closeDetails').addEventListener('click', function() {
+        document.getElementById('geometryDetails').classList.remove('active');
+        if (selectedMarker) {
+            selectedMarker.setStyle({
+                color: '#007bff',
+                fillColor: '#007bff',
+                fillOpacity: 0.7
+            });
+            selectedMarker = null;
+        }
+        // Clear uploaded files when closing details
+        uploadedFiles = [];
+    });
+
+    // Current location functionality
+    document.getElementById('currentLocationBtn').addEventListener('click', function() {
+        if (navigator.geolocation) {
+            // Show loading state
+            this.innerHTML = '<i class="bi bi-hourglass-split"></i> Locating...';
+            this.disabled = true;
+            
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    var lat = position.coords.latitude;
+                    var lng = position.coords.longitude;
+                    
+                    // Remove previous current location marker
+                    if (currentLocationMarker) {
+                        map.removeLayer(currentLocationMarker);
+                    }
+                    
+                    // Add current location marker
+                    currentLocationMarker = L.marker([lat, lng], {
+                        icon: L.divIcon({
+                            className: 'current-location-marker',
+                            html: '<div style="background-color: #28a745; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.3);"></div>'
+                        })
+                    }).addTo(map);
+                    
+                    // Add popup with coordinates
+                    currentLocationMarker.bindPopup(`
+                        <strong>Your Location</strong><br>
+                        Latitude: ${lat.toFixed(6)}<br>
+                        Longitude: ${lng.toFixed(6)}<br>
+                        Accuracy: ${position.coords.accuracy ? position.coords.accuracy.toFixed(1) + 'm' : 'Unknown'}
+                    `);
+                    
+                    // Set view to current location at maximum level
+                    map.setView([lat, lng], 18);
+                    
+                    // Load data for the current view
+                    loadMapData();
+                    
+                    // Reset button
+                    document.getElementById('currentLocationBtn').innerHTML = '<i class="bi bi-geo-alt-fill"></i> My Location';
+                    document.getElementById('currentLocationBtn').disabled = false;
+                },
+                function(error) {
+                    // Handle errors
+                    var errorMessage = 'Unable to get your location';
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMessage = 'Location access denied. Please allow location access in your browser.';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMessage = 'Location information unavailable.';
+                            break;
+                        case error.TIMEOUT:
+                            errorMessage = 'Location request timed out.';
+                            break;
+                        case error.UNKNOWN_ERROR:
+                            errorMessage = 'An unknown error occurred.';
+                            break;
+                    }
+                    alert(errorMessage);
+                    
+                    // Reset button
+                    document.getElementById('currentLocationBtn').innerHTML = '<i class="bi bi-geo-alt-fill"></i> My Location';
+                    document.getElementById('currentLocationBtn').disabled = false;
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 60000
+                }
+            );
+        } else {
+            alert('Geolocation is not supported by this browser.');
+        }
+    });
+
+    // Add point mode functionality
+    document.getElementById('addPointBtn').addEventListener('click', function() {
+        addPointMode = !addPointMode;
+        this.textContent = addPointMode ? 'Cancel Add Point' : 'Add Point Mode';
+        this.className = addPointMode ? 'btn btn-warning btn-sm' : 'btn btn-primary btn-sm';
+        
+        if (addPointMode) {
+            map.getContainer().style.cursor = 'crosshair';
+        } else {
+            map.getContainer().style.cursor = '';
+            if (tempMarker) {
+                map.removeLayer(tempMarker);
+                tempMarker = null;
+            }
+        }
+    });
+
+    // Handle map clicks for adding new points
+    map.on('click', function(e) {
+        if (addPointMode) {
+            var lat = e.latlng.lat;
+            var lng = e.latlng.lng;
+            
+            // Remove previous temp marker
+            if (tempMarker) {
+                map.removeLayer(tempMarker);
+            }
+            
+            // Add temporary marker
+            tempMarker = L.marker([lat, lng], {
+                icon: L.divIcon({
+                    className: 'temp-marker',
+                    html: '<div style="background-color: red; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white;"></div>'
+                })
+            }).addTo(map);
+            
+            // Show form to create new geometry
+            var address = prompt('Enter address for this point:');
+            if (address && address.trim() !== '') {
+                // Auto-generate ID based on current timestamp and coordinates
+                var timestamp = Date.now();
+                var idKurz = 'GEO_' + timestamp + '_' + Math.round(lat * 1000000) + '_' + Math.round(lng * 1000000);
+                
+                    // Create form and submit
+                    var form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = '{% url "geometry_create" dataset.id %}';
+                    
+                    // Get CSRF token
+                    var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                    var csrfInput = document.createElement('input');
+                    csrfInput.type = 'hidden';
+                    csrfInput.name = 'csrfmiddlewaretoken';
+                    csrfInput.value = csrfToken;
+                    form.appendChild(csrfInput);
+                    
+                    var inputs = [
+                        {name: 'address', value: address.trim()},
+                    {name: 'id_kurz', value: idKurz},
+                        {name: 'lat', value: lat},
+                        {name: 'lng', value: lng}
+                    ];
+                    
+                    inputs.forEach(function(input) {
+                        var inputElement = document.createElement('input');
+                        inputElement.type = 'hidden';
+                        inputElement.name = input.name;
+                        inputElement.value = input.value;
+                        form.appendChild(inputElement);
+                    });
+                    
+                    document.body.appendChild(form);
+                    form.submit();
+            } else {
+                alert('Address is required.');
+            }
+            
+            // Reset add point mode
+            addPointMode = false;
+            document.getElementById('addPointBtn').textContent = 'Add Point Mode';
+            document.getElementById('addPointBtn').className = 'btn btn-primary btn-sm';
+            map.getContainer().style.cursor = '';
+        }
+    });
+
+    // Copy from last year functionality
+    document.addEventListener('click', function(e) {
+        if (e.target && e.target.id === 'copyFromLastYear') {
+            // Get the latest entry data from the current point
+            if (selectedMarker && mapData.length > 0) {
+                var currentPoint = mapData.find(p => p.lat === selectedMarker.getLatLng().lat && p.lng === selectedMarker.getLatLng().lng);
+                if (currentPoint && currentPoint.entries && currentPoint.entries.length > 0) {
+                    var sortedEntries = currentPoint.entries.sort(function(a, b) {
+                        return b.year - a.year;
+                    });
+                    var latestEntry = sortedEntries[0];
+                    
+                    // Copy values to the new entry fields
+                    document.getElementById('new-entry-name').value = sortedEntries[0].name || '';
+                    
+                    // Handle both select and input elements for usage codes
+                    var usageCode1Element = document.getElementById('new-usage-code1');
+                    var usageCode2Element = document.getElementById('new-usage-code2');
+                    var usageCode3Element = document.getElementById('new-usage-code3');
+                    
+                    if (usageCode1Element.tagName === 'SELECT') {
+                        usageCode1Element.value = sortedEntries[0].usage_code1 || '';
+                    } else {
+                        usageCode1Element.value = sortedEntries[0].usage_code1 || '';
+                    }
+                    
+                    if (usageCode2Element.tagName === 'SELECT') {
+                        usageCode2Element.value = sortedEntries[0].usage_code2 || '';
+                    } else {
+                        usageCode2Element.value = sortedEntries[0].usage_code2 || '';
+                    }
+                    
+                    if (usageCode3Element.tagName === 'SELECT') {
+                        usageCode3Element.value = sortedEntries[0].usage_code3 || '';
+                    } else {
+                        usageCode3Element.value = sortedEntries[0].usage_code3 || '';
+                    }
+                    document.getElementById('new-cat-inno').value = sortedEntries[0].cat_inno || '';
+                    document.getElementById('new-cat-wert').value = sortedEntries[0].cat_wert || '';
+                    document.getElementById('new-cat-fili').value = sortedEntries[0].cat_fili || '';
+                    document.getElementById('new-year').value = new Date().getFullYear();
+                }
+            }
+        }
+    });
+
+
+
+    // Global variable to store uploaded files
+    var uploadedFiles = [];
+
+    // File upload functionality
+    document.addEventListener('change', function(e) {
+        if (e.target && (e.target.id === 'photo-upload-new' || e.target.id === 'photo-upload-first')) {
+            var files = e.target.files;
+            if (files.length > 0) {
+                // Store the files for later upload
+                for (var i = 0; i < files.length; i++) {
+                    uploadedFiles.push(files[i]);
+                }
+                
+                // Update button text to show files selected
+                var button = e.target.nextElementSibling;
+                button.textContent = 'Photo Selected (' + files.length + ')';
+                button.className = 'btn btn-success btn-sm';
+                
+                // Show preview if it's an image
+                if (files[0].type.startsWith('image/')) {
+                    var reader = new FileReader();
+                    reader.onload = function(e) {
+                        // Create a small preview
+                        var preview = document.createElement('div');
+                        preview.className = 'mt-2';
+                        preview.innerHTML = '<img src="' + e.target.result + '" style="max-width: 100px; max-height: 100px; border-radius: 4px;">';
+                        button.parentNode.appendChild(preview);
+                    };
+                    reader.readAsDataURL(files[0]);
+                }
+            }
+        }
+    });
+
+    // Save new entry functionality
+    document.addEventListener('click', function(e) {
+        if (e.target && e.target.id === 'saveNewEntry') {
+            // Get the current geometry point
+            if (selectedMarker && mapData.length > 0) {
+                var currentPoint = mapData.find(p => p.lat === selectedMarker.getLatLng().lat && p.lng === selectedMarker.getLatLng().lng);
+                if (currentPoint) {
+                    // Collect form data
+                    var formData = {};
+                    
+                    // Add all enabled fields
+                    if (window.allFields && window.allFields.length > 0) {
+                        window.allFields.forEach(function(field) {
+                            if (field.enabled) {
+                                if (field.is_standard_field) {
+                                    var fieldElement = document.getElementById('new-' + field.name);
+                                    if (fieldElement) {
+                                        formData[field.name] = fieldElement.value;
+                                    }
+                                } else {
+                                    var fieldElement = document.getElementById('new-custom-' + field.name);
+                                    if (fieldElement) {
+                                        formData['custom_' + field.name] = fieldElement.value;
+                                    }
+                                }
+                            }
+                        });
+                    }
+                    
+                    console.log('Form data being sent:', formData);
+                    console.log('Uploaded files:', uploadedFiles);
+                    
+                    // Validate required fields
+                    if (window.allFields && window.allFields.length > 0) {
+                        for (var i = 0; i < window.allFields.length; i++) {
+                            var field = window.allFields[i];
+                            if (field.enabled && field.required) {
+                                var fieldElement;
+                                if (field.is_standard_field) {
+                                    fieldElement = document.getElementById('new-' + field.name);
+                                } else {
+                                    fieldElement = document.getElementById('new-custom-' + field.name);
+                                }
+                                
+                                if (!fieldElement || !fieldElement.value) {
+                                    alert(field.label + ' is a required field.');
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Create FormData for file upload
+                    var formDataObj = new FormData();
+                    
+                    // Add CSRF token
+                    var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                    formDataObj.append('csrfmiddlewaretoken', csrfToken);
+                    
+                    // Add form data
+                    Object.keys(formData).forEach(function(key) {
+                        formDataObj.append(key, formData[key]);
+                    });
+                    
+                    // Add uploaded files
+                    uploadedFiles.forEach(function(file, index) {
+                        formDataObj.append('files', file);
+                    });
+                    
+                    // Submit using fetch for AJAX upload
+                    fetch('/geometries/' + currentPoint.id + '/entries/create/', {
+                        method: 'POST',
+                        body: formDataObj,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRFToken': csrfToken
+                        }
+                    })
+                    .then(response => {
+                        console.log('Response status:', response.status);
+                        if (response.ok) {
+                            return response.json();
+                        } else {
+                            return response.text().then(text => {
+                                console.log('Error response:', text);
+                                throw new Error('Server error: ' + response.status + ' - ' + text);
+                            });
+                        }
+                    })
+                    .then(data => {
+                        console.log('Response data:', data);
+                        if (data.success) {
+                            // Clear uploaded files
+                            uploadedFiles = [];
+                            // Refresh the map data to show the new entry
+                            loadMapData();
+                            // Close the details panel
+                            document.getElementById('geometryDetails').classList.remove('active');
+                            if (selectedMarker) {
+                                selectedMarker.setStyle({
+                                    color: '#007bff',
+                                    fillColor: '#007bff',
+                                    fillOpacity: 0.7
+                                });
+                                selectedMarker = null;
+                            }
+                        } else {
+                            throw new Error('Entry creation failed: ' + (data.error || 'Unknown error'));
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Error creating entry: ' + error.message);
+                    });
+                }
+            }
+        }
+    });
+</script>
+{% endblock %} 

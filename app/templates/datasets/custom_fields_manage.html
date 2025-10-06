@@ -1,0 +1,131 @@
+{% extends 'datasets/_base.html' %}
+
+{% block title %}Custom Fields - {{ dataset.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <h2>Custom Fields Management</h2>
+            <p class="text-muted">Manage additional fields for {{ dataset.name }}</p>
+            
+            {% if custom_fields %}
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-list-ul"></i> Custom Fields ({{ custom_fields.count }})
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Label</th>
+                                        <th>Type</th>
+                                        <th>Required</th>
+                                        <th>Enabled</th>
+                                        <th>Order</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for field in custom_fields %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ field.label }}</strong>
+                                                <br><small class="text-muted">{{ field.name }}</small>
+                                                {% if field.help_text %}
+                                                    <br><small class="text-info">{{ field.help_text|truncatechars:50 }}</small>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-primary">{{ field.get_field_type_display }}</span>
+                                                {% if field.field_type == 'choice' and field.choices %}
+                                                    <br><small class="text-muted">{{ field.choices|truncatechars:30 }}</small>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if field.required %}
+                                                    <span class="badge bg-warning text-dark">Required</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Optional</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if field.enabled %}
+                                                    <span class="badge bg-success">Enabled</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Disabled</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ field.order }}</td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    <a href="{% url 'custom_field_edit' dataset.id field.id %}" class="btn btn-sm btn-outline-primary">
+                                                        <i class="bi bi-pencil"></i> Edit
+                                                    </a>
+                                                    <a href="{% url 'custom_field_delete' dataset.id field.id %}" class="btn btn-sm btn-outline-danger">
+                                                        <i class="bi bi-trash"></i> Delete
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="card">
+                    <div class="card-body text-center">
+                        <i class="bi bi-list-ul text-muted" style="font-size: 3rem;"></i>
+                        <h5 class="mt-3">No Custom Fields</h5>
+                        <p class="text-muted">This dataset doesn't have any custom fields yet.</p>
+                        <a href="{% url 'custom_field_create' dataset.id %}" class="btn btn-success">
+                            <i class="bi bi-plus-circle"></i> Create First Custom Field
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="col-md-4">
+            <!-- Actions -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-gear"></i> Actions</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'custom_field_create' dataset.id %}" class="btn btn-success">
+                            <i class="bi bi-plus-circle"></i> Add Custom Field
+                        </a>
+                        <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Dataset
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Field Types Info -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> Field Types</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        <li><strong>Text:</strong> Free text input</li>
+                        <li><strong>Integer:</strong> Whole numbers only</li>
+                        <li><strong>Decimal:</strong> Numbers with decimals</li>
+                        <li><strong>Boolean:</strong> Yes/No checkbox</li>
+                        <li><strong>Date:</strong> Date picker</li>
+                        <li><strong>Choice:</strong> Dropdown selection</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

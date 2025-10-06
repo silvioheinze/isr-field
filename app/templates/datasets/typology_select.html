@@ -1,0 +1,100 @@
+{% extends 'datasets/_base.html' %}
+
+{% block title %}Select Typology for {{ dataset.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <h2>Select Typology for {{ dataset.name }}</h2>
+            
+            {% if typologies %}
+                <div class="row">
+                    {% for typology in typologies %}
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ typology.name }}</h5>
+                                <p class="card-text">
+                                    <small class="text-muted">
+                                        Created by {{ typology.created_by.username }} on {{ typology.created_at|date:"F d, Y" }}<br>
+                                        <strong>{{ typology.entries.count }}</strong> entries<br>
+                                        Used by <strong>{{ typology.datasets.count }}</strong> dataset{{ typology.datasets.count|pluralize }}
+                                    </small>
+                                </p>
+                                
+                                {% if typology.entries.all %}
+                                    <div class="mb-3">
+                                        <strong>Sample entries:</strong>
+                                        <ul class="list-unstyled small">
+                                            {% for entry in typology.entries.all|slice:":3" %}
+                                            <li>{{ entry.code }} - {{ entry.name }} ({{ entry.category }})</li>
+                                            {% endfor %}
+                                            {% if typology.entries.count > 3 %}
+                                            <li class="text-muted">... and {{ typology.entries.count|add:"-3" }} more</li>
+                                            {% endif %}
+                                        </ul>
+                                    </div>
+                                {% endif %}
+                                
+                                <div class="d-grid gap-2">
+                                    <form method="post" style="display: inline;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="typology_id" value="{{ typology.id }}">
+                                        <button type="submit" class="btn btn-primary btn-sm">Select This Typology</button>
+                                    </form>
+                                    <a href="{% url 'typology_edit' typology.id %}" class="btn btn-outline-secondary btn-sm">View Details</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="card">
+                    <div class="card-body text-center">
+                        <p class="text-muted">No typologies available.</p>
+                        {% if can_create_typologies %}
+                        <a href="{% url 'typology_create' %}?dataset_id={{ dataset.id }}" class="btn btn-success">
+                            <i class="bi bi-plus-circle"></i> Create New Typology
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Dataset Information</h6>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted">
+                        <strong>Dataset:</strong> {{ dataset.name }}<br>
+                        <strong>Owner:</strong> {{ dataset.owner.username }}<br>
+                        <strong>Geometry points:</strong> {{ geometries_count }}<br>
+                        <strong>Data entries:</strong> {{ data_entries_count }}
+                    </p>
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0">Actions</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        {% if can_create_typologies %}
+                        <a href="{% url 'typology_create' %}?dataset_id={{ dataset.id }}" class="btn btn-success btn-sm">
+                            <i class="bi bi-plus-circle"></i> Create New Typology
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-secondary btn-sm">Back to Dataset</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

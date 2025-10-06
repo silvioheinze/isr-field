@@ -1,0 +1,98 @@
+{% extends 'datasets/_base.html' %}
+
+{% block title %}Datasets - ISR Field{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Datasets</h2>
+                {% if can_create_datasets %}
+                <a href="{% url 'dataset_create' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Create New Dataset
+                </a>
+                {% endif %}
+            </div>
+            
+            {% if datasets %}
+                <div class="row">
+                    {% for dataset in datasets %}
+                        <div class="col-md-6 mb-4">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ dataset.name }}</h5>
+                                    <p class="card-text">{{ dataset.description|truncatewords:20 }}</p>
+                                    <div class="mb-2">
+                                        <small class="text-muted">
+                                            <i class="bi bi-person"></i> {{ dataset.owner.username }}<br>
+                                            <i class="bi bi-calendar"></i> {{ dataset.created_at|date:"M d, Y" }}
+                                        </small>
+                                    </div>
+                                    <div class="mb-2">
+                                        <small class="text-muted">
+                                            {% if dataset.is_public %}
+                                                <span class="badge bg-success">Public</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Private</span>
+                                            {% endif %}
+                                            {% if dataset.shared_with.all or dataset.shared_with_groups.all %}
+                                                <span class="badge bg-info">Shared</span>
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                    <div class="d-grid gap-1">
+                                        <a href="{% url 'dataset_data_input' dataset.id %}" class="btn btn-sm btn-primary">
+                                            <i class="bi bi-input-cursor"></i> Data Input
+                                        </a>
+                                        {% if dataset.owner == user %}
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-outline-secondary" title="View Details">
+                                                <i class="bi bi-eye"></i> Details
+                                            </a>
+                                            <a href="{% url 'dataset_access' dataset.id %}" class="btn btn-outline-warning" title="Manage Access">
+                                                <i class="bi bi-people"></i> Access
+                                            </a>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="text-center">
+                    <p>No datasets available.</p>
+                    {% if can_create_datasets %}
+                    <a href="{% url 'dataset_create' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Create your first dataset
+                    </a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">About Datasets</h6>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted">
+                        Datasets are collections of spatial data points with associated information.<br><br>
+                        <strong>Features:</strong>
+                        <ul class="small">
+                            <li>Store geographic coordinates and attributes</li>
+                            <li>Manage data entries with photos and metadata</li>
+                            <li>Share with team members and groups</li>
+                            <li>Export data in various formats</li>
+                            <li>Link to typologies for standardized categorization</li>
+                        </ul>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

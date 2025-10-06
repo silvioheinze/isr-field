@@ -1,0 +1,77 @@
+{% extends 'datasets/_base.html' %}
+
+{% block title %}Debug Import - {{ dataset.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h4 class="mb-0">
+                        <i class="bi bi-bug"></i> Debug Import Test
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <h5 class="alert-heading">⚠️ Debug Mode</h5>
+                        <p class="mb-0">
+                            This is a debug view for testing the CSV import functionality. 
+                            It will use sample data to test the import process.
+                        </p>
+                    </div>
+                    
+                    <h5>Sample CSV Data</h5>
+                    <div class="bg-light p-3 rounded">
+                        <pre><code>ID,ADRESSE,GEB_X,GEB_Y,2016_NUTZUNG,2016_CAT_INNO,2016_CAT_WERT,2016_CAT_FILI,2022_NUTZUNG,2022_CAT_INNO,2022_CAT_WERT,2022_CAT_FILI
+test_001,Test Address 1,656610,3399131,870,999,999,999,870,999,999,999
+test_002,Test Address 2,636410,3399724,640,0,0,0,640,0,0,0</code></pre>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <h5>Expected Results</h5>
+                        <ul>
+                            <li>2 geometry points created (test_001, test_002)</li>
+                            <li>4 data entries created (2 years × 2 geometries)</li>
+                            <li>Coordinate system: MGI Austria GK M34 (auto-detected)</li>
+                            <li>Coordinates transformed to WGS84</li>
+                        </ul>
+                    </div>
+                    
+                    <form method="post" class="mt-4">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-warning">
+                            <i class="bi bi-play-circle"></i> Run Debug Import
+                        </button>
+                        <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Dataset
+                        </a>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Debug Information</h5>
+                    <p><strong>Dataset:</strong> {{ dataset.name }}</p>
+                    <p><strong>User:</strong> {{ user.username }}</p>
+                    <p><strong>Debug Level:</strong> DEBUG</p>
+                    <p><strong>Log File:</strong> debug.log</p>
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h5 class="card-title">Check Logs</h5>
+                    <p>After running the debug import, check the console output and debug.log file for detailed information about the import process.</p>
+                    <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-info">
+                        <i class="bi bi-eye"></i> View Dataset
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,83 @@
+{% extends 'datasets/_base.html' %}
+
+{% block title %}{{ dataset.name }} - Export Dataset{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <h2>Export Dataset: {{ dataset.name }}</h2>
+            <p class="text-muted">Export your dataset as a CSV file with each geometry as a row and entries as columns named by years.</p>
+            
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Export Options</h5>
+                    
+                    <form method="get" action="{% url 'dataset_csv_export' dataset.id %}">
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="include_coordinates" name="include_coordinates" value="true" checked>
+                                <label class="form-check-label" for="include_coordinates">
+                                    Include coordinates (GEB_X, GEB_Y)
+                                </label>
+                                <div class="form-text">Include the X and Y coordinates for each geometry point.</div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="include_empty_years" name="include_empty_years" value="true" checked>
+                                <label class="form-check-label" for="include_empty_years">
+                                    Include empty years
+                                </label>
+                                <div class="form-text">Include columns for years even if no data exists for that year.</div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-download"></i> Export CSV
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <h5>Export Format</h5>
+                <p>The exported CSV will contain:</p>
+                <ul>
+                    <li><strong>ID</strong>: The unique identifier for each geometry</li>
+                    <li><strong>ADRESSE</strong>: The address of the geometry</li>
+                    <li><strong>GEB_X, GEB_Y</strong>: Coordinates (if enabled)</li>
+                    <li><strong>Year-prefixed columns</strong>: For each year in your data, columns will be created for:
+                        <ul>
+                            <li>USAGE_CODE1, USAGE_CODE2, USAGE_CODE3</li>
+                            <li>CAT_INNO, CAT_WERT, CAT_FILI</li>
+                        </ul>
+                    </li>
+                </ul>
+                
+                <div class="alert alert-info">
+                    <strong>Example:</strong> If you have data for 2016 and 2022, you'll get columns like:
+                    <code>2016_USAGE_CODE1, 2016_CAT_INNO, 2022_USAGE_CODE1, 2022_CAT_INNO</code>, etc.
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Dataset Statistics</h5>
+                    <ul class="list-unstyled">
+                        <li><strong>Geometries:</strong> {{ geometries_count }}</li>
+                        <li><strong>Data Entries:</strong> {{ data_entries_count }}</li>
+                        <li><strong>Years:</strong> {{ years|join:", " }}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends 'datasets/_base.html' %}
+
+{% block title %}Delete File - ISR Field{% endblock %}
+
+{% block content %}
+<div class="container mt-4" style="max-width: 600px;">
+    <h2>Delete File</h2>
+    <p class="text-muted">Are you sure you want to delete this file?</p>
+    
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">{{ entry_file.filename }}</h5>
+            <p class="card-text">
+                <strong>File Type:</strong> {{ entry_file.file_type }}<br>
+                <strong>File Size:</strong> {{ entry_file.file_size|filesizeformat }}<br>
+                <strong>Uploaded by:</strong> {{ entry_file.upload_user.username }}<br>
+                <strong>Upload Date:</strong> {{ entry_file.upload_date|date:"F d, Y H:i" }}
+            </p>
+            {% if entry_file.description %}
+                <p class="card-text"><strong>Description:</strong> {{ entry_file.description }}</p>
+            {% endif %}
+            
+            <form method="post">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">Delete File</button>
+                <a href="{% url 'entry_detail' entry_file.entry.id %}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} 
