@@ -9,9 +9,16 @@ services:
       - .env
     depends_on:
       db:
-        condition: service_healthy  
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s  
   db:
-    image: postgis/postgis:15-3.3
+    image: postgis/postgis:18-3.6
+    platform: linux/amd64
     volumes:
 #      - ./db_backup/read:/docker-entrypoint-initdb.d/:ro
       - postgres_data:/var/lib/postgresql/data/
@@ -31,7 +38,8 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - app      
+      app:
+        condition: service_healthy      
   admin:
     image: dpage/pgadmin4:latest
     environment:
