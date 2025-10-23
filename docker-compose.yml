@@ -21,7 +21,7 @@ services:
     platform: linux/amd64
     volumes:
 #      - ./db_backup/read:/docker-entrypoint-initdb.d/:ro
-      - postgres_data:/var/lib/postgresql/data/
+      - postgres_data:/var/lib/postgresql/
     env_file:
       - .env
     healthcheck:
