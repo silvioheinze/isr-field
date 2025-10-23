@@ -163,7 +163,7 @@ def password_reset_view(request):
             if associated_users.exists():
                 for user in associated_users:
                     subject = "Password Reset Request - ISR Field"
-                    email_template_name = "frontend/password_reset_email.html"
+                    email_template_name = "datasets/password_reset_email.html"
                     c = {
                         "email": user.email,
                         'domain': get_current_site(request).domain,
