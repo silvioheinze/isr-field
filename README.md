@@ -40,6 +40,7 @@ A Django application for managing spatial data with user authentication, data im
 - **Responsive Data Tables**: Transposed table layout with data entries as columns
 - **AJAX Photo Upload**: Real-time file upload for data entry photos
 - **Map Improvements**: Fixed zoom levels, circle markers, and overlapping point handling
+- **Map Controls**: Added My Location, Focus All Points, and custom Zoom In/Out buttons
 - **Auto-generation**: Automatic ID generation for new geometry points
 - **Copy Functionality**: Copy data from previous years to new entries
 
@@ -213,6 +214,8 @@ When a dataset has an assigned typology:
   - WGS84 (LAT/LON, LATITUDE/LONGITUDE)
   - Austrian coordinate systems (EPSG:31256, 31257, 31258)
   - Scaled coordinates for various projections
+- **Delimiter Auto-detection**: Automatically detects comma, semicolon, tab or pipe-delimited CSVs
+- **Two-step Import Flow**: Upload file → select ID column (and optional coordinate system)
 - **Flexible Column Mapping**: Supports both year-prefixed and generic column names
 - **Data Validation**: Handles missing data with social science coding (999 = missing)
 - **Error Handling**: Comprehensive error reporting and validation
@@ -233,6 +236,12 @@ ID,ADRESSE,X,Y,2016_NUTZUNG,2016_CAT_INNO
 test_001,Test Address 1,16.3738,48.2082,870,999
 ```
 
+**Semicolon-delimited (EU)**:
+```csv
+ID;ADRESSE;X;Y;2016_NUTZUNG;2016_CAT_INNO
+test_001;Test Address 1;16.3738;48.2082;870;999
+```
+
 **With Entry Names**:
 ```csv
 ID,ADRESSE,GEB_X,GEB_Y,2016_NUTZUNG,2016_CAT_INNO,NUTZUNG_NAME
@@ -241,9 +250,14 @@ test_001,Test Address 1,656610,3399131,870,999,Residential Building
 
 ### Import Features
 - **Coordinate System Detection**: Automatically detects coordinate system based on value ranges
+- **Column Selection**: Choose which CSV column is used as the unique ID during import
 - **Missing Data Handling**: Treats 'NA', 'N/A', 'NULL' as missing data
 - **Social Science Coding**: Uses 999 for missing integer values
 - **Entry Name Support**: Optional `NUTZUNG_NAME` column for entry descriptions
+
+### Import Debugging & Summary
+- **Import Summary Page**: Displays counts, errors, and detected coordinate system
+- **Debug Import View**: Optional debug interface for validating CSV structure
 
 ## Data Export
 
@@ -280,6 +294,9 @@ test_002,Test Address 2,16.3748,48.2092,101,2,101,2
 - **Clustering**: Overlapping points are clustered for better visualization
 - **Point Selection**: Interactive selection of overlapping points with detailed information
 - **Full-width Display**: Maps use full available width for optimal viewing
+ - **Zoom Controls**: Custom Zoom In/Out buttons (top-left)
+ - **My Location**: Quickly centers the map on the user's current location
+ - **Focus All Points**: Centers and fits the map to all loaded points
 
 ### Data Entry Interface
 - **Responsive Tables**: Data entries displayed in transposed table format
