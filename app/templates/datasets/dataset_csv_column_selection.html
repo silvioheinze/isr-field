@@ -1,0 +1,109 @@
+{% extends 'datasets/_base.html' %}
+
+{% block title %}Select CSV Columns - {{ dataset.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <h2>Select CSV Columns</h2>
+            <p class="text-muted">Choose which column should be used as the ID for "{{ dataset.name }}"</p>
+            
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Column Selection</h5>
+                    <p>Your CSV file contains the following columns. Please select which column should be used as the unique identifier (ID) for each geometry point.</p>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="id_column" class="form-label">ID Column <span class="text-danger">*</span></label>
+                            <select class="form-select" id="id_column" name="id_column" required>
+                                <option value="">-- Select ID Column --</option>
+                                {% for header in headers %}
+                                <option value="{{ header }}">{{ header }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">This column will be used as the unique identifier for each geometry point.</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="coordinate_system" class="form-label">Coordinate System (Optional)</label>
+                            <select class="form-select" id="coordinate_system" name="coordinate_system">
+                                <option value="auto">Auto-detect (Recommended)</option>
+                                <option value="4326">WGS84 (EPSG:4326) - Latitude/Longitude</option>
+                                <option value="31256">MGI Austria GK M34 (EPSG:31256)</option>
+                                <option value="31257">MGI Austria GK M31 (EPSG:31257)</option>
+                                <option value="31258">MGI Austria GK M28 (EPSG:31258)</option>
+                                <option value="3857">Web Mercator (EPSG:3857)</option>
+                            </select>
+                            <div class="form-text">Leave as "Auto-detect" for automatic coordinate system detection and transformation.</div>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">Import Data</button>
+                            <a href="{% url 'dataset_csv_import' dataset.id %}" class="btn btn-secondary">Back to Upload</a>
+                            <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-outline-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Available Columns</h5>
+                    <p class="text-muted">Your CSV file contains {{ headers|length }} columns:</p>
+                    <ul class="list-group list-group-flush">
+                        {% for header in headers %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ header }}
+                            <span class="badge bg-secondary">{{ forloop.counter }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h5 class="card-title">Column Requirements</h5>
+                    <p class="small text-muted">
+                        <strong>ID Column:</strong> Must contain unique values for each row. This will be used to identify geometry points.
+                    </p>
+                    <p class="small text-muted">
+                        <strong>Coordinate Columns:</strong> The system will automatically detect coordinate columns from:
+                    </p>
+                    <ul class="small">
+                        <li>GEB_X, GEB_Y</li>
+                        <li>X, Y</li>
+                        <li>LONGITUDE, LATITUDE</li>
+                        <li>LON, LAT</li>
+                    </ul>
+                    <p class="small text-muted">
+                        <strong>Address Column:</strong> ADRESSE (optional, will use default if missing)
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-select common ID column names
+    const idColumnSelect = document.getElementById('id_column');
+    const commonIdNames = ['ID', 'id', 'Id', 'ID_KURZ', 'id_kurz', 'Id_Kurz', 'GEOMETRY_ID', 'geometry_id'];
+    
+    for (let i = 0; i < idColumnSelect.options.length; i++) {
+        const option = idColumnSelect.options[i];
+        if (commonIdNames.includes(option.value)) {
+            option.selected = true;
+            break;
+        }
+    }
+});
+</script>
+{% endblock %}

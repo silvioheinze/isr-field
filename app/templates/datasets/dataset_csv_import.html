@@ -77,19 +77,7 @@
                             <div class="form-text">Only CSV files are accepted.</div>
                         </div>
                         
-                        <div class="mb-3">
-                            <label for="coordinate_system" class="form-label">Coordinate System (Optional)</label>
-                            <select class="form-select" id="coordinate_system" name="coordinate_system">
-                                <option value="auto">Auto-detect (Recommended)</option>
-                                <option value="4326">WGS84 (EPSG:4326) - Latitude/Longitude</option>
-                                <option value="31256">MGI Austria GK M34 (EPSG:31256)</option>
-                                <option value="31257">MGI Austria GK M31 (EPSG:31257)</option>
-                                <option value="31258">MGI Austria GK M28 (EPSG:31258)</option>
-                                <option value="3857">Web Mercator (EPSG:3857)</option>
-                            </select>
-                            <div class="form-text">Leave as "Auto-detect" for automatic coordinate system detection and transformation.</div>
-                        </div>
-                        <button type="submit" class="btn btn-primary">Import Data</button>
+                        <button type="submit" class="btn btn-primary">Next: Select Columns</button>
                         <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-secondary">Cancel</a>
                     </form>
                 </div>
