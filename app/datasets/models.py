@@ -19,10 +19,10 @@ class DataSet(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_datasets')
     shared_with = models.ManyToManyField(User, related_name='shared_datasets', blank=True)
     shared_with_groups = models.ManyToManyField('auth.Group', related_name='shared_datasets', blank=True)
-    typology = models.ForeignKey('Typology', on_delete=models.SET_NULL, null=True, blank=True, related_name='datasets')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_public = models.BooleanField(default=False)
+    allow_multiple_entries = models.BooleanField(default=False, help_text="Allow multiple data entries per geometry point")
 
     def __str__(self):
         return self.name
@@ -70,25 +70,88 @@ class DataGeometry(models.Model):
 
 class DataEntry(models.Model):
     geometry = models.ForeignKey(DataGeometry, on_delete=models.CASCADE, related_name='entries')
-    name = models.CharField(max_length=255)
-    usage_code1 = models.IntegerField()
-    usage_code2 = models.IntegerField()
-    usage_code3 = models.IntegerField()
-    cat_inno = models.IntegerField()
-    cat_wert = models.IntegerField()
-    cat_fili = models.IntegerField()
-    year = models.IntegerField()
+    name = models.CharField(max_length=255, blank=True, null=True)
+    year = models.IntegerField(blank=True, null=True)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_entries')
-    custom_fields = models.JSONField(default=dict, blank=True, help_text="Custom field values for this entry")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.name} - {self.geometry.id_kurz} ({self.year})"
+        year_str = f" ({self.year})" if self.year else ""
+        name_str = self.name or "Unnamed Entry"
+        return f"{name_str} - {self.geometry.id_kurz}{year_str}"
+
+    def get_field_value(self, field_name):
+        """Get the value of a specific field for this entry"""
+        try:
+            field = self.fields.get(field_name=field_name)
+            return field.value
+        except DataEntryField.DoesNotExist:
+            return None
+
+    def set_field_value(self, field_name, value, field_type='text'):
+        """Set the value of a specific field for this entry"""
+        field, created = self.fields.get_or_create(
+            field_name=field_name,
+            defaults={'field_type': field_type, 'value': value}
+        )
+        if not created:
+            field.value = value
+            field.field_type = field_type
+            field.save()
+        return field
 
     class Meta:
         ordering = ['-created_at']
         verbose_name_plural = "Data Entries"
+
+
+class DataEntryField(models.Model):
+    """Dynamic field values for data entries - represents CSV columns"""
+    FIELD_TYPE_CHOICES = [
+        ('text', 'Text'),
+        ('integer', 'Integer'),
+        ('decimal', 'Decimal'),
+        ('boolean', 'Boolean'),
+        ('date', 'Date'),
+        ('choice', 'Choice'),
+    ]
+    
+    entry = models.ForeignKey(DataEntry, on_delete=models.CASCADE, related_name='fields')
+    field_name = models.CharField(max_length=100, help_text="Field name (column name from CSV)")
+    field_type = models.CharField(max_length=20, choices=FIELD_TYPE_CHOICES, default='text')
+    value = models.TextField(blank=True, null=True, help_text="Field value")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.entry.geometry.id_kurz} - {self.field_name}: {self.value}"
+
+    def get_typed_value(self):
+        """Get the value converted to the appropriate Python type"""
+        if not self.value:
+            return None
+            
+        try:
+            if self.field_type == 'integer':
+                return int(self.value)
+            elif self.field_type == 'decimal':
+                return float(self.value)
+            elif self.field_type == 'boolean':
+                return self.value.lower() in ('true', '1', 'yes', 'on')
+            elif self.field_type == 'date':
+                from datetime import datetime
+                return datetime.strptime(self.value, '%Y-%m-%d').date()
+            else:  # text, choice
+                return str(self.value)
+        except (ValueError, TypeError):
+            return self.value
+
+    class Meta:
+        ordering = ['field_name']
+        verbose_name = "Data Entry Field"
+        verbose_name_plural = "Data Entry Fields"
+        unique_together = ['entry', 'field_name']
 
 
 class DataEntryFile(models.Model):
@@ -184,8 +247,8 @@ class DatasetFieldConfig(models.Model):
         verbose_name_plural = "Dataset Field Configurations"
 
 
-class CustomField(models.Model):
-    """Custom fields that can be added to datasets"""
+class DatasetField(models.Model):
+    """Field configuration for datasets - defines which CSV columns are shown in data input"""
     FIELD_TYPE_CHOICES = [
         ('text', 'Text'),
         ('integer', 'Integer'),
@@ -195,28 +258,19 @@ class CustomField(models.Model):
         ('choice', 'Choice'),
     ]
     
-    # Standard field types that map to existing DataEntry fields
-    STANDARD_FIELD_CHOICES = [
-        ('name', 'Entry Name'),
-        ('usage_code1', 'Usage Code 1'),
-        ('usage_code2', 'Usage Code 2'),
-        ('usage_code3', 'Usage Code 3'),
-        ('cat_inno', 'Category Innovation'),
-        ('cat_wert', 'Category Value'),
-        ('cat_fili', 'Category Facility'),
-        ('year', 'Year'),
-    ]
-    
-    dataset = models.ForeignKey(DataSet, on_delete=models.CASCADE, related_name='custom_fields')
-    name = models.CharField(max_length=100, help_text="Field name (will be used as column name)")
+    dataset = models.ForeignKey(DataSet, on_delete=models.CASCADE, related_name='dataset_fields')
+    field_name = models.CharField(max_length=100, help_text="Field name (CSV column name)")
     label = models.CharField(max_length=100, help_text="Display label for the field")
     field_type = models.CharField(max_length=20, choices=FIELD_TYPE_CHOICES, default='text')
-    is_standard_field = models.BooleanField(default=False, help_text="Whether this is a standard field (name, usage_code1, etc.)")
     required = models.BooleanField(default=False)
     enabled = models.BooleanField(default=True)
     help_text = models.TextField(blank=True, null=True, help_text="Help text to display to users")
     choices = models.TextField(blank=True, null=True, help_text="Comma-separated choices for choice fields")
     order = models.PositiveIntegerField(default=0, help_text="Display order (0 = first)")
+    is_coordinate_field = models.BooleanField(default=False, help_text="Whether this field represents coordinates")
+    is_id_field = models.BooleanField(default=False, help_text="Whether this field is the unique identifier")
+    is_address_field = models.BooleanField(default=False, help_text="Whether this field represents the address")
+    typology = models.ForeignKey(Typology, on_delete=models.SET_NULL, null=True, blank=True, help_text="Typology to use for this field (for choice fields)")
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -226,12 +280,20 @@ class CustomField(models.Model):
     
     def get_choices_list(self):
         """Get choices as a list for choice fields"""
-        if self.field_type == 'choice' and self.choices:
-            return [choice.strip() for choice in self.choices.split(',') if choice.strip()]
+        if self.field_type == 'choice':
+            # If typology is assigned, use typology entries
+            if self.typology:
+                return [
+                    {'value': entry.code, 'label': f"{entry.code} - {entry.name}"}
+                    for entry in self.typology.entries.all().order_by('code')
+                ]
+            # Otherwise, use manual choices
+            elif self.choices:
+                return [choice.strip() for choice in self.choices.split(',') if choice.strip()]
         return []
     
     class Meta:
-        ordering = ['order', 'name']
-        verbose_name = "Custom Field"
-        verbose_name_plural = "Custom Fields"
-        unique_together = ['dataset', 'name']  # Field names must be unique per dataset 
+        ordering = ['order', 'field_name']
+        verbose_name = "Dataset Field"
+        verbose_name_plural = "Dataset Fields"
+        unique_together = ['dataset', 'field_name']  # Field names must be unique per dataset 

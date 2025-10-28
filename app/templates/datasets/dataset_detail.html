@@ -65,82 +65,143 @@
                 <div class="card">
                     <div class="card-body">
                         <p class="text-muted mb-3">Configure which fields are available for data entry in this dataset.</p>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h6>Standard Fields</h6>
-                                <ul class="list-unstyled">
-                                    {% for field in all_fields %}
-                                        {% if field.is_standard_field %}
-                                            <li>
-                                                <strong>{{ field.label }}:</strong> 
-                                                {% if field.enabled %}<span class="text-success">Enabled</span>{% else %}<span class="text-muted">Disabled</span>{% endif %}
-                                                {% if field.required %}<span class="badge bg-warning text-dark">Required</span>{% endif %}
-                                            </li>
-                                        {% endif %}
-                                    {% endfor %}
-                                </ul>
-                            </div>
-                            <div class="col-md-6">
-                                <h6>Custom Fields</h6>
-                                <ul class="list-unstyled">
-                                    {% for field in all_fields %}
-                                        {% if not field.is_standard_field %}
-                                            <li>
-                                                <strong>{{ field.label }}:</strong> 
-                                                {% if field.enabled %}<span class="text-success">Enabled</span>{% else %}<span class="text-muted">Disabled</span>{% endif %}
-                                                {% if field.required %}<span class="badge bg-warning text-dark">Required</span>{% endif %}
-                                                <span class="badge bg-info">{{ field.get_field_type_display }}</span>
-                                            </li>
-                                        {% endif %}
-                                    {% empty %}
-                                        <li class="text-muted">No custom fields configured.</li>
-                                    {% endfor %}
-                                </ul>
-                            </div>
-                        </div>
+                        
                         {% if dataset.owner == user %}
-                            <div class="mt-3">
-                                <a href="{% url 'dataset_field_config' dataset.id %}" class="btn btn-sm btn-outline-primary">
-                                    <i class="bi bi-gear"></i> Configure All Fields
-                                </a>
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="update_fields">
+                            
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Field</th>
+                                            <th>Type</th>
+                                            <th>Label</th>
+                                            <th>Order</th>
+                                            <th>Enabled</th>
+                                            <th>Required</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for field in all_fields %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ field.field_name }}</strong>
+                                                {% if field.is_id_field %}<span class="badge bg-primary ms-1">ID</span>{% endif %}
+                                                {% if field.is_coordinate_field %}<span class="badge bg-secondary ms-1">Coord</span>{% endif %}
+                                                {% if field.is_address_field %}<span class="badge bg-success ms-1">Address</span>{% endif %}
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-info">{{ field.get_field_type_display }}</span>
+                                                {% if field.typology %}<br><small class="text-muted">{{ field.typology.name }}</small>{% endif %}
+                                            </td>
+                                            <td>
+                                                <input type="text" class="form-control form-control-sm" 
+                                                       name="field_{{ field.id }}_label" 
+                                                       value="{{ field.label }}">
+                                            </td>
+                                            <td>
+                                                <input type="number" class="form-control form-control-sm" 
+                                                       name="field_{{ field.id }}_order" 
+                                                       value="{{ field.order }}" 
+                                                       style="width: 80px;">
+                                            </td>
+                                            <td>
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" 
+                                                           name="field_{{ field.id }}_enabled" 
+                                                           id="field_{{ field.id }}_enabled"
+                                                           {% if field.enabled %}checked{% endif %}>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" 
+                                                           name="field_{{ field.id }}_required" 
+                                                           id="field_{{ field.id }}_required"
+                                                           {% if field.required %}checked{% endif %}>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm" role="group">
+                                                    <a href="{% url 'custom_field_edit' dataset.id field.id %}" class="btn btn-outline-primary btn-sm" title="Edit Field">
+                                                        <i class="bi bi-pencil"></i>
+                                                    </a>
+                                                    <a href="{% url 'custom_field_delete' dataset.id field.id %}" class="btn btn-outline-danger btn-sm" title="Delete Field">
+                                                        <i class="bi bi-trash"></i>
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="7" class="text-center text-muted">No fields configured.</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
                             </div>
+                            
+                            <div class="mt-3 d-flex justify-content-between">
+                                <div>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-save"></i> Save Configuration
+                                    </button>
+                                    <a href="{% url 'custom_field_create' dataset.id %}" class="btn btn-success">
+                                        <i class="bi bi-plus-circle"></i> Add Field
+                                    </a>
+                                </div>
+                            </div>
+                        </form>
+                        {% else %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Field</th>
+                                        <th>Type</th>
+                                        <th>Label</th>
+                                        <th>Status</th>
+                                        <th>Properties</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for field in all_fields %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ field.field_name }}</strong>
+                                            {% if field.is_id_field %}<span class="badge bg-primary ms-1">ID</span>{% endif %}
+                                            {% if field.is_coordinate_field %}<span class="badge bg-secondary ms-1">Coord</span>{% endif %}
+                                            {% if field.is_address_field %}<span class="badge bg-success ms-1">Address</span>{% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">{{ field.get_field_type_display }}</span>
+                                            {% if field.typology %}<br><small class="text-muted">{{ field.typology.name }}</small>{% endif %}
+                                        </td>
+                                        <td>{{ field.label }}</td>
+                                        <td>
+                                            {% if field.enabled %}<span class="text-success">Enabled</span>{% else %}<span class="text-muted">Disabled</span>{% endif %}
+                                        </td>
+                                        <td>
+                                            {% if field.required %}<span class="badge bg-warning text-dark">Required</span>{% endif %}
+                                            <span class="badge bg-secondary">Order: {{ field.order }}</span>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted">No fields configured.</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
                         {% endif %}
                     </div>
                 </div>
             </div>
             
-            <div class="mb-4">
-                <h5>Typology</h5>
-                {% if dataset.typology %}
-                    <div class="card">
-                        <div class="card-body">
-                            <h6>{{ dataset.typology.name }}</h6>
-                            <p class="text-muted mb-2">Created by {{ dataset.typology.created_by.username }} on {{ dataset.typology.created_at|date:"F d, Y" }}</p>
-                            <p class="mb-2"><strong>Entries:</strong> {{ dataset.typology.entries.count }}</p>
-                            <div class="btn-group" role="group">
-                                <a href="{% url 'typology_detail' dataset.typology.id %}" class="btn btn-sm btn-outline-info">View Details</a>
-                                {% if dataset.owner == user %}
-                                    <a href="{% url 'typology_edit' dataset.typology.id %}" class="btn btn-sm btn-outline-primary">Edit Typology</a>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                {% else %}
-                    <div class="card">
-                        <div class="card-body text-center">
-                            <p class="text-muted mb-3">No typology assigned to this dataset.</p>
-                            {% if dataset.owner == user and can_create_typologies %}
-                                <div class="btn-group" role="group">
-                                    <a href="{% url 'typology_create' %}?dataset_id={{ dataset.id }}" class="btn btn-sm btn-success">
-                                        <i class="bi bi-plus-circle"></i> Create New Typology
-                                    </a>
-                                    <a href="{% url 'typology_select' dataset.id %}" class="btn btn-sm btn-outline-primary">Select Existing Typology</a>
-                                </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                {% endif %}
-            </div>
         </div>
         
         <div class="col-md-4">
@@ -192,6 +253,9 @@
                     <div class="d-grid gap-2">
                         <a href="{% url 'dataset_data_input' dataset.id %}" class="btn btn-info btn-sm">
                             <i class="bi bi-map"></i> Interactive Map
+                        </a>
+                        <a href="{% url 'dataset_entries_table' dataset.id %}" class="btn btn-outline-info btn-sm">
+                            <i class="bi bi-table"></i> View All Entries
                         </a>
                     </div>
                 </div>

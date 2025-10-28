@@ -13,7 +13,7 @@ from django.contrib import messages
 from django.urls import reverse
 from django.contrib.auth.models import Group
 from django import forms
-from .models import AuditLog, DataSet, DataGeometry, DataEntry, DataEntryFile, Typology, TypologyEntry, DatasetFieldConfig, CustomField
+from .models import AuditLog, DataSet, DataGeometry, DataEntry, DataEntryField, DataEntryFile, Typology, TypologyEntry, DatasetFieldConfig, DatasetField
 from django.contrib.auth.decorators import login_required, permission_required
 import json
 import csv
@@ -75,14 +75,14 @@ class DatasetFieldConfigForm(forms.ModelForm):
         }
 
 
-class CustomFieldForm(forms.ModelForm):
-    """Form for creating and editing custom fields"""
+class DatasetFieldForm(forms.ModelForm):
+    """Form for creating and editing dataset fields"""
     
     class Meta:
-        model = CustomField
-        fields = ['name', 'label', 'field_type', 'required', 'enabled', 'help_text', 'choices', 'order']
+        model = DatasetField
+        fields = ['field_name', 'label', 'field_type', 'required', 'enabled', 'help_text', 'choices', 'order', 'is_coordinate_field', 'is_id_field', 'is_address_field', 'typology']
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'field_name'}),
+            'field_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'field_name'}),
             'label': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Display Label'}),
             'field_type': forms.Select(attrs={'class': 'form-select'}),
             'required': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
@@ -90,21 +90,31 @@ class CustomFieldForm(forms.ModelForm):
             'help_text': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'choices': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Option 1, Option 2, Option 3'}),
             'order': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
+            'is_coordinate_field': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'is_id_field': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'is_address_field': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'typology': forms.Select(attrs={'class': 'form-select'})
         }
     
-    def clean_name(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Populate typology choices
+        self.fields['typology'].queryset = Typology.objects.all().order_by('name')
+        self.fields['typology'].empty_label = "No typology selected"
+    
+    def clean_field_name(self):
         """Validate field name"""
-        name = self.cleaned_data.get('name')
-        if name:
+        field_name = self.cleaned_data.get('field_name')
+        if field_name:
             # Convert to lowercase and replace spaces with underscores
-            name = name.lower().replace(' ', '_')
+            field_name = field_name.lower().replace(' ', '_')
             # Remove any non-alphanumeric characters except underscores
             import re
-            name = re.sub(r'[^a-z0-9_]', '', name)
+            field_name = re.sub(r'[^a-z0-9_]', '', field_name)
             # Ensure it starts with a letter
-            if name and not name[0].isalpha():
-                name = 'field_' + name
-        return name
+            if field_name and not field_name[0].isalpha():
+                field_name = 'field_' + field_name
+        return field_name
     
     def clean_choices(self):
         """Validate choices for choice fields"""
@@ -117,8 +127,8 @@ class CustomFieldForm(forms.ModelForm):
         return choices
 
 
-class CustomFieldInlineFormSet(forms.BaseInlineFormSet):
-    """Formset for managing multiple custom fields"""
+class DatasetFieldInlineFormSet(forms.BaseInlineFormSet):
+    """Formset for managing multiple dataset fields"""
     
     def clean(self):
         """Validate the formset"""
@@ -554,102 +564,51 @@ def dataset_detail_view(request, dataset_id):
     if not dataset.can_access(request.user):
         return render(request, 'datasets/403.html', status=403)
     
+    # Handle field configuration updates
+    if request.method == 'POST' and request.POST.get('action') == 'update_fields':
+        if dataset.owner == request.user:
+            try:
+                # Update field configurations
+                for field in DatasetField.objects.filter(dataset=dataset):
+                    field_id = field.id
+                    
+                    # Update label
+                    if f'field_{field_id}_label' in request.POST:
+                        field.label = request.POST[f'field_{field_id}_label']
+                    
+                    # Update order
+                    if f'field_{field_id}_order' in request.POST:
+                        try:
+                            field.order = int(request.POST[f'field_{field_id}_order'])
+                        except ValueError:
+                            pass
+                    
+                    # Update enabled status
+                    field.enabled = f'field_{field_id}_enabled' in request.POST
+                    
+                    # Update required status
+                    field.required = f'field_{field_id}_required' in request.POST
+                    
+                    field.save()
+                
+                messages.success(request, 'Field configuration updated successfully.')
+            except Exception as e:
+                messages.error(request, f'Error updating field configuration: {str(e)}')
+        
+        return redirect('dataset_detail', dataset_id=dataset.id)
+    
     # Get counts for geometries and data entries
     geometries_count = DataGeometry.objects.filter(dataset=dataset).count()
     data_entries_count = DataEntry.objects.filter(geometry__dataset=dataset).count()
     
-    # Get all fields for this dataset (both standard and custom)
-    all_fields = CustomField.objects.filter(dataset=dataset).order_by('order', 'name')
-    
-    # If no standard fields exist, create them
-    if not all_fields.filter(is_standard_field=True).exists():
-        standard_fields = [
-            {'name': 'name', 'label': 'Entry Name', 'field_type': 'text', 'order': 0},
-            {'name': 'usage_code1', 'label': 'Usage Code 1', 'field_type': 'integer', 'order': 1},
-            {'name': 'usage_code2', 'label': 'Usage Code 2', 'field_type': 'integer', 'order': 2},
-            {'name': 'usage_code3', 'label': 'Usage Code 3', 'field_type': 'integer', 'order': 3},
-            {'name': 'cat_inno', 'label': 'Category Innovation', 'field_type': 'integer', 'order': 4},
-            {'name': 'cat_wert', 'label': 'Category Value', 'field_type': 'integer', 'order': 5},
-            {'name': 'cat_fili', 'label': 'Category Facility', 'field_type': 'integer', 'order': 6},
-            {'name': 'year', 'label': 'Year', 'field_type': 'integer', 'order': 7},
-        ]
-        
-        for field_data in standard_fields:
-            CustomField.objects.create(
-                dataset=dataset,
-                name=field_data['name'],
-                label=field_data['label'],
-                field_type=field_data['field_type'],
-                is_standard_field=True,
-                required=(field_data['name'] == 'year'),
-                enabled=True,
-                order=field_data['order']
-            )
-        
-        # Refresh the queryset
-        all_fields = CustomField.objects.filter(dataset=dataset).order_by('order', 'name')
+    # Get all fields for this dataset
+    all_fields = DatasetField.objects.filter(dataset=dataset).order_by('order', 'field_name')
     
     return render(request, 'datasets/dataset_detail.html', {
         'dataset': dataset,
         'geometries_count': geometries_count,
         'data_entries_count': data_entries_count,
         'can_create_typologies': is_manager(request.user),
-        'all_fields': all_fields
-    })
-
-@login_required
-def dataset_field_config_view(request, dataset_id):
-    """Manage all fields for a dataset (only owner can edit)"""
-    dataset = get_object_or_404(DataSet, pk=dataset_id)
-    if dataset.owner != request.user:
-        return render(request, 'datasets/403.html', status=403)
-    
-    # Get all fields for this dataset (both standard and custom)
-    all_fields = CustomField.objects.filter(dataset=dataset).order_by('order', 'name')
-    
-    # If no standard fields exist, create them
-    if not all_fields.filter(is_standard_field=True).exists():
-        standard_fields = [
-            {'name': 'name', 'label': 'Entry Name', 'field_type': 'text', 'order': 0},
-            {'name': 'usage_code1', 'label': 'Usage Code 1', 'field_type': 'integer', 'order': 1},
-            {'name': 'usage_code2', 'label': 'Usage Code 2', 'field_type': 'integer', 'order': 2},
-            {'name': 'usage_code3', 'label': 'Usage Code 3', 'field_type': 'integer', 'order': 3},
-            {'name': 'cat_inno', 'label': 'Category Innovation', 'field_type': 'integer', 'order': 4},
-            {'name': 'cat_wert', 'label': 'Category Value', 'field_type': 'integer', 'order': 5},
-            {'name': 'cat_fili', 'label': 'Category Facility', 'field_type': 'integer', 'order': 6},
-            {'name': 'year', 'label': 'Year', 'field_type': 'integer', 'order': 7},
-        ]
-        
-        for field_data in standard_fields:
-            CustomField.objects.create(
-                dataset=dataset,
-                name=field_data['name'],
-                label=field_data['label'],
-                field_type=field_data['field_type'],
-                is_standard_field=True,
-                required=(field_data['name'] == 'year'),
-                enabled=True,
-                order=field_data['order']
-            )
-        
-        # Refresh the queryset
-        all_fields = CustomField.objects.filter(dataset=dataset).order_by('order', 'name')
-    
-    if request.method == 'POST':
-        # Handle field updates
-        for field in all_fields:
-            field.enabled = request.POST.get(f'field_{field.id}_enabled') == 'on'
-            field.required = request.POST.get(f'field_{field.id}_required') == 'on'
-            field.label = request.POST.get(f'field_{field.id}_label', field.label)
-            field.help_text = request.POST.get(f'field_{field.id}_help_text', '')
-            field.order = int(request.POST.get(f'field_{field.id}_order', field.order))
-            field.save()
-        
-        messages.success(request, 'Field configuration updated successfully.')
-        return redirect('dataset_detail', dataset_id=dataset.id)
-    
-    return render(request, 'datasets/dataset_field_config.html', {
-        'dataset': dataset,
         'all_fields': all_fields
     })
 
@@ -661,16 +620,16 @@ def custom_field_create_view(request, dataset_id):
         return render(request, 'datasets/403.html', status=403)
     
     if request.method == 'POST':
-        form = CustomFieldForm(request.POST)
+        form = DatasetFieldForm(request.POST)
         if form.is_valid():
             custom_field = form.save(commit=False)
             custom_field.dataset = dataset
-            custom_field.is_standard_field = False  # This is a custom field
+            # This is a custom field
             custom_field.save()
             messages.success(request, f'Custom field "{custom_field.label}" created successfully.')
-            return redirect('dataset_field_config', dataset_id=dataset.id)
+            return redirect('dataset_detail', dataset_id=dataset.id)
     else:
-        form = CustomFieldForm()
+        form = DatasetFieldForm()
     
     return render(request, 'datasets/custom_field_form.html', {
         'dataset': dataset,
@@ -685,16 +644,16 @@ def custom_field_edit_view(request, dataset_id, field_id):
     if dataset.owner != request.user:
         return render(request, 'datasets/403.html', status=403)
     
-    custom_field = get_object_or_404(CustomField, pk=field_id, dataset=dataset)
+    custom_field = get_object_or_404(DatasetField, pk=field_id, dataset=dataset)
     
     if request.method == 'POST':
-        form = CustomFieldForm(request.POST, instance=custom_field)
+        form = DatasetFieldForm(request.POST, instance=custom_field)
         if form.is_valid():
             form.save()
             messages.success(request, f'Custom field "{custom_field.label}" updated successfully.')
-            return redirect('dataset_field_config', dataset_id=dataset.id)
+            return redirect('dataset_detail', dataset_id=dataset.id)
     else:
-        form = CustomFieldForm(instance=custom_field)
+        form = DatasetFieldForm(instance=custom_field)
     
     return render(request, 'datasets/custom_field_form.html', {
         'dataset': dataset,
@@ -710,13 +669,13 @@ def custom_field_delete_view(request, dataset_id, field_id):
     if dataset.owner != request.user:
         return render(request, 'datasets/403.html', status=403)
     
-    custom_field = get_object_or_404(CustomField, pk=field_id, dataset=dataset)
+    custom_field = get_object_or_404(DatasetField, pk=field_id, dataset=dataset)
     
     if request.method == 'POST':
         field_name = custom_field.label
         custom_field.delete()
         messages.success(request, f'Custom field "{field_name}" deleted successfully.')
-        return redirect('dataset_field_config', dataset_id=dataset.id)
+        return redirect('dataset_detail', dataset_id=dataset.id)
     
     return render(request, 'datasets/custom_field_delete.html', {
         'dataset': dataset,
@@ -732,20 +691,48 @@ def dataset_edit_view(request, dataset_id):
         return render(request, 'datasets/403.html', status=403)
     
     if request.method == 'POST':
-        dataset.name = request.POST.get('name')
-        dataset.description = request.POST.get('description', '')
-        dataset.is_public = request.POST.get('is_public') == 'on'
-        dataset.save()
+        action = request.POST.get('action')
         
-        # Log the action
-        AuditLog.objects.create(
-            user=request.user,
-            action='edited_dataset',
-            target=f'dataset:{dataset.id}'
-        )
-        
-        messages.success(request, 'Dataset updated successfully.')
-        return redirect('dataset_detail', dataset_id=dataset.id)
+        if action == 'delete':
+            # Handle dataset deletion
+            dataset_name = dataset.name
+            dataset_id = dataset.id
+            
+            # Log the action before deletion
+            AuditLog.objects.create(
+                user=request.user,
+                action='deleted_dataset',
+                target=f'dataset:{dataset_id}'
+            )
+            
+            # Delete the dataset (this will cascade delete all related data)
+            dataset.delete()
+            
+            messages.success(request, f'Dataset "{dataset_name}" has been deleted successfully.')
+            return redirect('dataset_list')
+        else:
+            # Handle dataset update
+            dataset.name = request.POST.get('name')
+            dataset.description = request.POST.get('description', '')
+            dataset.is_public = request.POST.get('is_public') == 'on'
+            
+            # Handle allow_multiple_entries field (might not exist if migration not applied)
+            try:
+                dataset.allow_multiple_entries = request.POST.get('allow_multiple_entries') == 'on'
+            except AttributeError:
+                pass  # Field doesn't exist yet, skip it
+            
+            dataset.save()
+            
+            # Log the action
+            AuditLog.objects.create(
+                user=request.user,
+                action='edited_dataset',
+                target=f'dataset:{dataset.id}'
+            )
+            
+            messages.success(request, 'Dataset updated successfully.')
+            return redirect('dataset_detail', dataset_id=dataset.id)
     
     return render(request, 'datasets/dataset_edit.html', {'dataset': dataset})
 
@@ -815,46 +802,136 @@ def dataset_data_input_view(request, dataset_id):
         
         # Add entry data for this geometry
         for entry in geometry.entries.all():
-            map_point['entries'].append({
+            entry_data = {
                 'id': entry.id,
                 'name': entry.name,
-                'usage_code1': entry.usage_code1,
-                'usage_code2': entry.usage_code2,
-                'usage_code3': entry.usage_code3,
-                'cat_inno': entry.cat_inno,
-                'cat_wert': entry.cat_wert,
-                'cat_fili': entry.cat_fili,
                 'year': entry.year,
                 'user': entry.user.username if entry.user else 'Unknown'
-            })
+            }
+            
+            # Add dynamic field values
+            for field in entry.fields.all():
+                entry_data[field.field_name] = field.get_typed_value()
+            
+            map_point['entries'].append(entry_data)
         
         map_data.append(map_point)
     
-    # Get typology data if linked
+    # Typology data is now handled at the field level, not dataset level
     typology_data = None
-    if dataset.typology:
-        typology_entries = dataset.typology.entries.all().order_by('code')
-        typology_data = {
-            'id': dataset.typology.id,
-            'name': dataset.typology.name,
-            'entries': [
-                {
-                    'code': entry.code,
-                    'category': entry.category,
-                    'name': entry.name
-                }
-                for entry in typology_entries
-            ]
-        }
     
     # Get all enabled fields for this dataset (both standard and custom)
-    all_fields = CustomField.objects.filter(dataset=dataset, enabled=True).order_by('order', 'name')
+    all_fields = DatasetField.objects.filter(dataset=dataset, enabled=True).order_by('order', 'field_name')
+    
+    # If no enabled fields found, get all fields and enable them
+    if not all_fields.exists():
+        all_fields_qs = DatasetField.objects.filter(dataset=dataset)
+        if all_fields_qs.exists():
+            # Enable all fields
+            all_fields_qs.update(enabled=True)
+            # Re-query to get the updated fields
+            all_fields = DatasetField.objects.filter(dataset=dataset, enabled=True).order_by('order', 'field_name')
+    
+    # Prepare fields data for JavaScript with typology choices
+    fields_data = []
+    for field in all_fields:
+        field_data = {
+            'id': field.id,
+            'name': field.label,  # Use label for display
+            'label': field.label,
+            'field_type': field.field_type,
+            'field_name': field.field_name,
+            'required': field.required,
+            'enabled': field.enabled,
+            'help_text': field.help_text or '',
+            'choices': field.choices or '',
+            'order': field.order,
+            'typology_choices': field.get_choices_list() if field.field_type == 'choice' else []
+        }
+        fields_data.append(field_data)
+    
+    # Handle case where allow_multiple_entries field might not exist yet (migration not applied)
+    try:
+        allow_multiple_entries = dataset.allow_multiple_entries
+    except AttributeError:
+        allow_multiple_entries = False  # Default to False if field doesn't exist
     
     return render(request, 'datasets/dataset_data_input.html', {
         'dataset': dataset,
         'geometries': geometries,
         'typology_data': typology_data,
-        'all_fields': all_fields
+        'all_fields': all_fields,
+        'fields_data': fields_data,
+        'allow_multiple_entries': allow_multiple_entries
+    })
+
+
+@login_required
+def dataset_entries_table_view(request, dataset_id):
+    """Display all dataset entries in a table format"""
+    dataset = get_object_or_404(DataSet, pk=dataset_id)
+    if not dataset.can_access(request.user):
+        return render(request, 'datasets/403.html', status=403)
+    
+    # Get all geometries with their entries
+    geometries = DataGeometry.objects.filter(dataset=dataset).prefetch_related('entries__fields').order_by('id_kurz')
+    
+    # Get all enabled fields for this dataset
+    all_fields = DatasetField.objects.filter(dataset=dataset, enabled=True).order_by('order', 'field_name')
+    
+    # Prepare entries data
+    entries_data = []
+    for geometry in geometries:
+        for entry in geometry.entries.all():
+            entry_data = {
+                'id': entry.id,
+                'geometry_id': geometry.id,
+                'id_kurz': geometry.id_kurz,
+                'address': geometry.address,
+                'entry_name': entry.name,
+                'year': entry.year,
+                'user': entry.user.username if entry.user else 'Unknown',
+                'created_at': entry.created_at,
+                'fields': {}
+            }
+            
+            # Add field values
+            for field in entry.fields.all():
+                entry_data['fields'][field.field_name] = field.get_typed_value()
+            
+            entries_data.append(entry_data)
+    
+    # Handle search/filtering
+    search_query = request.GET.get('search', '')
+    if search_query:
+        entries_data = [entry for entry in entries_data 
+                       if search_query.lower() in entry['id_kurz'].lower() 
+                       or search_query.lower() in entry['address'].lower()
+                       or search_query.lower() in (entry['entry_name'] or '').lower()]
+    
+    # Handle sorting
+    sort_by = request.GET.get('sort', 'id_kurz')
+    reverse = request.GET.get('order', 'asc') == 'desc'
+    
+    if sort_by in ['id_kurz', 'address', 'entry_name', 'year', 'user']:
+        entries_data.sort(key=lambda x: x[sort_by] or '', reverse=reverse)
+    elif sort_by.startswith('field_'):
+        field_name = sort_by[6:]  # Remove 'field_' prefix
+        entries_data.sort(key=lambda x: str(x['fields'].get(field_name, '')), reverse=reverse)
+    
+    # Pagination
+    from django.core.paginator import Paginator
+    paginator = Paginator(entries_data, 25)  # 25 entries per page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    return render(request, 'datasets/dataset_entries_table.html', {
+        'dataset': dataset,
+        'all_fields': all_fields,
+        'page_obj': page_obj,
+        'search_query': search_query,
+        'sort_by': sort_by,
+        'order': 'desc' if reverse else 'asc'
     })
 
 
@@ -885,13 +962,19 @@ def dataset_map_data_view(request, dataset_id):
                 geometries = DataGeometry.objects.filter(
                     dataset=dataset,
                     geometry__within=bbox
-                ).prefetch_related('entries')
+                ).prefetch_related('entries__fields')
             except (ValueError, TypeError) as e:
                 # If bounds parsing fails, get all geometries
-                geometries = DataGeometry.objects.filter(dataset=dataset).prefetch_related('entries')
+                geometries = DataGeometry.objects.filter(dataset=dataset).prefetch_related('entries__fields')
         else:
             # No bounds provided, get all geometries
-            geometries = DataGeometry.objects.filter(dataset=dataset).prefetch_related('entries')
+            geometries = DataGeometry.objects.filter(dataset=dataset).prefetch_related('entries__fields')
+        
+        # Get enabled fields for this dataset in the correct order
+        enabled_fields = DatasetField.objects.filter(
+            dataset=dataset, 
+            enabled=True
+        ).order_by('order', 'field_name')
         
         # Prepare map data
         map_data = []
@@ -910,18 +993,24 @@ def dataset_map_data_view(request, dataset_id):
                 
                 # Add entry data for this geometry
                 for entry in geometry.entries.all():
-                    map_point['entries'].append({
+                    entry_data = {
                         'id': entry.id,
                         'name': entry.name,
-                        'usage_code1': entry.usage_code1,
-                        'usage_code2': entry.usage_code2,
-                        'usage_code3': entry.usage_code3,
-                        'cat_inno': entry.cat_inno,
-                        'cat_wert': entry.cat_wert,
-                        'cat_fili': entry.cat_fili,
                         'year': entry.year,
                         'user': entry.user.username if entry.user else 'Unknown'
-                    })
+                    }
+                    
+                    # Add only enabled field values in the correct order
+                    for field_config in enabled_fields:
+                        # Find the corresponding field value for this entry
+                        field_value = entry.fields.filter(field_name=field_config.field_name).first()
+                        if field_value:
+                            entry_data[field_config.field_name] = field_value.get_typed_value()
+                        else:
+                            # Field is configured but no data exists yet
+                            entry_data[field_config.field_name] = None
+                    
+                    map_point['entries'].append(entry_data)
                 
                 map_data.append(map_point)
             except Exception as e:
@@ -997,15 +1086,41 @@ def entry_edit_view(request, entry_id):
         return render(request, 'datasets/403.html', status=403)
     
     if request.method == 'POST':
-        entry.name = request.POST.get('name')
-        entry.usage_code1 = int(request.POST.get('usage_code1', 0))
-        entry.usage_code2 = int(request.POST.get('usage_code2', 0))
-        entry.usage_code3 = int(request.POST.get('usage_code3', 0))
-        entry.cat_inno = int(request.POST.get('cat_inno', 0))
-        entry.cat_wert = int(request.POST.get('cat_wert', 0))
-        entry.cat_fili = int(request.POST.get('cat_fili', 0))
-        entry.year = int(request.POST.get('year', 2024))
+        # Update direct fields
+        entry.name = request.POST.get('name', '')
+        year_value = request.POST.get('year', '')
+        if year_value:
+            try:
+                entry.year = int(year_value)
+            except ValueError:
+                entry.year = None
+        else:
+            entry.year = None
         entry.save()
+        
+        # Update dynamic fields
+        for field in entry.fields.all():
+            field_value = request.POST.get(field.field_name, '')
+            if field_value:
+                # Convert value based on field type
+                if field.field_type == 'integer':
+                    try:
+                        typed_value = int(field_value)
+                    except ValueError:
+                        typed_value = 0
+                elif field.field_type == 'decimal':
+                    try:
+                        typed_value = float(field_value)
+                    except ValueError:
+                        typed_value = 0.0
+                else:
+                    typed_value = field_value
+                
+                field.value = str(typed_value)
+                field.save()
+            else:
+                # Remove field if no value provided
+                field.delete()
         
         # Log the action
         AuditLog.objects.create(
@@ -1017,7 +1132,13 @@ def entry_edit_view(request, entry_id):
         messages.success(request, 'Entry updated successfully.')
         return redirect('dataset_data_input', dataset_id=dataset.id)
     
-    return render(request, 'datasets/entry_edit.html', {'entry': entry})
+    # Get all fields for this dataset
+    all_fields = DatasetField.objects.filter(dataset=dataset).order_by('order', 'field_name')
+    
+    return render(request, 'datasets/entry_edit.html', {
+        'entry': entry,
+        'all_fields': all_fields
+    })
 
 @login_required
 def entry_create_view(request, geometry_id):
@@ -1043,7 +1164,7 @@ def entry_create_view(request, geometry_id):
                 print(f"Created media directory: {media_root}")
             
             # Get all enabled fields for this dataset
-            all_fields = CustomField.objects.filter(dataset=dataset, enabled=True)
+            all_fields = DatasetField.objects.filter(dataset=dataset, enabled=True)
             
             # Prepare entry data
             entry_data = {
@@ -1051,48 +1172,39 @@ def entry_create_view(request, geometry_id):
                 'user': request.user
             }
             
-            # Handle standard fields
-            for field in all_fields:
-                if field.is_standard_field:
-                    field_value = request.POST.get(field.name)
-                    if field_value:
-                        if field.field_type == 'integer':
-                            try:
-                                entry_data[field.name] = int(field_value)
-                            except ValueError:
-                                entry_data[field.name] = 0
-                        else:
-                            entry_data[field.name] = field_value
+            # Handle special fields (name, year)
+            entry_data['name'] = request.POST.get('name', '')
+            year_value = request.POST.get('year', '')
+            if year_value:
+                try:
+                    entry_data['year'] = int(year_value)
+                except ValueError:
+                    entry_data['year'] = None
             
             # Create the entry
             entry = DataEntry.objects.create(**entry_data)
             
-            # Handle custom fields (non-standard fields)
-            custom_fields_data = {}
+            # Handle all other fields as dynamic fields
             for field in all_fields:
-                if not field.is_standard_field:
-                    field_value = request.POST.get(f'custom_{field.name}')
+                if field.field_name not in ['name', 'year']:  # Skip special fields
+                    field_value = request.POST.get(field.field_name)
                     if field_value:
                         # Convert value based on field type
                         if field.field_type == 'integer':
                             try:
-                                custom_fields_data[field.name] = int(field_value)
+                                typed_value = int(field_value)
                             except ValueError:
-                                custom_fields_data[field.name] = 0
+                                typed_value = 0
                         elif field.field_type == 'decimal':
                             try:
-                                custom_fields_data[field.name] = float(field_value)
+                                typed_value = float(field_value)
                             except ValueError:
-                                custom_fields_data[field.name] = 0.0
-                        elif field.field_type == 'boolean':
-                            custom_fields_data[field.name] = field_value.lower() == 'true'
+                                typed_value = 0.0
                         else:
-                            custom_fields_data[field.name] = field_value
-            
-            # Update entry with custom fields
-            if custom_fields_data:
-                entry.custom_fields = custom_fields_data
-                entry.save()
+                            typed_value = field_value
+                        
+                        # Store as dynamic field
+                        entry.set_field_value(field.field_name, str(typed_value), field.field_type)
             
             # Handle file uploads
             uploaded_files = request.FILES.getlist('files')
@@ -1473,8 +1585,67 @@ def process_csv_import(request, dataset, decoded_file, csv_file_name, id_column,
         
         with transaction.atomic():
             logger.info("Starting transaction for CSV import")
+            
+            # First, create DatasetField entries for all columns (except coordinate and ID columns)
+            logger.info("Creating DatasetField entries for CSV columns")
+            coordinate_columns = {'GEB_X', 'GEB_Y', 'X', 'Y', 'LONGITUDE', 'LATITUDE', 'LON', 'LAT'}
+            excluded_columns = {id_column} | coordinate_columns
+            
+            # Get all unique column names from the CSV
+            csv_data_list = list(csv.DictReader(io.StringIO(decoded_file), delimiter=delimiter))
+            all_columns = set()
+            for row in csv_data_list:
+                all_columns.update(row.keys())
+            
+            # Create DatasetField entries for columns that aren't excluded
+            field_order = 0
+            for column_name in sorted(all_columns):
+                if column_name not in excluded_columns:
+                    # Check if field already exists
+                    existing_field = DatasetField.objects.filter(
+                        dataset=dataset, 
+                        field_name=column_name
+                    ).first()
+                    
+                    if not existing_field:
+                        # Determine field type based on sample values
+                        field_type = 'text'  # default
+                        sample_values = [row.get(column_name, '') for row in csv_data_list[:10] if row.get(column_name, '').strip()]
+                        
+                        if sample_values:
+                            # Try to determine type from sample values
+                            is_integer = True
+                            is_decimal = True
+                            for value in sample_values:
+                                if value.strip():
+                                    try:
+                                        int(value)
+                                    except ValueError:
+                                        is_integer = False
+                                    try:
+                                        float(value)
+                                    except ValueError:
+                                        is_decimal = False
+                            
+                            if is_integer:
+                                field_type = 'integer'
+                            elif is_decimal:
+                                field_type = 'decimal'
+                        
+                        DatasetField.objects.create(
+                            dataset=dataset,
+                            field_name=column_name,
+                            label=column_name.replace('_', ' ').title(),
+                            field_type=field_type,
+                            required=False,
+                            enabled=True,
+                            order=field_order
+                        )
+                        field_order += 1
+                        logger.info(f"Created DatasetField for column: {column_name} (type: {field_type})")
+            
             row_count = 0
-            for row_num, row in enumerate(csv_data, start=2):  # Start at 2 because row 1 is header
+            for row_num, row in enumerate(csv_data_list, start=2):  # Start at 2 because row 1 is header
                 row_count += 1
                 logger.debug(f"Processing row {row_num}: {row}")
                 try:
@@ -1544,7 +1715,7 @@ def process_csv_import(request, dataset, decoded_file, csv_file_name, id_column,
                         errors.append(f"Row {row_num}: Invalid coordinates")
                         continue
                     
-                    # Create geometry point (simplified version for now)
+                    # Create geometry point
                     logger.debug(f"Creating geometry point for row {row_num}: ID={id_kurz}, Address={address}, Coordinates=({x_coord}, {y_coord})")
                     try:
                         from django.contrib.gis.geos import Point
@@ -1556,6 +1727,52 @@ def process_csv_import(request, dataset, decoded_file, csv_file_name, id_column,
                             user=request.user
                         )
                         logger.debug(f"Successfully created geometry with ID: {geometry.id}")
+                        
+                        # Create data entries for each year found in the CSV
+                        years_found = set()
+                        for column_name in row.keys():
+                            # Look for year-prefixed columns (e.g., 2016_NUTZUNG, 2022_CAT_INNO)
+                            if '_' in column_name:
+                                try:
+                                    year_part = column_name.split('_')[0]
+                                    year = int(year_part)
+                                    if 1900 <= year <= 2100:  # Reasonable year range
+                                        years_found.add(year)
+                                except ValueError:
+                                    pass
+                        
+                        # If no years found, create a single entry with current year
+                        if not years_found:
+                            years_found.add(2024)  # Default year
+                        
+                        # Create entries for each year
+                        for year in years_found:
+                            entry = DataEntry.objects.create(
+                                geometry=geometry,
+                                name=id_kurz,  # Use ID as default name
+                                year=year,
+                                user=request.user
+                            )
+                            
+                            # Add all CSV columns as dynamic fields for this entry
+                            for column_name, value in row.items():
+                                if value and value.strip():  # Only add non-empty values
+                                    # Determine field type based on value
+                                    field_type = 'text'
+                                    try:
+                                        int(value)
+                                        field_type = 'integer'
+                                    except ValueError:
+                                        try:
+                                            float(value)
+                                            field_type = 'decimal'
+                                        except ValueError:
+                                            field_type = 'text'
+                                    
+                                    entry.set_field_value(column_name, value.strip(), field_type)
+                            
+                            logger.debug(f"Created entry {entry.id} for year {year}")
+                        
                         imported_count += 1
                     except Exception as e:
                         logger.error(f"Row {row_num}: Failed to create geometry: {str(e)}")
@@ -1757,33 +1974,6 @@ def typology_edit_view(request, typology_id):
 
 
 @login_required
-def typology_select_view(request, dataset_id):
-    """Select an existing typology for a dataset"""
-    dataset = get_object_or_404(DataSet, id=dataset_id, owner=request.user)
-    
-    if request.method == 'POST':
-        typology_id = request.POST.get('typology_id')
-        if typology_id:
-            try:
-                typology = Typology.objects.get(id=typology_id)
-                dataset.typology = typology
-                dataset.save()
-                messages.success(request, f'Typology "{typology.name}" selected for dataset.')
-                return redirect('dataset_detail', dataset_id=dataset.id)
-            except Typology.DoesNotExist:
-                messages.error(request, 'Selected typology does not exist.')
-        else:
-            messages.error(request, 'Please select a typology.')
-    
-    # Get all typologies
-    typologies = Typology.objects.all().order_by('name')
-    return render(request, 'datasets/typology_select.html', {
-        'dataset': dataset,
-        'typologies': typologies
-    })
-
-
-@login_required
 def typology_list_view(request):
     """List all typologies"""
     typologies = Typology.objects.all().order_by('-created_at')
@@ -1957,3 +2147,192 @@ def health_check_view(request):
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }, status=503)
+
+
+@login_required
+def upload_files_view(request):
+    """Upload files for a geometry"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Only POST method allowed'}, status=405)
+    
+    try:
+        geometry_id = request.POST.get('geometry_id')
+        files = request.FILES.getlist('files')
+        
+        if not geometry_id:
+            return JsonResponse({'success': False, 'error': 'Geometry ID is required'}, status=400)
+        
+        if not files:
+            return JsonResponse({'success': False, 'error': 'No files provided'}, status=400)
+        
+        # Validate that all files are images
+        for file in files:
+            if not file.content_type.startswith('image/'):
+                return JsonResponse({'success': False, 'error': 'Only image files are allowed'}, status=400)
+        
+        # Get the geometry
+        geometry = get_object_or_404(DataGeometry, pk=geometry_id)
+        
+        # Check if user has access to this dataset
+        if not geometry.dataset.can_access(request.user):
+            return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+        
+        uploaded_files = []
+        for file in files:
+            # Create DataEntryFile instance
+            data_entry_file = DataEntryFile.objects.create(
+                file=file,
+                original_name=file.name,
+                file_size=file.size,
+                file_type=file.content_type,
+                description='',  # No description field
+                uploaded_by=request.user,
+                geometry=geometry
+            )
+            
+            uploaded_files.append({
+                'id': data_entry_file.id,
+                'original_name': data_entry_file.original_name,
+                'file_size': data_entry_file.file_size,
+                'file_type': data_entry_file.file_type,
+                'description': data_entry_file.description,
+                'uploaded_at': data_entry_file.uploaded_at.isoformat(),
+                'download_url': data_entry_file.file.url
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully uploaded {len(uploaded_files)} file(s)',
+            'files': uploaded_files
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def geometry_files_view(request, geometry_id):
+    """Get files for a specific geometry"""
+    try:
+        geometry = get_object_or_404(DataGeometry, pk=geometry_id)
+        
+        # Check if user has access to this dataset
+        if not geometry.dataset.can_access(request.user):
+            return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+        
+        files = DataEntryFile.objects.filter(geometry=geometry).order_by('-uploaded_at')
+        
+        files_data = []
+        for file in files:
+            files_data.append({
+                'id': file.id,
+                'original_name': file.original_name,
+                'file_size': file.file_size,
+                'file_type': file.file_type,
+                'description': file.description,
+                'uploaded_at': file.uploaded_at.isoformat(),
+                'download_url': file.file.url
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'files': files_data
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def delete_file_view(request, file_id):
+    """Delete a file"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Only POST method allowed'}, status=405)
+    
+    try:
+        file_obj = get_object_or_404(DataEntryFile, pk=file_id)
+        
+        # Check if user has access to this dataset
+        if not file_obj.geometry.dataset.can_access(request.user):
+            return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+        
+        # Delete the file
+        file_obj.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'File deleted successfully'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def save_entries_view(request):
+    """Save entries with updated field values"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Only POST method allowed'}, status=405)
+    
+    try:
+        geometry_id = request.POST.get('geometry_id')
+        if not geometry_id:
+            return JsonResponse({'success': False, 'error': 'Geometry ID is required'}, status=400)
+        
+        # Get the geometry
+        try:
+            geometry = DataGeometry.objects.get(pk=geometry_id)
+        except DataGeometry.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Geometry not found'}, status=404)
+        
+        # Check if user has access to this dataset
+        if not geometry.dataset.can_access(request.user):
+            return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+        
+        # Process entries data
+        entries_data = {}
+        for key, value in request.POST.items():
+            if key.startswith('entries[') and key.endswith(']'):
+                # Parse key like "entries[0][id]" or "entries[0][fields][field_name]"
+                parts = key.split('[')
+                if len(parts) >= 2:
+                    entry_index = parts[1].rstrip(']')
+                    if entry_index not in entries_data:
+                        entries_data[entry_index] = {'id': None, 'fields': {}}
+                    
+                    if len(parts) == 3:  # entries[0][id]
+                        entries_data[entry_index]['id'] = value
+                    elif len(parts) == 4:  # entries[0][fields][field_name]
+                        field_name = parts[3].rstrip(']')
+                        entries_data[entry_index]['fields'][field_name] = value
+        
+        # Update entries
+        updated_count = 0
+        for entry_data in entries_data.values():
+            if entry_data['id']:
+                try:
+                    entry = DataEntry.objects.get(pk=entry_data['id'])
+                    
+                    # Update field values
+                    for field_name, field_value in entry_data['fields'].items():
+                        # Get or create DataEntryField
+                        field_obj, created = DataEntryField.objects.get_or_create(
+                            entry=entry,
+                            field_name=field_name,
+                            defaults={'value': field_value}
+                        )
+                        if not created:
+                            field_obj.value = field_value
+                            field_obj.save()
+                    
+                    updated_count += 1
+                except DataEntry.DoesNotExist:
+                    continue
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully updated {updated_count} entries'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)

@@ -1,0 +1,127 @@
+/* Data Input Page Styles */
+
+/* Map container */
+#map {
+    height: 500px;
+    width: 100%;
+}
+
+/* Geometry details panel */
+.geometry-details {
+    background-color: rgba(146, 193, 233, 0.1);
+    border: 1px solid rgba(0, 71, 187, 0.2);
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 0;
+    display: none;
+}
+
+.geometry-details.active {
+    display: block;
+}
+
+/* Map controls positioning */
+.map-controls {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 1000;
+}
+
+/* Zoom controls positioning */
+.zoom-controls {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+/* Selected circle styling */
+.selected-circle {
+    stroke: #FFB81C !important;
+    stroke-width: 3 !important;
+    fill-color: #FFB81C !important;
+}
+
+/* ISR Brand Colors for map elements */
+.map-controls .btn-primary {
+    background-color: #0047BB !important;
+    border-color: #0047BB !important;
+}
+
+.map-controls .btn-primary:hover {
+    background-color: #0056d6 !important;
+    border-color: #0056d6 !important;
+}
+
+.map-controls .btn-info {
+    background-color: #92C1E9 !important;
+    border-color: #92C1E9 !important;
+    color: #001A70 !important;
+}
+
+.map-controls .btn-info:hover {
+    background-color: #7bb3e6 !important;
+    border-color: #7bb3e6 !important;
+}
+
+/* Map control buttons styling */
+.map-zoom-control, 
+.map-focus-control, 
+.map-location-control {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    border: none;
+}
+
+.map-zoom-control:hover, 
+.map-focus-control:hover, 
+.map-location-control:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+/* Entries Table Styling */
+.entries-table .table th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.entries-table .table td {
+    vertical-align: middle;
+    font-size: 0.875rem;
+}
+
+.entries-table .table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.entries-table .badge {
+    font-size: 0.75rem;
+}
+
+.entries-table .btn-group-sm .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+.entries-table .pagination .page-link {
+    color: #0d6efd;
+    border-color: #dee2e6;
+}
+
+.entries-table .pagination .page-item.active .page-link {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.entries-table .search-form .form-control:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}

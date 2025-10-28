@@ -41,7 +41,6 @@ urlpatterns = [
     path('datasets/create/', datasets_views.dataset_create_view, name='dataset_create'),
     path('datasets/<int:dataset_id>/', datasets_views.dataset_detail_view, name='dataset_detail'),
     path('datasets/<int:dataset_id>/edit/', datasets_views.dataset_edit_view, name='dataset_edit'),
-    path('datasets/<int:dataset_id>/field-config/', datasets_views.dataset_field_config_view, name='dataset_field_config'),
     path('datasets/<int:dataset_id>/custom-fields/create/', datasets_views.custom_field_create_view, name='custom_field_create'),
     path('datasets/<int:dataset_id>/custom-fields/<int:field_id>/edit/', datasets_views.custom_field_edit_view, name='custom_field_edit'),
     path('datasets/<int:dataset_id>/custom-fields/<int:field_id>/delete/', datasets_views.custom_field_delete_view, name='custom_field_delete'),
@@ -53,6 +52,7 @@ urlpatterns = [
     path('datasets/<int:dataset_id>/export/', datasets_views.dataset_export_options_view, name='dataset_export_options'),
     path('datasets/<int:dataset_id>/export/csv/', datasets_views.dataset_csv_export_view, name='dataset_csv_export'),
     path('datasets/<int:dataset_id>/data-input/', datasets_views.dataset_data_input_view, name='dataset_data_input'),
+    path('datasets/<int:dataset_id>/entries/', datasets_views.dataset_entries_table_view, name='dataset_entries_table'),
     path('datasets/<int:dataset_id>/map-data/', datasets_views.dataset_map_data_view, name='dataset_map_data'),
     path('datasets/<int:dataset_id>/clear-data/', datasets_views.dataset_clear_data_view, name='dataset_clear_data'),
     path('datasets/<int:dataset_id>/geometries/create/', datasets_views.geometry_create_view, name='geometry_create'),
@@ -68,11 +68,15 @@ urlpatterns = [
     path('typologies/<int:typology_id>/edit/', datasets_views.typology_edit_view, name='typology_edit'),
     path('typologies/<int:typology_id>/import/', datasets_views.typology_import_view, name='typology_import'),
     path('typologies/<int:typology_id>/export/', datasets_views.typology_export_view, name='typology_export'),
-    path('datasets/<int:dataset_id>/select-typology/', datasets_views.typology_select_view, name='typology_select'),
+    path('upload-files/', datasets_views.upload_files_view, name='upload_files'),
+    path('geometry/<int:geometry_id>/files/', datasets_views.geometry_files_view, name='geometry_files'),
+    path('files/<int:file_id>/delete/', datasets_views.delete_file_view, name='delete_file'),
+    path('entries/save/', datasets_views.save_entries_view, name='save_entries'),
     path('health/', datasets_views.health_check_view, name='health_check'),
     path('', datasets_views.dashboard_view, name='dashboard'),
 ]
 
-# Serve media files during development
+# Serve media and static files during development
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

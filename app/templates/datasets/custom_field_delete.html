@@ -47,7 +47,7 @@
                     <form method="post" class="mt-4">
                         {% csrf_token %}
                         <div class="d-flex justify-content-between">
-                            <a href="{% url 'dataset_field_config' dataset.id %}" class="btn btn-secondary">
+                            <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-secondary">
                                 <i class="bi bi-arrow-left"></i> Cancel
                             </a>
                             <button type="submit" class="btn btn-danger">

@@ -26,7 +26,7 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-!7lxj&-vt5k^n@
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', 'isrfield.dataplexity.eu']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', 'isrfield.dataplexity.eu', 'testserver']
 
 # CSRF settings
 CSRF_TRUSTED_ORIGINS = [
@@ -131,6 +131,12 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/5.2/howto/static-files/
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
 
 # Media files (User uploaded files)
 # https://docs.djangoproject.com/en/5.2/topics/files/

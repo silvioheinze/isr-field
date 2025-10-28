@@ -1,4 +1,5 @@
 {% extends 'datasets/_base.html' %}
+{% load dataset_extras %}
 
 {% block title %}Edit Entry - ISR Field{% endblock %}
 
@@ -25,47 +26,59 @@
             </div>
         </div>
         
-        <div class="row">
-            <div class="col-md-4">
+        <!-- Dynamic Fields -->
+        {% for field in all_fields %}
+            {% if field.enabled %}
                 <div class="mb-3">
-                    <label for="usage_code1" class="form-label">Usage Code 1</label>
-                    <input type="number" class="form-control" id="usage_code1" name="usage_code1" value="{{ entry.usage_code1 }}">
+                    <label for="{{ field.field_name }}" class="form-label">{{ field.label }}
+                        {% if field.required %}<span class="text-danger">*</span>{% endif %}
+                    </label>
+                    {% if field.field_type == 'text' %}
+                        <input type="text" class="form-control" id="{{ field.field_name }}" name="{{ field.field_name }}" 
+                               value="{{ entry|get_field_value:field.field_name }}" 
+                               {% if field.required %}required{% endif %}>
+                    {% elif field.field_type == 'integer' %}
+                        <input type="number" class="form-control" id="{{ field.field_name }}" name="{{ field.field_name }}" 
+                               value="{{ entry|get_field_value:field.field_name }}" 
+                               {% if field.required %}required{% endif %}>
+                    {% elif field.field_type == 'decimal' %}
+                        <input type="number" step="0.01" class="form-control" id="{{ field.field_name }}" name="{{ field.field_name }}" 
+                               value="{{ entry|get_field_value:field.field_name }}" 
+                               {% if field.required %}required{% endif %}>
+                    {% elif field.field_type == 'boolean' %}
+                        <select class="form-control" id="{{ field.field_name }}" name="{{ field.field_name }}" 
+                                {% if field.required %}required{% endif %}>
+                            <option value="">Select option</option>
+                            <option value="true" {% if entry|get_field_value:field.field_name == 'true' %}selected{% endif %}>Yes</option>
+                            <option value="false" {% if entry|get_field_value:field.field_name == 'false' %}selected{% endif %}>No</option>
+                        </select>
+                    {% elif field.field_type == 'date' %}
+                        <input type="date" class="form-control" id="{{ field.field_name }}" name="{{ field.field_name }}" 
+                               value="{{ entry|get_field_value:field.field_name }}" 
+                               {% if field.required %}required{% endif %}>
+                    {% elif field.field_type == 'choice' %}
+                        <select class="form-control" id="{{ field.field_name }}" name="{{ field.field_name }}" 
+                                {% if field.required %}required{% endif %}>
+                            <option value="">Select option</option>
+                            {% for choice in field|get_choices_list %}
+                                {% if choice.value %}
+                                    <option value="{{ choice.value }}" {% if entry|get_field_value:field.field_name == choice.value %}selected{% endif %}>{{ choice.label }}</option>
+                                {% else %}
+                                    <option value="{{ choice }}" {% if entry|get_field_value:field.field_name == choice %}selected{% endif %}>{{ choice }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    {% else %}
+                        <input type="text" class="form-control" id="{{ field.field_name }}" name="{{ field.field_name }}" 
+                               value="{{ entry|get_field_value:field.field_name }}" 
+                               {% if field.required %}required{% endif %}>
+                    {% endif %}
+                    {% if field.help_text %}
+                        <div class="form-text">{{ field.help_text }}</div>
+                    {% endif %}
                 </div>
-            </div>
-            <div class="col-md-4">
-                <div class="mb-3">
-                    <label for="usage_code2" class="form-label">Usage Code 2</label>
-                    <input type="number" class="form-control" id="usage_code2" name="usage_code2" value="{{ entry.usage_code2 }}">
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="mb-3">
-                    <label for="usage_code3" class="form-label">Usage Code 3</label>
-                    <input type="number" class="form-control" id="usage_code3" name="usage_code3" value="{{ entry.usage_code3 }}">
-                </div>
-            </div>
-        </div>
-        
-        <div class="row">
-            <div class="col-md-4">
-                <div class="mb-3">
-                    <label for="cat_inno" class="form-label">Category Innovation</label>
-                    <input type="number" class="form-control" id="cat_inno" name="cat_inno" value="{{ entry.cat_inno }}">
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="mb-3">
-                    <label for="cat_wert" class="form-label">Category Value</label>
-                    <input type="number" class="form-control" id="cat_wert" name="cat_wert" value="{{ entry.cat_wert }}">
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="mb-3">
-                    <label for="cat_fili" class="form-label">Category Facility</label>
-                    <input type="number" class="form-control" id="cat_fili" name="cat_fili" value="{{ entry.cat_fili }}">
-                </div>
-            </div>
-        </div>
+            {% endif %}
+        {% endfor %}
         
         <button type="submit" class="btn btn-primary">Save Changes</button>
         <a href="{% url 'dataset_data_input' entry.geometry.dataset.id %}" class="btn btn-secondary">Cancel</a>
