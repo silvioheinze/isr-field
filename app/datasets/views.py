@@ -234,6 +234,55 @@ def get_coordinate_system_name(srid):
     }
     return coordinate_systems.get(srid, f"EPSG:{srid}")
 
+
+def detect_csv_delimiter(csv_content, sample_size=1024):
+    """
+    Detect the delimiter used in a CSV file by analyzing the first few lines.
+    Returns the most likely delimiter character.
+    """
+    # Take a sample of the content for analysis
+    sample = csv_content[:sample_size]
+    lines = sample.split('\n')[:5]  # Analyze first 5 lines
+    
+    if not lines or not lines[0].strip():
+        return ','  # Default to comma if no content
+    
+    # Common delimiters to test
+    delimiters = [',', ';', '\t', '|']
+    delimiter_scores = {}
+    
+    for delimiter in delimiters:
+        score = 0
+        for line in lines:
+            if not line.strip():
+                continue
+                
+            # Count occurrences of this delimiter
+            count = line.count(delimiter)
+            if count > 0:
+                # Score based on consistency across lines
+                score += count
+                
+                # Bonus for having the same number of delimiters in each line
+                if len([l for l in lines if l.count(delimiter) == count]) > 1:
+                    score += 2
+                    
+                # Bonus for having reasonable number of columns (not too few, not too many)
+                if 2 <= count <= 20:
+                    score += 1
+                    
+        delimiter_scores[delimiter] = score
+    
+    # Find the delimiter with the highest score
+    best_delimiter = max(delimiter_scores, key=delimiter_scores.get)
+    
+    # If no delimiter scored well, default to comma
+    if delimiter_scores[best_delimiter] == 0:
+        best_delimiter = ','
+    
+    logger.info(f"CSV delimiter detection: {delimiter_scores}, selected: '{best_delimiter}'")
+    return best_delimiter
+
 class GroupForm(forms.ModelForm):
     class Meta:
         model = Group
@@ -1275,8 +1324,17 @@ def dataset_csv_column_selection_view(request, dataset_id):
         try:
             # Read CSV file to get headers
             decoded_file = csv_file.read().decode('utf-8')
-            csv_data = csv.DictReader(io.StringIO(decoded_file))
+            
+            # Detect CSV delimiter
+            delimiter = detect_csv_delimiter(decoded_file)
+            logger.info(f"Detected CSV delimiter: '{delimiter}'")
+            logger.info(f"File size: {len(decoded_file)} characters")
+            logger.info(f"First 200 chars: {decoded_file[:200]}")
+            
+            csv_data = csv.DictReader(io.StringIO(decoded_file), delimiter=delimiter)
             headers = csv_data.fieldnames
+            logger.info(f"Headers detected: {headers}")
+            logger.info(f"Number of headers: {len(headers) if headers else 0}")
             
             if not headers:
                 messages.error(request, 'CSV file appears to be empty or invalid.')
@@ -1285,11 +1343,13 @@ def dataset_csv_column_selection_view(request, dataset_id):
             # Store the CSV file temporarily in session for the next step
             request.session['csv_file_content'] = decoded_file
             request.session['csv_file_name'] = csv_file.name
+            request.session['csv_delimiter'] = delimiter
             
             # Show column selection form
             return render(request, 'datasets/dataset_csv_column_selection.html', {
                 'dataset': dataset,
-                'headers': headers
+                'headers': headers,
+                'detected_delimiter': delimiter
             })
             
         except Exception as e:
@@ -1356,8 +1416,17 @@ def dataset_csv_import_view(request, dataset_id):
         try:
             # Read CSV file to get headers
             decoded_file = csv_file.read().decode('utf-8')
-            csv_data = csv.DictReader(io.StringIO(decoded_file))
+            
+            # Detect CSV delimiter
+            delimiter = detect_csv_delimiter(decoded_file)
+            logger.info(f"Detected CSV delimiter: '{delimiter}'")
+            logger.info(f"File size: {len(decoded_file)} characters")
+            logger.info(f"First 200 chars: {decoded_file[:200]}")
+            
+            csv_data = csv.DictReader(io.StringIO(decoded_file), delimiter=delimiter)
             headers = csv_data.fieldnames
+            logger.info(f"Headers detected: {headers}")
+            logger.info(f"Number of headers: {len(headers) if headers else 0}")
             
             if not headers:
                 messages.error(request, 'CSV file appears to be empty or invalid.')
@@ -1366,11 +1435,13 @@ def dataset_csv_import_view(request, dataset_id):
             # Store the CSV file temporarily in session for the next step
             request.session['csv_file_content'] = decoded_file
             request.session['csv_file_name'] = csv_file.name
+            request.session['csv_delimiter'] = delimiter
             
             # Show column selection form
             return render(request, 'datasets/dataset_csv_column_selection.html', {
                 'dataset': dataset,
-                'headers': headers
+                'headers': headers,
+                'detected_delimiter': delimiter
             })
             
         except Exception as e:
@@ -1390,7 +1461,11 @@ def process_csv_import(request, dataset, decoded_file, csv_file_name, id_column,
         logger.info("Reading CSV file content")
         logger.debug(f"CSV content length: {len(decoded_file)} characters")
         
-        csv_data = csv.DictReader(io.StringIO(decoded_file))
+        # Get delimiter from session or detect it
+        delimiter = request.session.get('csv_delimiter', ',')
+        logger.info(f"Using CSV delimiter: '{delimiter}'")
+        
+        csv_data = csv.DictReader(io.StringIO(decoded_file), delimiter=delimiter)
         logger.info(f"CSV headers detected: {csv_data.fieldnames}")
         
         imported_count = 0
@@ -1494,11 +1569,13 @@ def process_csv_import(request, dataset, decoded_file, csv_file_name, id_column,
             
             logger.info(f"CSV import completed. Imported: {imported_count}, Errors: {len(errors)}")
             
-            # Clear session data
-            if 'csv_file_content' in request.session:
-                del request.session['csv_file_content']
-            if 'csv_file_name' in request.session:
-                del request.session['csv_file_name']
+        # Clear session data
+        if 'csv_file_content' in request.session:
+            del request.session['csv_file_content']
+        if 'csv_file_name' in request.session:
+            del request.session['csv_file_name']
+        if 'csv_delimiter' in request.session:
+            del request.session['csv_delimiter']
             
             # Show results
             if errors:
@@ -1750,7 +1827,12 @@ def typology_import_view(request, typology_id):
         try:
             # Read CSV file
             decoded_file = csv_file.read().decode('utf-8')
-            csv_data = csv.reader(io.StringIO(decoded_file))
+            
+            # Detect CSV delimiter
+            delimiter = detect_csv_delimiter(decoded_file)
+            logger.info(f"Detected CSV delimiter for typology import: '{delimiter}'")
+            
+            csv_data = csv.reader(io.StringIO(decoded_file), delimiter=delimiter)
             
             # Skip header if requested
             skip_header = request.POST.get('skip_header') == 'on'

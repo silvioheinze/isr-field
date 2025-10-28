@@ -9,6 +9,21 @@
             <h2>Select CSV Columns</h2>
             <p class="text-muted">Choose which column should be used as the ID for "{{ dataset.name }}"</p>
             
+            {% if detected_delimiter %}
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i>
+                <strong>File Format Detected:</strong> The system automatically detected that your CSV file uses 
+                <code>{{ detected_delimiter }}</code> as the delimiter.
+                {% if detected_delimiter == ';' %}
+                    This is common for European CSV files.
+                {% elif detected_delimiter == ',' %}
+                    This is the standard comma-separated format.
+                {% elif detected_delimiter == '\t' %}
+                    This is a tab-separated file.
+                {% endif %}
+            </div>
+            {% endif %}
+            
             <div class="card">
                 <div class="card-body">
                     <h5 class="card-title">Column Selection</h5>
