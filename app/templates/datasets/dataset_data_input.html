@@ -55,6 +55,52 @@
         color: #001A70 !important;
     }
     
+    .map-controls .btn-warning {
+        background-color: #FFB81C !important;
+        border-color: #FFB81C !important;
+        color: #001A70 !important;
+    }
+    
+    .map-controls .btn-warning:hover {
+        background-color: #e6a519 !important;
+        border-color: #e6a519 !important;
+        color: #001A70 !important;
+    }
+    
+    /* Zoom controls styling */
+    .zoom-controls {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    
+    .zoom-controls .btn {
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        font-weight: bold;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .zoom-controls .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+    
+    .zoom-controls .btn:active {
+        transform: translateY(0);
+        box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    }
+    
     /* Point selector styling */
     .point-selector-card {
         cursor: pointer;
@@ -103,12 +149,27 @@
     <div class="row g-0">
             <div class="position-relative">
                     <div id="map"></div>
+                    
+                    <!-- Zoom Controls -->
+                    <div class="zoom-controls">
+                        <button id="zoomInBtn" class="btn btn-light" title="Zoom In">
+                            <i class="bi bi-plus"></i>
+                        </button>
+                        <button id="zoomOutBtn" class="btn btn-light" title="Zoom Out">
+                            <i class="bi bi-dash"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Map Controls -->
                     <div class="map-controls">
                         <button id="addPointBtn" class="btn btn-primary btn-sm">
                         <i class="bi bi-geo-alt"></i> Add
                         </button>
                     <button id="currentLocationBtn" class="btn btn-info btn-sm mt-1" title="My Location">
                         <i class="bi bi-geo-alt-fill"></i>
+                        </button>
+                        <button id="focusAllPointsBtn" class="btn btn-warning btn-sm mt-1" title="Focus on All Points">
+                        <i class="bi bi-bullseye"></i> Focus All
                         </button>
                         <button id="refreshDataBtn" class="btn btn-secondary btn-sm mt-1">
                         <i class="bi bi-arrow-clockwise"></i> Refresh
@@ -815,6 +876,62 @@
         }
         // Clear uploaded files when closing details
         uploadedFiles = [];
+    });
+
+    // Focus on all points functionality
+    document.getElementById('focusAllPointsBtn').addEventListener('click', function() {
+        if (mapData && mapData.length > 0) {
+            // Calculate the center of all points
+            var totalLat = 0;
+            var totalLng = 0;
+            var validPoints = 0;
+            
+            mapData.forEach(function(point) {
+                if (point.lat && point.lng) {
+                    totalLat += point.lat;
+                    totalLng += point.lng;
+                    validPoints++;
+                }
+            });
+            
+            if (validPoints > 0) {
+                var centerLat = totalLat / validPoints;
+                var centerLng = totalLng / validPoints;
+                
+                // Show loading state
+                this.innerHTML = '<i class="bi bi-hourglass-split"></i> Focusing...';
+                this.disabled = true;
+                
+                // Fit the map to show all points with some padding
+                if (bounds.isValid()) {
+                    map.fitBounds(bounds, {
+                        padding: [20, 20] // Add some padding around the bounds
+                    });
+                } else {
+                    // Fallback to center view if bounds are not valid
+                    map.setView([centerLat, centerLng], 13);
+                }
+                
+                // Reset button after a short delay
+                setTimeout(() => {
+                    this.innerHTML = '<i class="bi bi-bullseye"></i> Focus All';
+                    this.disabled = false;
+                }, 1000);
+            } else {
+                alert('No valid points found to focus on.');
+            }
+        } else {
+            alert('No data points available. Please refresh the data first.');
+        }
+    });
+
+    // Zoom controls functionality
+    document.getElementById('zoomInBtn').addEventListener('click', function() {
+        map.zoomIn();
+    });
+
+    document.getElementById('zoomOutBtn').addEventListener('click', function() {
+        map.zoomOut();
     });
 
     // Current location functionality
