@@ -390,11 +390,40 @@ def dataset_export_options_view(request, dataset_id):
     years = DataEntry.objects.filter(geometry__dataset=dataset).values_list('year', flat=True).distinct().order_by('year')
     years = [str(year) for year in years if year is not None]
     
+    # Get enabled fields for this dataset
+    enabled_fields = DatasetField.objects.filter(dataset=dataset, enabled=True).order_by('order', 'field_name')
+    
+    # Get field statistics
+    field_stats = {}
+    for field in enabled_fields:
+        # Count how many entries have values for this field
+        field_usage_count = DataEntryField.objects.filter(
+            entry__geometry__dataset=dataset,
+            field_name=field.field_name
+        ).count()
+        
+        field_stats[field.field_name] = {
+            'label': field.label,
+            'field_type': field.get_field_type_display(),
+            'usage_count': field_usage_count,
+            'is_coordinate': field.is_coordinate_field,
+            'is_id': field.is_id_field,
+            'is_address': field.is_address_field
+        }
+    
+    # Get coordinate system information
+    coordinate_systems = set()
+    for geometry in DataGeometry.objects.filter(dataset=dataset):
+        coordinate_systems.add(geometry.geometry.srid)
+    
     return render(request, 'datasets/dataset_export.html', {
         'dataset': dataset,
         'geometries_count': geometries_count,
         'data_entries_count': data_entries_count,
-        'years': years
+        'years': years,
+        'enabled_fields': enabled_fields,
+        'field_stats': field_stats,
+        'coordinate_systems': list(coordinate_systems)
     })
 
 
@@ -407,27 +436,45 @@ def dataset_csv_export_view(request, dataset_id):
     if not dataset.can_access(request.user):
         return render(request, 'datasets/403.html', status=403)
     
+    # Get export options
+    include_coordinates = request.GET.get('include_coordinates', 'true').lower() == 'true'
+    include_empty_years = request.GET.get('include_empty_years', 'true').lower() == 'true'
+    
     # Get all geometries and their entries
     geometries = DataGeometry.objects.filter(dataset=dataset).prefetch_related('entries__fields')
     
     # Create CSV response
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = f'attachment; filename="{dataset.name}_export.csv"'
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="{dataset.name}_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv"'
     
     writer = csv.writer(response)
     
-    # Write header
-    header = ['ID', 'Address', 'X', 'Y', 'User', 'Entry_Name', 'Year']
+    # Build header based on options
+    header = ['ID', 'Address']
     
-    # Get all unique field names
-    field_names = set()
+    if include_coordinates:
+        header.extend(['X', 'Y'])
+    
+    header.extend(['User', 'Entry_Name', 'Year'])
+    
+    # Get all unique field names from enabled fields
+    enabled_field_names = set(DatasetField.objects.filter(
+        dataset=dataset, 
+        enabled=True
+    ).values_list('field_name', flat=True))
+    
+    # Also get field names from actual data
+    data_field_names = set()
     for geometry in geometries:
         for entry in geometry.entries.all():
             for field in entry.fields.all():
-                field_names.add(field.field_name)
+                data_field_names.add(field.field_name)
+    
+    # Combine field names (prioritize enabled fields)
+    all_field_names = enabled_field_names.union(data_field_names)
     
     # Add field names to header
-    header.extend(sorted(field_names))
+    header.extend(sorted(all_field_names))
     writer.writerow(header)
     
     # Write data
@@ -435,17 +482,24 @@ def dataset_csv_export_view(request, dataset_id):
         for entry in geometry.entries.all():
             row = [
                 geometry.id_kurz,
-                geometry.address,
-                geometry.geometry.x,
-                geometry.geometry.y,
-                geometry.user.username if geometry.user else 'Unknown',
-                entry.name,
-                entry.year or ''
+                geometry.address
             ]
+            
+            if include_coordinates:
+                row.extend([
+                    geometry.geometry.x,
+                    geometry.geometry.y
+                ])
+            
+            row.extend([
+                geometry.user.username if geometry.user else 'Unknown',
+                entry.name or '',
+                entry.year or ''
+            ])
             
             # Add field values
             field_values = {field.field_name: field.value for field in entry.fields.all()}
-            for field_name in sorted(field_names):
+            for field_name in sorted(all_field_names):
                 row.append(field_values.get(field_name, ''))
             
             writer.writerow(row)
