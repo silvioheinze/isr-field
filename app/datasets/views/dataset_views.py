@@ -167,41 +167,53 @@ def dataset_access_view(request, dataset_id):
         return render(request, 'datasets/403.html', status=403)
     
     if request.method == 'POST':
-        if 'add_user' in request.POST:
-            username = request.POST.get('username')
-            try:
-                user = User.objects.get(username=username)
-                dataset.shared_with.add(user)
-                messages.success(request, f'User {username} added to dataset access.')
-            except User.DoesNotExist:
-                messages.error(request, f'User {username} not found.')
+        # Handle bulk user access changes
+        selected_user_ids = request.POST.getlist('shared_users')
+        selected_group_ids = request.POST.getlist('shared_groups')
         
-        elif 'remove_user' in request.POST:
-            user_id = request.POST.get('user_id')
-            try:
-                user = User.objects.get(id=user_id)
-                dataset.shared_with.remove(user)
-                messages.success(request, f'User {user.username} removed from dataset access.')
-            except User.DoesNotExist:
-                messages.error(request, 'User not found.')
+        # Convert to integers
+        selected_user_ids = [int(uid) for uid in selected_user_ids if uid.isdigit()]
+        selected_group_ids = [int(gid) for gid in selected_group_ids if gid.isdigit()]
         
-        elif 'add_group' in request.POST:
-            group_id = request.POST.get('group_id')
-            try:
-                group = Group.objects.get(id=group_id)
-                dataset.shared_with_groups.add(group)
-                messages.success(request, f'Group {group.name} added to dataset access.')
-            except Group.DoesNotExist:
-                messages.error(request, 'Group not found.')
+        # Update user access
+        current_user_ids = set(dataset.shared_with.values_list('id', flat=True))
+        new_user_ids = set(selected_user_ids)
         
-        elif 'remove_group' in request.POST:
-            group_id = request.POST.get('group_id')
-            try:
-                group = Group.objects.get(id=group_id)
-                dataset.shared_with_groups.remove(group)
-                messages.success(request, f'Group {group.name} removed from dataset access.')
-            except Group.DoesNotExist:
-                messages.error(request, 'Group not found.')
+        # Add new users
+        users_to_add = new_user_ids - current_user_ids
+        if users_to_add:
+            users_to_add_objects = User.objects.filter(id__in=users_to_add)
+            dataset.shared_with.add(*users_to_add_objects)
+            messages.success(request, f'Added {len(users_to_add_objects)} users to dataset access.')
+        
+        # Remove users
+        users_to_remove = current_user_ids - new_user_ids
+        if users_to_remove:
+            users_to_remove_objects = User.objects.filter(id__in=users_to_remove)
+            dataset.shared_with.remove(*users_to_remove_objects)
+            messages.success(request, f'Removed {len(users_to_remove_objects)} users from dataset access.')
+        
+        # Update group access
+        current_group_ids = set(dataset.shared_with_groups.values_list('id', flat=True))
+        new_group_ids = set(selected_group_ids)
+        
+        # Add new groups
+        groups_to_add = new_group_ids - current_group_ids
+        if groups_to_add:
+            groups_to_add_objects = Group.objects.filter(id__in=groups_to_add)
+            dataset.shared_with_groups.add(*groups_to_add_objects)
+            messages.success(request, f'Added {len(groups_to_add_objects)} groups to dataset access.')
+        
+        # Remove groups
+        groups_to_remove = current_group_ids - new_group_ids
+        if groups_to_remove:
+            groups_to_remove_objects = Group.objects.filter(id__in=groups_to_remove)
+            dataset.shared_with_groups.remove(*groups_to_remove_objects)
+            messages.success(request, f'Removed {len(groups_to_remove_objects)} groups from dataset access.')
+        
+        # If no changes were made
+        if not (users_to_add or users_to_remove or groups_to_add or groups_to_remove):
+            messages.info(request, 'No changes were made to access settings.')
         
         return redirect('dataset_access', dataset_id=dataset.id)
     
@@ -209,10 +221,16 @@ def dataset_access_view(request, dataset_id):
     all_users = User.objects.all().exclude(id=dataset.owner.id)
     all_groups = Group.objects.all()
     
+    # Get currently shared users and groups
+    shared_users = list(dataset.shared_with.values_list('id', flat=True))
+    shared_groups = list(dataset.shared_with_groups.values_list('id', flat=True))
+    
     return render(request, 'datasets/dataset_access.html', {
         'dataset': dataset,
         'all_users': all_users,
-        'all_groups': all_groups
+        'all_groups': all_groups,
+        'shared_users': shared_users,
+        'shared_groups': shared_groups
     })
 
 
