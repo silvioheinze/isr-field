@@ -10,6 +10,7 @@ from django.db.models import Q
 
 from ..models import DataSet, DataGeometry, DataEntry, DataEntryField, DatasetField, AuditLog
 from ..forms import DatasetFieldConfigForm, DatasetFieldForm
+from .auth_views import is_manager
 
 
 @login_required
@@ -25,7 +26,8 @@ def dataset_list_view(request):
     all_datasets = (owned_datasets | shared_datasets | group_shared_datasets | public_datasets).distinct()
     
     return render(request, 'datasets/dataset_list.html', {
-        'datasets': all_datasets
+        'datasets': all_datasets,
+        'can_create_datasets': is_manager(request.user)
     })
 
 

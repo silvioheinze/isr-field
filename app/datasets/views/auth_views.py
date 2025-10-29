@@ -1,6 +1,6 @@
 from django.contrib.auth.forms import UserCreationForm, PasswordResetForm, SetPasswordForm
 from django.contrib.auth import login as auth_login, logout
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect, render, get_object_or_404
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.models import User, Group
 from django.contrib.auth.forms import UserChangeForm, PasswordChangeForm
@@ -115,7 +115,8 @@ def dashboard_view(request):
     all_datasets = (owned_datasets | shared_datasets | group_shared_datasets | public_datasets).distinct()
     
     return render(request, 'datasets/dashboard.html', {
-        'datasets': all_datasets
+        'datasets': all_datasets,
+        'can_create_datasets': is_manager(request.user)
     })
 
 
@@ -157,8 +158,10 @@ def profile_view(request):
 
 
 def is_manager(user):
-    """Check if user is a manager"""
-    return user.groups.filter(name='Managers').exists()
+    """Check if user is a manager, superuser, or staff"""
+    return (user.is_superuser or 
+            user.is_staff or 
+            user.groups.filter(name='Managers').exists())
 
 
 @login_required
@@ -166,7 +169,11 @@ def is_manager(user):
 def user_management_view(request):
     """User management view"""
     users = User.objects.all()
-    return render(request, 'datasets/user_management.html', {'users': users})
+    groups = Group.objects.all()
+    return render(request, 'datasets/user_management.html', {
+        'users': users,
+        'groups': groups
+    })
 
 
 @login_required

@@ -8,6 +8,7 @@ import json
 import io
 
 from ..models import DataSet, Typology, TypologyEntry
+from .auth_views import is_manager
 
 
 @login_required
@@ -59,7 +60,8 @@ def typology_list_view(request):
     """List all typologies"""
     typologies = Typology.objects.all()
     return render(request, 'datasets/typology_list.html', {
-        'typologies': typologies
+        'typologies': typologies,
+        'can_create_typologies': is_manager(request.user)
     })
 
 
