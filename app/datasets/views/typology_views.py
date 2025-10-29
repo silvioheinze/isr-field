@@ -16,12 +16,11 @@ def typology_create_view(request):
     """Create a new typology"""
     if request.method == 'POST':
         name = request.POST.get('name')
-        description = request.POST.get('description')
         
         if name:
             typology = Typology.objects.create(
                 name=name,
-                description=description
+                created_by=request.user
             )
             messages.success(request, f'Typology "{name}" created successfully!')
             return redirect('typology_detail', typology_id=typology.id)
@@ -36,13 +35,15 @@ def typology_edit_view(request, typology_id):
     """Edit a typology"""
     typology = get_object_or_404(Typology, id=typology_id)
     
+    # Only typology creator can edit
+    if typology.created_by != request.user:
+        return render(request, 'datasets/403.html', status=403)
+    
     if request.method == 'POST':
         name = request.POST.get('name')
-        description = request.POST.get('description')
         
         if name:
             typology.name = name
-            typology.description = description
             typology.save()
             
             messages.success(request, 'Typology updated successfully!')
@@ -89,25 +90,83 @@ def typology_import_view(request, typology_id):
                 # Read and decode the file
                 decoded_file = csv_file.read().decode('utf-8')
                 
+                # Detect delimiter using csv.Sniffer
+                try:
+                    import csv
+                    sample = decoded_file[:1024]  # Use first 1KB for detection
+                    sniffer = csv.Sniffer()
+                    delimiter = sniffer.sniff(sample).delimiter
+                except Exception as e:
+                    # Fallback to manual detection
+                    delimiter = ','
+                    if ';' in decoded_file[:100]:
+                        delimiter = ';'
+                    elif '\t' in decoded_file[:100]:
+                        delimiter = '\t'
+                
                 # Parse CSV
-                csv_reader = csv.DictReader(io.StringIO(decoded_file))
+                csv_reader = csv.DictReader(io.StringIO(decoded_file), delimiter=delimiter)
+                
+                # Check if required columns exist (case-insensitive)
+                fieldnames_lower = [f.lower() for f in csv_reader.fieldnames] if csv_reader.fieldnames else []
+                required_columns = ['code', 'category', 'name']
+                missing_columns = [col for col in required_columns if col not in fieldnames_lower]
+                
+                if missing_columns:
+                    error_msg = f"Missing required columns: {', '.join(missing_columns)}. Found columns: {', '.join(csv_reader.fieldnames)}"
+                    messages.error(request, error_msg)
+                    return redirect('typology_import', typology_id=typology.id)
                 
                 imported_count = 0
+                row_count = 0
+                errors = []
+                
                 for row in csv_reader:
-                    code = row.get('code')
-                    category = row.get('category')
-                    name = row.get('name')
+                    row_count += 1
+                    
+                    # Case-insensitive column access
+                    code = None
+                    category = None
+                    name = None
+                    
+                    for key, value in row.items():
+                        if key.lower() == 'code':
+                            code = value
+                        elif key.lower() == 'category':
+                            category = value
+                        elif key.lower() == 'name':
+                            name = value
                     
                     if code and category and name:
-                        TypologyEntry.objects.create(
-                            typology=typology,
-                            code=int(code),
-                            category=category,
-                            name=name
-                        )
-                        imported_count += 1
+                        try:
+                            # Clean the values
+                            code = str(code).strip()
+                            category = str(category).strip()
+                            name = str(name).strip()
+                            
+                            if code and category and name:
+                                TypologyEntry.objects.create(
+                                    typology=typology,
+                                    code=int(code),
+                                    category=category,
+                                    name=name
+                                )
+                                imported_count += 1
+                        except ValueError as e:
+                            error_msg = f"Row {row_count}: Invalid code '{code}' - must be a number"
+                            errors.append(error_msg)
+                        except Exception as e:
+                            error_msg = f"Row {row_count}: Error creating entry: {str(e)}"
+                            errors.append(error_msg)
                 
-                messages.success(request, f'Successfully imported {imported_count} typology entries!')
+                if errors:
+                    error_summary = f"Imported {imported_count} entries with {len(errors)} errors: " + "; ".join(errors[:3])
+                    if len(errors) > 3:
+                        error_summary += f" (and {len(errors) - 3} more errors)"
+                    messages.warning(request, error_summary)
+                else:
+                    messages.success(request, f'Successfully imported {imported_count} typology entries!')
+                
                 return redirect('typology_detail', typology_id=typology.id)
                 
             except Exception as e:
