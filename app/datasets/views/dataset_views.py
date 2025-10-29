@@ -16,14 +16,18 @@ from .auth_views import is_manager
 @login_required
 def dataset_list_view(request):
     """List all datasets accessible to the user"""
-    # Get datasets owned by user or shared with user
-    owned_datasets = DataSet.objects.filter(owner=request.user)
-    shared_datasets = DataSet.objects.filter(shared_with=request.user)
-    group_shared_datasets = DataSet.objects.filter(shared_with_groups__in=request.user.groups.all())
-    public_datasets = DataSet.objects.filter(is_public=True)
-    
-    # Combine and deduplicate
-    all_datasets = (owned_datasets | shared_datasets | group_shared_datasets | public_datasets).distinct()
+    # Superusers can see all datasets regardless of access permissions
+    if request.user.is_superuser:
+        all_datasets = DataSet.objects.all().order_by('-created_at')
+    else:
+        # Get datasets owned by user or shared with user
+        owned_datasets = DataSet.objects.filter(owner=request.user)
+        shared_datasets = DataSet.objects.filter(shared_with=request.user)
+        group_shared_datasets = DataSet.objects.filter(shared_with_groups__in=request.user.groups.all())
+        public_datasets = DataSet.objects.filter(is_public=True)
+        
+        # Combine and deduplicate
+        all_datasets = (owned_datasets | shared_datasets | group_shared_datasets | public_datasets).distinct()
     
     return render(request, 'datasets/dataset_list.html', {
         'datasets': all_datasets,
