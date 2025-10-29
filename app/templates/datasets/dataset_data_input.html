@@ -95,7 +95,19 @@
 <!-- Field Configuration Data -->
 {{ fields_data|json_script:"allFields" }}
 <script>
-    window.allFields = JSON.parse(document.getElementById('allFields').textContent);
+    try {
+        var allFieldsElement = document.getElementById('allFields');
+        if (allFieldsElement && allFieldsElement.textContent) {
+            window.allFields = JSON.parse(allFieldsElement.textContent);
+            console.log('window.allFields initialized:', window.allFields);
+        } else {
+            console.warn('allFields element not found or empty');
+            window.allFields = [];
+        }
+    } catch (e) {
+        console.error('Error initializing window.allFields:', e);
+        window.allFields = [];
+    }
     window.allowMultipleEntries = {% if allow_multiple_entries %}true{% else %}false{% endif %};
     
     // Translation strings for JavaScript

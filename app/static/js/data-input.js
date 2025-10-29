@@ -8,8 +8,19 @@ var markers = [];
 
 // Initialize the data input functionality
 function initializeDataInput(typologyDataParam, fieldsData) {
+    console.log('=== initializeDataInput called ===');
+    console.log('typologyDataParam:', typologyDataParam);
+    console.log('fieldsData parameter:', fieldsData);
+    console.log('window.allFields before setting:', window.allFields);
+    
     allFields = fieldsData || [];
+    window.allFields = fieldsData || [];
     typologyData = typologyDataParam;
+    
+    console.log('allFields set to:', allFields);
+    console.log('window.allFields set to:', window.allFields);
+    console.log('allFields length:', allFields ? allFields.length : 'undefined');
+    console.log('window.allFields length:', window.allFields ? window.allFields.length : 'undefined');
     
     // Initialize the map
     initializeMap();
@@ -24,6 +35,8 @@ function initializeDataInput(typologyDataParam, fieldsData) {
     if (typeof initializeResponsiveLayout === 'function') {
         initializeResponsiveLayout();
     }
+    
+    console.log('=== initializeDataInput completed ===');
 }
 
 // Initialize the map
@@ -76,6 +89,103 @@ function loadMapData() {
     })
     .catch(error => {
         console.error('Error loading map data:', error);
+    });
+}
+
+// Load fields from API when window.allFields is empty
+function loadFieldsFromAPI() {
+    console.log('=== loadFieldsFromAPI called ===');
+    
+    // Get the current dataset ID from the URL
+    var pathParts = window.location.pathname.split('/');
+    var datasetId = null;
+    for (var i = 0; i < pathParts.length; i++) {
+        if (pathParts[i] === 'datasets' && i + 1 < pathParts.length) {
+            datasetId = pathParts[i + 1];
+            break;
+        }
+    }
+    
+    if (!datasetId) {
+        console.error('Could not determine dataset ID from URL');
+        return;
+    }
+    
+    console.log('Loading fields for dataset ID:', datasetId);
+    
+    // Make an API call to get the dataset fields
+    var url = window.location.origin + '/datasets/' + datasetId + '/fields/';
+    console.log('Loading fields from:', url);
+    
+    fetch(url, {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(response => {
+        console.log('Fields API response status:', response.status);
+        if (!response.ok) {
+            throw new Error('Network response was not ok: ' + response.status);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Fields API response:', data);
+        if (data.fields) {
+            window.allFields = data.fields;
+            allFields = data.fields;
+            console.log('Fields loaded from API:', window.allFields);
+            
+            // Now show the geometry details
+            if (currentPoint) {
+                showGeometryDetails(currentPoint);
+            }
+        } else {
+            console.error('No fields in API response');
+        }
+    })
+    .catch(error => {
+        console.error('Error loading fields from API:', error);
+        // Show a message that no fields are configured
+        var entriesList = document.getElementById('entriesList');
+        if (entriesList) {
+            entriesList.innerHTML = '<div class="alert alert-info"><i class="bi bi-info-circle"></i> No fields configured for this dataset.</div>';
+        }
+    });
+}
+
+// Load detailed data for a specific geometry point
+function loadGeometryDetails(geometryId) {
+    var url = window.location.origin + '/datasets/geometry/' + geometryId + '/details/';
+    console.log('Loading geometry details from:', url);
+    
+    return fetch(url, {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(response => {
+        console.log('Geometry details response status:', response.status);
+        if (!response.ok) {
+            throw new Error('Network response was not ok: ' + response.status);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Geometry details received:', data);
+        if (data.success && data.geometry) {
+            return data.geometry;
+        } else {
+            throw new Error(data.error || 'Failed to load geometry details');
+        }
+    })
+    .catch(error => {
+        console.error('Error loading geometry details:', error);
+        throw error;
     });
 }
 
@@ -158,13 +268,60 @@ function selectPoint(point) {
         }
     });
 
-    // Show geometry details
-    showGeometryDetails(point);
+    // Load detailed data for this geometry point
+    loadGeometryDetails(point.id)
+        .then(detailedPoint => {
+            // Show geometry details with the detailed data
+            showGeometryDetails(detailedPoint);
+        })
+        .catch(error => {
+            console.error('Failed to load geometry details:', error);
+            // Show basic details with the lightweight point data
+            showGeometryDetails(point);
+        });
 }
 
 // Show geometry details
 function showGeometryDetails(point) {
     currentPoint = point;
+    
+    console.log('=== showGeometryDetails called ===');
+    console.log('point:', point);
+    console.log('point.entries:', point.entries);
+    console.log('window.allFields before check:', window.allFields);
+    console.log('allFields before check:', allFields);
+    
+    // Ensure window.allFields is defined and not empty
+    if (!window.allFields || window.allFields.length === 0) {
+        console.warn('window.allFields is empty or undefined, attempting to re-initialize...');
+        try {
+            var allFieldsElement = document.getElementById('allFields');
+            if (allFieldsElement && allFieldsElement.textContent) {
+                window.allFields = JSON.parse(allFieldsElement.textContent);
+                allFields = window.allFields; // Also update the global variable
+                console.log('window.allFields re-initialized:', window.allFields);
+                console.log('allFields also updated:', allFields);
+            } else {
+                console.error('allFields element not found in DOM or empty');
+                window.allFields = [];
+                allFields = [];
+            }
+        } catch (e) {
+            console.error('Error parsing allFields:', e);
+            window.allFields = [];
+            allFields = [];
+        }
+    }
+    
+    // If still empty, try to get fields from the API
+    if (!window.allFields || window.allFields.length === 0) {
+        console.warn('window.allFields is still empty, attempting to load fields from API...');
+        loadFieldsFromAPI();
+        return; // Exit early, will be called again after fields are loaded
+    }
+    
+    console.log('window.allFields is available:', window.allFields);
+    console.log('allFields is available:', allFields);
     
     // Update geometry info (no longer needed)
     
@@ -189,10 +346,14 @@ function generateEntriesTable(point) {
     var entriesList = document.getElementById('entriesList');
     if (!entriesList) return;
 
+    console.log('generateEntriesTable called with point:', point);
+    console.log('window.allFields:', window.allFields);
+    console.log('point.entries:', point.entries);
+
     var entriesHtml = '';
     
     // Sort entries by year (newest first)
-    var sortedEntries = point.entries.sort(function(a, b) {
+    var sortedEntries = (point.entries || []).sort(function(a, b) {
         return (b.year || 0) - (a.year || 0);
     });
     
@@ -221,21 +382,31 @@ function generateEntriesTable(point) {
         // Create form for this entry
         entriesHtml += '<form class="entry-form" data-entry-id="' + entry.id + '">';
         
-        // Dynamic fields - render all configured fields from window.allFields
-        if (window.allFields && window.allFields.length > 0) {
+        // Dynamic fields - render all configured fields from window.allFields or allFields
+        var fieldsToUse = window.allFields || allFields || [];
+        console.log('Checking fieldsToUse:', fieldsToUse);
+        console.log('window.allFields:', window.allFields);
+        console.log('allFields:', allFields);
+        
+        if (fieldsToUse && fieldsToUse.length > 0) {
             // Sort fields by order
-            var sortedFields = window.allFields.sort(function(a, b) {
+            var sortedFields = fieldsToUse.sort(function(a, b) {
                 return (a.order || 0) - (b.order || 0);
             });
+            
+            console.log('Sorted fields:', sortedFields);
             
             // Check if there are any enabled fields
             var hasEnabledFields = sortedFields.some(function(field) {
                 return field.enabled;
             });
             
+            console.log('Has enabled fields:', hasEnabledFields);
+            
             if (hasEnabledFields) {
                 sortedFields.forEach(function(field) {
                     if (field.enabled) {
+                        console.log('Rendering field:', field.field_name, 'with value:', entry[field.field_name]);
                     var value = '';
                     if (entry[field.field_name] !== undefined) {
                         value = entry[field.field_name];
@@ -292,38 +463,48 @@ function generateEntriesTable(point) {
         entriesHtml += '</div>';
         
         // Dynamic fields for new entry
-        if (window.allFields && window.allFields.length > 0) {
+        var fieldsToUse = window.allFields || allFields || [];
+        console.log('New entry form - Checking fieldsToUse:', fieldsToUse);
+        console.log('New entry form - window.allFields:', window.allFields);
+        console.log('New entry form - allFields:', allFields);
+        
+        if (fieldsToUse && fieldsToUse.length > 0) {
             // Sort fields by order
-            var sortedFields = window.allFields.sort(function(a, b) {
+            var sortedFields = fieldsToUse.sort(function(a, b) {
                 return (a.order || 0) - (b.order || 0);
             });
+            
+            console.log('New entry form - Sorted fields:', sortedFields);
             
             // Check if there are any enabled fields
             var hasEnabledFields = sortedFields.some(function(field) {
                 return field.enabled;
             });
             
+            console.log('New entry form - Has enabled fields:', hasEnabledFields);
+            
             if (hasEnabledFields) {
                 sortedFields.forEach(function(field) {
                     if (field.enabled) {
-                    entriesHtml += '<div class="mb-3">';
-                    entriesHtml += '<label for="field_' + field.field_name + '" class="form-label">';
-                    entriesHtml += field.label;
-                    if (field.required) {
-                        entriesHtml += ' <span class="text-danger">*</span>';
-                    }
-                    entriesHtml += '</label>';
-                    
-                    // Create input based on field type and settings
-                    var inputHtml = createFormFieldInput(field, '', -1); // -1 indicates new entry
-                    entriesHtml += inputHtml;
-                    
-                    // Add help text if available
-                    if (field.help_text) {
-                        entriesHtml += '<div class="form-text">' + field.help_text + '</div>';
-                    }
-                    
-                    entriesHtml += '</div>';
+                        console.log('New entry form - Rendering field:', field.field_name);
+                        entriesHtml += '<div class="mb-3">';
+                        entriesHtml += '<label for="field_' + field.field_name + '" class="form-label">';
+                        entriesHtml += field.label;
+                        if (field.required) {
+                            entriesHtml += ' <span class="text-danger">*</span>';
+                        }
+                        entriesHtml += '</label>';
+                        
+                        // Create input based on field type and settings
+                        var inputHtml = createFormFieldInput(field, '', -1); // -1 indicates new entry
+                        entriesHtml += inputHtml;
+                        
+                        // Add help text if available
+                        if (field.help_text) {
+                            entriesHtml += '<div class="form-text">' + field.help_text + '</div>';
+                        }
+                        
+                        entriesHtml += '</div>';
                     }
                 });
             } else {
@@ -967,7 +1148,7 @@ function loadUploadedFiles() {
     // Get CSRF token
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
     
-    fetch(`/datasets/geometry/${currentPoint.id}/files/`, {
+    fetch('/datasets/geometry/' + currentPoint.id + '/files/', {
         headers: {
             'X-CSRFToken': csrfToken
         }
@@ -999,26 +1180,24 @@ function displayUploadedFiles(files) {
     files.forEach(file => {
         const fileIcon = getFileIcon(file.file_type);
         const fileSize = formatFileSize(file.file_size);
-        const uploadDate = new Date(file.uploaded_at).toLocaleDateString();
+        const uploadDate = file.uploaded_at ? new Date(file.uploaded_at).toLocaleDateString() : 'Unknown';
         
-        html += `
-            <div class="list-group-item d-flex justify-content-between align-items-center">
-                <div>
-                    <i class="${fileIcon} me-2"></i>
-                    <strong>${file.original_name}</strong>
-                    <small class="text-muted ms-2">(${fileSize})</small>
-                    <br><small class="text-muted">Uploaded: ${uploadDate}</small>
-                </div>
-                <div>
-                    <a href="${file.download_url}" class="btn btn-sm btn-outline-primary me-1" title="Download">
-                        <i class="bi bi-download"></i>
-                    </a>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteFile(${file.id})" title="Delete">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </div>
-            </div>
-        `;
+        html += '<div class="list-group-item d-flex justify-content-between align-items-center">' +
+            '<div>' +
+                '<i class="' + fileIcon + ' me-2"></i>' +
+                '<strong>' + (file.original_name || 'Unknown') + '</strong>' +
+                '<small class="text-muted ms-2">(' + fileSize + ')</small>' +
+                '<br><small class="text-muted">Uploaded: ' + uploadDate + '</small>' +
+            '</div>' +
+            '<div>' +
+                '<a href="' + (file.download_url || '#') + '" class="btn btn-sm btn-outline-primary me-1" title="Download">' +
+                    '<i class="bi bi-download"></i>' +
+                '</a>' +
+                '<button class="btn btn-sm btn-outline-danger" onclick="deleteFile(' + (file.id || 0) + ')" title="Delete">' +
+                    '<i class="bi bi-trash"></i>' +
+                '</button>' +
+            '</div>' +
+        '</div>';
     });
     html += '</div>';
     
@@ -1026,6 +1205,7 @@ function displayUploadedFiles(files) {
 }
 
 function getFileIcon(fileType) {
+    if (!fileType) return 'bi bi-file';
     if (fileType.startsWith('image/')) {
         return 'bi bi-image';
     } else if (fileType === 'application/pdf') {
@@ -1040,7 +1220,7 @@ function getFileIcon(fileType) {
 }
 
 function formatFileSize(bytes) {
-    if (bytes === 0) return '0 Bytes';
+    if (!bytes || bytes === 0) return '0 Bytes';
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -1054,7 +1234,7 @@ function deleteFile(fileId) {
     
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
     
-    fetch(`/datasets/files/${fileId}/delete/`, {
+    fetch('/datasets/files/' + fileId + '/delete/', {
         method: 'POST',
         headers: {
             'X-CSRFToken': csrfToken,
