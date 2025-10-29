@@ -1,0 +1,218 @@
+{% extends 'datasets/_base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Export Task Status" %} - {{ task.dataset.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2><i class="bi bi-download"></i> {% trans "Export Task Status" %}</h2>
+                    <p class="text-muted">{% trans "Track the progress of your file export" %}</p>
+                </div>
+                <div>
+                    <a href="{% url 'dataset_files_export' task.dataset.id %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> {% trans "Back to Export" %}
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Task Information -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> {% trans "Task Information" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>{% trans "Dataset" %}:</strong> {{ task.dataset.name }}</p>
+                            <p><strong>{% trans "Task ID" %}:</strong> <code>{{ task.task_id }}</code></p>
+                            <p><strong>{% trans "Created" %}:</strong> {{ task.created_at|date:"M d, Y H:i" }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>{% trans "Organization" %}:</strong> {{ task.organize_by|title }}</p>
+                            <p><strong>{% trans "File Types" %}:</strong> {{ task.file_types|join:", "|title }}</p>
+                            <p><strong>{% trans "Include Metadata" %}:</strong> {{ task.include_metadata|yesno:"Yes,No" }}</p>
+                        </div>
+                    </div>
+                    
+                    {% if task.date_from or task.date_to %}
+                    <div class="mt-3">
+                        <strong>{% trans "Date Range" %}:</strong>
+                        {% if task.date_from and task.date_to %}
+                            {{ task.date_from|date:"M d, Y" }} - {{ task.date_to|date:"M d, Y" }}
+                        {% elif task.date_from %}
+                            {% trans "From" %} {{ task.date_from|date:"M d, Y" }}
+                        {% elif task.date_to %}
+                            {% trans "Until" %} {{ task.date_to|date:"M d, Y" }}
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Status Display -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-clock"></i> {% trans "Status" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if task.status == 'pending' %}
+                        <div class="alert alert-info">
+                            <div class="d-flex align-items-center">
+                                <div class="spinner-border spinner-border-sm me-3" role="status">
+                                    <span class="visually-hidden">{% trans "Loading..." %}</span>
+                                </div>
+                                <div>
+                                    <h6 class="mb-1">{% trans "Task Queued" %}</h6>
+                                    <p class="mb-0">{% trans "Your export task is queued and will start processing shortly." %}</p>
+                                </div>
+                            </div>
+                        </div>
+                    {% elif task.status == 'processing' %}
+                        <div class="alert alert-warning">
+                            <div class="d-flex align-items-center">
+                                <div class="spinner-border spinner-border-sm me-3" role="status">
+                                    <span class="visually-hidden">{% trans "Loading..." %}</span>
+                                </div>
+                                <div>
+                                    <h6 class="mb-1">{% trans "Processing" %}</h6>
+                                    <p class="mb-0">{% trans "Your files are being processed and packaged into a ZIP archive. This may take a few minutes depending on the number of files." %}</p>
+                                </div>
+                            </div>
+                        </div>
+                    {% elif task.status == 'completed' %}
+                        <div class="alert alert-success">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-check-circle-fill me-3" style="font-size: 1.5rem;"></i>
+                                <div>
+                                    <h6 class="mb-1">{% trans "Export Completed" %}</h6>
+                                    <p class="mb-0">{% trans "Your ZIP file is ready for download!" %}</p>
+                                </div>
+                            </div>
+                        </div>
+                    {% elif task.status == 'failed' %}
+                        <div class="alert alert-danger">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-exclamation-triangle-fill me-3" style="font-size: 1.5rem;"></i>
+                                <div>
+                                    <h6 class="mb-1">{% trans "Export Failed" %}</h6>
+                                    <p class="mb-0">{% trans "There was an error processing your export request." %}</p>
+                                    {% if task.error_message %}
+                                        <small class="text-muted">{{ task.error_message }}</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                    
+                    {% if task.completed_at %}
+                        <p class="text-muted mb-0">
+                            <small>
+                                {% if task.status == 'completed' %}
+                                    {% trans "Completed" %}: {{ task.completed_at|date:"M d, Y H:i" }}
+                                {% elif task.status == 'failed' %}
+                                    {% trans "Failed" %}: {{ task.completed_at|date:"M d, Y H:i" }}
+                                {% endif %}
+                            </small>
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Download Section -->
+            {% if task.status == 'completed' and download_url %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-download"></i> {% trans "Download" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h6>{% trans "Your ZIP file is ready!" %}</h6>
+                                <p class="text-muted mb-3">
+                                    {% trans "The ZIP file contains all your requested files with geometry/entry ID prefixes for easy identification." %}
+                                </p>
+                                
+                                {% if file_size_mb %}
+                                    <p class="mb-3">
+                                        <strong>{% trans "File Size" %}:</strong> {{ file_size_mb }} MB
+                                    </p>
+                                {% endif %}
+                                
+                                <div class="d-grid gap-2 d-md-flex">
+                                    <a href="{% url 'download_export_file' task.task_id %}" class="btn btn-success">
+                                        <i class="bi bi-download"></i> {% trans "Download ZIP File" %}
+                                    </a>
+                                    <a href="{{ download_url }}" class="btn btn-outline-primary" target="_blank">
+                                        <i class="bi bi-box-arrow-up-right"></i> {% trans "Open in New Tab" %}
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-center">
+                                    <i class="bi bi-file-zip" style="font-size: 4rem; color: #007bff;"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+            
+            <!-- What's Included -->
+            {% if task.status == 'completed' %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-list-check"></i> {% trans "What's Included" %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>{% trans "Files" %}</h6>
+                                <ul class="list-unstyled">
+                                    <li><i class="bi bi-check text-success"></i> {% trans "All requested files with ID prefixes" %}</li>
+                                    <li><i class="bi bi-check text-success"></i> {% trans "Organized by" %} {{ task.organize_by|title }}</li>
+                                    <li><i class="bi bi-check text-success"></i> {% trans "Original file names preserved" %}</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>{% trans "Metadata" %}</h6>
+                                <ul class="list-unstyled">
+                                    <li><i class="bi bi-check text-success"></i> {% trans "File manifest (JSON & CSV)" %}</li>
+                                    <li><i class="bi bi-check text-success"></i> {% trans "Dataset summary" %}</li>
+                                    <li><i class="bi bi-check text-success"></i> {% trans "README with instructions" %}</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+            
+            <!-- Actions -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-between">
+                        <a href="{% url 'dataset_files_export' task.dataset.id %}" class="btn btn-outline-primary">
+                            <i class="bi bi-plus-circle"></i> {% trans "Start New Export" %}
+                        </a>
+                        <a href="{% url 'dataset_detail' task.dataset.id %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> {% trans "Back to Dataset" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if task.status in 'pending,processing' %}
+<script>
+// Auto-refresh page every 10 seconds for pending/processing tasks
+setTimeout(function() {
+    window.location.reload();
+}, 10000);
+</script>
+{% endif %}
+{% endblock %}

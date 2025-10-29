@@ -1,0 +1,233 @@
+{% extends 'datasets/_base.html' %}
+{% load i18n %}
+{% load dataset_extras %}
+
+{% block title %}{{ dataset.name }} - {% trans "Export Files" %}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2><i class="bi bi-download"></i> {% trans "Export Files" %}: {{ dataset.name }}</h2>
+                    <p class="text-muted">{% trans "Export uploaded files from this dataset with various organizational strategies." %}</p>
+                </div>
+                <div>
+                    <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> {% trans "Back to Dataset" %}
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Export Options -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-gear"></i> {% trans "Export Options" %}</h5>
+                </div>
+                <div class="card-body">
+                    <form id="exportForm" method="post" action="{% url 'export_files_zip' dataset.id %}">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="file_types" class="form-label">{% trans "File Types" %}</label>
+                                    <select class="form-select" id="file_types" name="file_types" multiple>
+                                        {% for option in file_types %}
+                                        <option value="{{ option.value }}" selected>{{ option.label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text">{% trans "Select which file types to include in the export" %}</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="organize_by" class="form-label">{% trans "Organization Method" %}</label>
+                                    <select class="form-select" id="organize_by" name="organize_by">
+                                        {% for option in organize_options %}
+                                        <option value="{{ option.value }}">{{ option.label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text">{% trans "How to organize files in the export" %}</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="date_from" class="form-label">{% trans "From Date" %}</label>
+                                    <input type="date" class="form-control" id="date_from" name="date_from">
+                                    <div class="form-text">{% trans "Export files uploaded from this date" %}</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="date_to" class="form-label">{% trans "To Date" %}</label>
+                                    <input type="date" class="form-control" id="date_to" name="date_to">
+                                    <div class="form-text">{% trans "Export files uploaded until this date" %}</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="include_metadata" name="include_metadata" checked>
+                                <label class="form-check-label" for="include_metadata">
+                                    <strong>{% trans "Include Metadata" %}</strong>
+                                </label>
+                                <div class="form-text">{% trans "Include JSON and CSV manifest files with the export" %}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="email_notification" name="email_notification" checked>
+                                <label class="form-check-label" for="email_notification">
+                                    <strong>{% trans "Email Notification" %}</strong>
+                                </label>
+                                <div class="form-text">{% trans "Send email notification when export is completed" %}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-file-zip"></i> {% trans "Export ZIP with Email" %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Recent Files -->
+            {% if recent_files %}
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-clock-history"></i> {% trans "Recent Files" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "File" %}</th>
+                                    <th>{% trans "Type" %}</th>
+                                    <th>{% trans "Size" %}</th>
+                                    <th>{% trans "Uploaded" %}</th>
+                                    <th>{% trans "User" %}</th>
+                                    <th>{% trans "Geometry" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for file in recent_files %}
+                                <tr>
+                                    <td>
+                                        <i class="bi bi-file-earmark"></i>
+                                        {{ file.filename }}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ file.file_type }}</span>
+                                    </td>
+                                    <td>{{ file.file_size|filesizeformat }}</td>
+                                    <td>{{ file.upload_date|date:"M d, Y H:i" }}</td>
+                                    <td>{{ file.upload_user.username|default:"Unknown" }}</td>
+                                    <td>{{ file.entry.geometry.id_kurz }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="col-md-4">
+            <!-- Statistics -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart"></i> {% trans "File Statistics" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center mb-3">
+                        <div class="col-6">
+                            <div class="border-end">
+                                <h3 class="text-primary mb-0">{{ stats.total_files }}</h3>
+                                <small class="text-muted">{% trans "Total Files" %}</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <h3 class="text-success mb-0">{{ stats.total_size|filesizeformat }}</h3>
+                            <small class="text-muted">{% trans "Total Size" %}</small>
+                        </div>
+                    </div>
+                    
+                    {% if stats.file_types %}
+                    <div class="mb-3">
+                        <h6>{% trans "File Types" %}</h6>
+                        {% for file_type, count in stats.file_types.items %}
+                        <div class="d-flex justify-content-between">
+                            <span>{{ file_type|title }}</span>
+                            <span class="badge bg-light text-dark">{{ count }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    {% if stats.users %}
+                    <div class="mb-3">
+                        <h6>{% trans "Contributing Users" %}</h6>
+                        {% for user, count in stats.users.items %}
+                        <div class="d-flex justify-content-between">
+                            <span>{{ user }}</span>
+                            <span class="badge bg-light text-dark">{{ count }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    {% if stats.date_range.earliest and stats.date_range.latest %}
+                    <div class="mb-3">
+                        <h6>{% trans "Date Range" %}</h6>
+                        <p class="small text-muted mb-0">
+                            {{ stats.date_range.earliest|date:"M d, Y" }} - {{ stats.date_range.latest|date:"M d, Y" }}
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Export Help -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-question-circle"></i> {% trans "Export Help" %}</h6>
+                </div>
+                <div class="card-body">
+                    <h6>{% trans "Export Formats" %}</h6>
+                    <ul class="small text-muted mb-3">
+                        <li><strong>ZIP:</strong> {% trans "All files in a compressed archive with metadata" %}</li>
+                        <li><strong>Manifest (CSV):</strong> {% trans "File list with metadata in spreadsheet format" %}</li>
+                        <li><strong>JSON:</strong> {% trans "File list with metadata in JSON format for programming" %}</li>
+                    </ul>
+                    
+                    <h6>{% trans "Organization Methods" %}</h6>
+                    <ul class="small text-muted mb-0">
+                        <li><strong>By Geometry:</strong> {% trans "Files grouped by geometry ID" %}</li>
+                        <li><strong>By Entry:</strong> {% trans "Files grouped by data entry" %}</li>
+                        <li><strong>By Date:</strong> {% trans "Files grouped by upload date" %}</li>
+                        <li><strong>By User:</strong> {% trans "Files grouped by upload user" %}</li>
+                        <li><strong>By Type:</strong> {% trans "Files grouped by file type" %}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Initialize date inputs with default values
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date();
+    const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
+    
+    document.getElementById('date_from').value = lastMonth.toISOString().split('T')[0];
+    document.getElementById('date_to').value = today.toISOString().split('T')[0];
+});
+</script>
+{% endblock %}

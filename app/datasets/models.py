@@ -297,4 +297,39 @@ class DatasetField(models.Model):
         ordering = ['order', 'field_name']
         verbose_name = "Dataset Field"
         verbose_name_plural = "Dataset Fields"
-        unique_together = ['dataset', 'field_name']  # Field names must be unique per dataset 
+        unique_together = ['dataset', 'field_name']  # Field names must be unique per dataset
+
+
+class ExportTask(models.Model):
+    """Model to track file export tasks"""
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('processing', 'Processing'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+    ]
+    
+    dataset = models.ForeignKey(DataSet, on_delete=models.CASCADE, related_name='export_tasks')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='export_tasks')
+    task_id = models.CharField(max_length=100, unique=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    file_path = models.CharField(max_length=500, blank=True, null=True)
+    file_size = models.BigIntegerField(null=True, blank=True)
+    error_message = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    
+    # Export parameters
+    file_types = models.JSONField(default=list)
+    date_from = models.DateField(null=True, blank=True)
+    date_to = models.DateField(null=True, blank=True)
+    organize_by = models.CharField(max_length=20, default='geometry')
+    include_metadata = models.BooleanField(default=True)
+    
+    def __str__(self):
+        return f"Export Task {self.task_id} - {self.dataset.name}"
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Export Task"
+        verbose_name_plural = "Export Tasks" 

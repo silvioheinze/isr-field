@@ -19,6 +19,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from datasets import views as datasets_views
+from datasets.views import export_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -51,6 +52,11 @@ urlpatterns = [
     path('datasets/<int:dataset_id>/debug-import/', datasets_views.debug_import_view, name='debug_import'),
     path('datasets/<int:dataset_id>/export/', datasets_views.dataset_export_options_view, name='dataset_export_options'),
     path('datasets/<int:dataset_id>/export/csv/', datasets_views.dataset_csv_export_view, name='dataset_csv_export'),
+    # File export URLs
+    path('datasets/<int:dataset_id>/export-files/', export_views.dataset_files_export_view, name='dataset_files_export'),
+    path('datasets/<int:dataset_id>/export-files/zip/', export_views.export_files_zip_view, name='export_files_zip'),
+    path('export-task/<str:task_id>/', export_views.export_task_status_view, name='export_task_status'),
+    path('export-task/<str:task_id>/download/', export_views.download_export_file_view, name='download_export_file'),
     path('datasets/<int:dataset_id>/data-input/', datasets_views.dataset_data_input_view, name='dataset_data_input'),
     path('datasets/<int:dataset_id>/entries/', datasets_views.dataset_entries_table_view, name='dataset_entries_table'),
     path('datasets/<int:dataset_id>/fields/', datasets_views.dataset_fields_view, name='dataset_fields'),

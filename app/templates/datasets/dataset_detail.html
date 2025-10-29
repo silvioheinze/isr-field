@@ -240,6 +240,9 @@
                         <a href="{% url 'dataset_export_options' dataset.id %}" class="btn btn-outline-success btn-sm">
                             <i class="bi bi-download"></i> Export CSV
                         </a>
+                        <a href="{% url 'dataset_files_export' dataset.id %}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-file-zip"></i> Export Files
+                        </a>
                     </div>
                 </div>
             </div>

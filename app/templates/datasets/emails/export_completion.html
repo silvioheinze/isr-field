@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Export Completed - {{ dataset.name }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #007bff;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .content {
+            background-color: #f8f9fa;
+            padding: 30px;
+            border-radius: 0 0 8px 8px;
+        }
+        .success-icon {
+            font-size: 48px;
+            color: #28a745;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .download-button {
+            display: inline-block;
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .download-button:hover {
+            background-color: #0056b3;
+        }
+        .details {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+        .detail-label {
+            font-weight: bold;
+            color: #666;
+        }
+        .detail-value {
+            color: #333;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            color: #666;
+            font-size: 14px;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📁 File Export Completed</h1>
+        <p>Your dataset files are ready for download</p>
+    </div>
+    
+    <div class="content">
+        <div class="success-icon">✅</div>
+        
+        <h2>Hello {{ user.get_full_name|default:user.username }}!</h2>
+        
+        <p>Your file export for dataset <strong>"{{ dataset.name }}"</strong> has been completed successfully!</p>
+        
+        <div class="details">
+            <h3>Export Details</h3>
+            <div class="detail-row">
+                <span class="detail-label">Dataset:</span>
+                <span class="detail-value">{{ dataset.name }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Export Date:</span>
+                <span class="detail-value">{{ task.completed_at|date:"F d, Y H:i" }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">File Size:</span>
+                <span class="detail-value">{{ file_size_mb }} MB</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Organization:</span>
+                <span class="detail-value">{{ task.organize_by|title }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Include Metadata:</span>
+                <span class="detail-value">{{ task.include_metadata|yesno:"Yes,No" }}</span>
+            </div>
+        </div>
+        
+        <div style="text-align: center;">
+            <a href="{{ site_url }}{{ download_url }}" class="download-button">
+                📥 Download ZIP File
+            </a>
+        </div>
+        
+        <div class="warning">
+            <strong>⚠️ Important:</strong> This download link will expire in 7 days. Please download your files promptly.
+        </div>
+        
+        <h3>What's Included</h3>
+        <ul>
+            <li><strong>All requested files</strong> with geometry/entry ID prefixes for easy identification</li>
+            <li><strong>File manifest</strong> in both JSON and CSV formats</li>
+            <li><strong>Dataset summary</strong> with statistics and metadata</li>
+            <li><strong>README file</strong> with usage instructions</li>
+        </ul>
+        
+        <h3>File Naming Convention</h3>
+        <p>Files are prefixed with identifiers for easy organization:</p>
+        <ul>
+            <li><code>geometry_{{ geometry_id }}_{{ original_filename }}</code></li>
+            <li><code>entry_{{ entry_id }}_{{ original_filename }}</code></li>
+        </ul>
+        
+        <p>This naming convention makes it easy to identify which files belong to which geometry or entry when working with the exported data.</p>
+    </div>
+    
+    <div class="footer">
+        <p>This email was sent from ISR Field - Spatial Data Management System</p>
+        <p>If you have any questions, please contact the system administrator.</p>
+    </div>
+</body>
+</html>
