@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
 from django.db import transaction
 from django.core.exceptions import ValidationError
+from django.contrib.gis.geos import Point
 import json
 import csv
 import io
@@ -35,15 +36,35 @@ def detect_csv_delimiter(csv_content, sample_size=1024):
     """Detect CSV delimiter from content"""
     try:
         # Use csv.Sniffer to detect delimiter
-        sample = csv_content[:sample_size].decode('utf-8')
+        if isinstance(csv_content, bytes):
+            sample = csv_content[:sample_size].decode('utf-8')
+        else:
+            sample = csv_content[:sample_size]
+        
         sniffer = csv.Sniffer()
         delimiter = sniffer.sniff(sample).delimiter
         return delimiter
     except Exception:
         # Fallback to common delimiters
+        try:
+            if isinstance(csv_content, bytes):
+                sample = csv_content[:sample_size].decode('utf-8')
+            else:
+                sample = csv_content[:sample_size]
+        except:
+            sample = str(csv_content[:sample_size])
+        
+        # Count occurrences of each delimiter in the sample
+        delimiter_counts = {}
         for delimiter in [',', ';', '\t', '|']:
-            if delimiter in sample:
-                return delimiter
+            delimiter_counts[delimiter] = sample.count(delimiter)
+        
+        # Return the delimiter with the highest count, or comma as default
+        if delimiter_counts:
+            best_delimiter = max(delimiter_counts, key=delimiter_counts.get)
+            if delimiter_counts[best_delimiter] > 0:
+                return best_delimiter
+        
         return ','  # Default to comma
 
 
@@ -75,15 +96,50 @@ def dataset_csv_column_selection_view(request, dataset_id):
     # Parse CSV to get column names
     try:
         delimiter = request.session.get('csv_delimiter', ',')
+        logger.info(f"Using delimiter '{delimiter}' for column parsing")
         csv_reader = csv.DictReader(io.StringIO(csv_data), delimiter=delimiter)
         columns = csv_reader.fieldnames or []
+        logger.info(f"Detected columns: {columns[:10]}...")  # Log first 10 columns
+        
+        # Check for potential ID conflicts
+        id_conflicts = []
+        if columns:
+            # Get a sample of IDs from the CSV to check for conflicts
+            csv_reader_sample = csv.DictReader(io.StringIO(csv_data), delimiter=delimiter)
+            sample_ids = []
+            for i, row in enumerate(csv_reader_sample):
+                if i >= 10:  # Only check first 10 rows
+                    break
+                # Try common ID column names
+                for id_col in ['id', 'ID', 'id_kurz', 'ID_KURZ', 'geometry_id', 'GEOMETRY_ID']:
+                    if id_col in row and row[id_col].strip():
+                        sample_ids.append(row[id_col].strip())
+                        break
+            
+            if sample_ids:
+                # Check if any of these IDs already exist in the current dataset
+                existing_ids = DataGeometry.objects.filter(
+                    dataset=dataset,
+                    id_kurz__in=sample_ids
+                ).values_list('id_kurz', flat=True)
+                
+                if existing_ids:
+                    id_conflicts = list(existing_ids)
+                    messages.warning(request, 
+                        f'Warning: Some IDs in your CSV file already exist in this dataset: {", ".join(id_conflicts[:5])}'
+                        + (f' (and {len(id_conflicts)-5} more)' if len(id_conflicts) > 5 else '') +
+                        '. Consider using the "Clear existing data" option to replace existing data.'
+                    )
+        
     except Exception as e:
+        logger.error(f"Error reading CSV: {str(e)}", exc_info=True)
         messages.error(request, f'Error reading CSV: {str(e)}')
         return redirect('dataset_csv_import', dataset_id=dataset.id)
     
     return render(request, 'datasets/dataset_csv_column_selection.html', {
         'dataset': dataset,
-        'columns': columns
+        'headers': columns,
+        'id_conflicts': id_conflicts
     })
 
 
@@ -104,7 +160,8 @@ def dataset_csv_import_view(request, dataset_id):
                 decoded_file = csv_file.read().decode('utf-8')
                 
                 # Detect delimiter
-                delimiter = detect_csv_delimiter(decoded_file.encode('utf-8'))
+                delimiter = detect_csv_delimiter(decoded_file)
+                logger.info(f"Detected CSV delimiter: '{delimiter}' for file: {csv_file.name}")
                 request.session['csv_delimiter'] = delimiter
                 
                 # Store CSV data in session
@@ -149,6 +206,40 @@ def process_csv_import(request, dataset, decoded_file, csv_file_name, id_column,
         
         imported_count = 0
         errors = []
+        processed_ids = set()  # Track processed IDs within this dataset
+        
+        # First pass: collect all IDs and check for duplicates
+        all_ids = []
+        for row_num, row in enumerate(csv_reader, start=2):
+            geometry_id = row.get(id_column, '').strip()
+            if geometry_id:
+                all_ids.append((row_num, geometry_id))
+        
+        # Check for duplicates within the CSV
+        id_counts = {}
+        for row_num, geometry_id in all_ids:
+            if geometry_id in id_counts:
+                errors.append(f'Row {row_num}: Duplicate ID "{geometry_id}" within CSV (first occurrence at row {id_counts[geometry_id]})')
+            else:
+                id_counts[geometry_id] = row_num
+        
+        # Check for existing geometries in the current dataset only
+        existing_ids = set(DataGeometry.objects.filter(
+            dataset=dataset,
+            id_kurz__in=[id for _, id in all_ids]
+        ).values_list('id_kurz', flat=True))
+        
+        # Filter out problematic IDs
+        valid_ids = set()
+        for row_num, geometry_id in all_ids:
+            if geometry_id in existing_ids:
+                errors.append(f'Row {row_num}: ID "{geometry_id}" already exists in this dataset')
+            else:
+                valid_ids.add(geometry_id)
+        
+        
+        # Reset CSV reader for second pass
+        csv_reader = csv.DictReader(io.StringIO(decoded_file), delimiter=delimiter)
         
         with transaction.atomic():
             for row_num, row in enumerate(csv_reader, start=2):  # Start at 2 for header
@@ -160,6 +251,10 @@ def process_csv_import(request, dataset, decoded_file, csv_file_name, id_column,
                     
                     if not geometry_id or not x_coord or not y_coord:
                         errors.append(f'Row {row_num}: Missing required data')
+                        continue
+                    
+                    # Skip if ID is not valid
+                    if geometry_id not in valid_ids:
                         continue
                     
                     # Convert coordinates
