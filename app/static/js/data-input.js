@@ -616,7 +616,23 @@ function createFormFieldInput(field, value, entryIndex) {
             break;
             
         case 'date':
-            inputHtml = '<input type="date" class="form-control" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '"';
+            // Only set value if it's a valid date format (YYYY-MM-DD)
+            var dateValue = '';
+            if (fieldValue && typeof fieldValue === 'string' && fieldValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                dateValue = fieldValue;
+            } else if (fieldValue && typeof fieldValue === 'string' && fieldValue.length > 0) {
+                // Try to parse date if it's in a different format
+                try {
+                    var date = new Date(fieldValue);
+                    if (!isNaN(date.getTime())) {
+                        dateValue = date.toISOString().split('T')[0];
+                    }
+                } catch (e) {
+                    // Invalid date, leave empty
+                    dateValue = '';
+                }
+            }
+            inputHtml = '<input type="date" class="form-control" id="' + fieldId + '" name="' + fieldName + '" value="' + dateValue + '"';
             if (field.required) inputHtml += ' required';
             if (field.min_date) inputHtml += ' min="' + field.min_date + '"';
             if (field.max_date) inputHtml += ' max="' + field.max_date + '"';
@@ -709,7 +725,23 @@ function createCustomFieldInput(field) {
             }
             break;
         case 'date':
-            inputHtml = '<input type="date" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '">';
+            // Only set value if it's a valid date format (YYYY-MM-DD)
+            var dateValue = '';
+            if (fieldValue && typeof fieldValue === 'string' && fieldValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                dateValue = fieldValue;
+            } else if (fieldValue && typeof fieldValue === 'string' && fieldValue.length > 0) {
+                // Try to parse date if it's in a different format
+                try {
+                    var date = new Date(fieldValue);
+                    if (!isNaN(date.getTime())) {
+                        dateValue = date.toISOString().split('T')[0];
+                    }
+                } catch (e) {
+                    // Invalid date, leave empty
+                    dateValue = '';
+                }
+            }
+            inputHtml = '<input type="date" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + dateValue + '">';
             break;
         default:
             inputHtml = '<input type="text" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '">';
@@ -765,7 +797,23 @@ function createEditableFieldInput(field, value, entryIndex) {
             }
             break;
         case 'date':
-            inputHtml = '<input type="date" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '">';
+            // Only set value if it's a valid date format (YYYY-MM-DD)
+            var dateValue = '';
+            if (fieldValue && typeof fieldValue === 'string' && fieldValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                dateValue = fieldValue;
+            } else if (fieldValue && typeof fieldValue === 'string' && fieldValue.length > 0) {
+                // Try to parse date if it's in a different format
+                try {
+                    var date = new Date(fieldValue);
+                    if (!isNaN(date.getTime())) {
+                        dateValue = date.toISOString().split('T')[0];
+                    }
+                } catch (e) {
+                    // Invalid date, leave empty
+                    dateValue = '';
+                }
+            }
+            inputHtml = '<input type="date" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + dateValue + '">';
             break;
         default:
             inputHtml = '<input type="text" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '">';
@@ -803,13 +851,18 @@ function createEntry() {
             if (field.enabled) {
                 var fieldElement = document.getElementById('field_' + field.field_name);
                 if (fieldElement) {
-                    formData.append('fields[' + field.field_name + ']', fieldElement.value);
+                    // Skip empty date fields to avoid browser validation errors
+                    if (field.field_type === 'date' && !fieldElement.value) {
+                        return; // Skip empty date fields
+                    }
+                    // Send field name directly (not wrapped in fields[])
+                    formData.append(field.field_name, fieldElement.value);
                 }
             }
         });
     }
     
-    fetch(window.location.origin + '/entries/create/', {
+    fetch(window.location.origin + '/geometries/' + currentPoint.id + '/entries/create/', {
         method: 'POST',
         body: formData,
         credentials: 'same-origin',

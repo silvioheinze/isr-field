@@ -68,6 +68,8 @@ def entry_create_view(request, geometry_id):
     
     # Check if user has access to this geometry's dataset
     if not geometry.dataset.can_access(request.user):
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
         return render(request, 'datasets/403.html', status=403)
     
     if request.method == 'POST':
@@ -90,17 +92,30 @@ def entry_create_view(request, geometry_id):
             
             # Create field values
             for key, value in request.POST.items():
-                if key not in ['name', 'year', 'csrfmiddlewaretoken']:
-                    DataEntryField.objects.create(
-                        entry=entry,
-                        field_name=key,
-                        value=value
-                    )
+                if key not in ['name', 'year', 'geometry_id', 'csrfmiddlewaretoken']:
+                    # Skip empty values to avoid creating empty fields
+                    if value and value.strip():
+                        DataEntryField.objects.create(
+                            entry=entry,
+                            field_name=key,
+                            value=value.strip()
+                        )
+            
+            # Return JSON response for AJAX requests
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': f'Entry "{name}" created successfully!',
+                    'entry_id': entry.id
+                })
             
             messages.success(request, f'Entry "{name}" created successfully!')
             return redirect('dataset_data_input', dataset_id=geometry.dataset.id)
         else:
-            messages.error(request, 'Entry name is required.')
+            error_msg = 'Entry name is required.'
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': error_msg}, status=400)
+            messages.error(request, error_msg)
     
     return render(request, 'datasets/entry_create.html', {
         'geometry': geometry
