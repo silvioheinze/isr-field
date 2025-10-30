@@ -5,38 +5,22 @@ var allFields = [];
 var uploadedFiles = [];
 var typologyData = null;
 var markers = [];
+var addPointMode = false;
+var addPointMarker = null;
+var lastAddedLatLng = null;
 
 // Initialize the data input functionality
 function initializeDataInput(typologyDataParam, fieldsData) {
-    console.log('=== initializeDataInput called ===');
-    console.log('typologyDataParam:', typologyDataParam);
-    console.log('fieldsData parameter:', fieldsData);
-    console.log('window.allFields before setting:', window.allFields);
-    
     allFields = fieldsData || [];
     window.allFields = fieldsData || [];
     typologyData = typologyDataParam;
-    
-    console.log('allFields set to:', allFields);
-    console.log('window.allFields set to:', window.allFields);
-    console.log('allFields length:', allFields ? allFields.length : 'undefined');
-    console.log('window.allFields length:', window.allFields ? window.allFields.length : 'undefined');
-    
-    // Initialize the map
+
     initializeMap();
-    
-    // Setup event listeners
     setupEventListeners();
-    
-    // Initialize file upload
     initializeFileUpload();
-    
-    // Initialize responsive layout
     if (typeof initializeResponsiveLayout === 'function') {
         initializeResponsiveLayout();
     }
-    
-    console.log('=== initializeDataInput completed ===');
 }
 
 // Initialize the map
@@ -49,54 +33,36 @@ function initializeMap() {
         keyboard: false,
         dragging: true,
         touchZoom: true
-    }).setView([48.2082, 16.3738], 11); // Vienna coordinates
+    }).setView([48.2082, 16.3738], 11);
     
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // Load map data
+    map.on('click', function(e) {
+        if (addPointMode) addNewPoint(e.latlng);
+    });
+
     loadMapData();
 }
 
 // Load map data via AJAX
 function loadMapData() {
     var url = window.location.origin + '/datasets/' + getDatasetId() + '/map-data/';
-    console.log('Loading map data from:', url);
-    
     fetch(url, {
         method: 'GET',
         credentials: 'same-origin',
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-        }
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
     })
-    .then(response => {
-        console.log('Response status:', response.status);
-        if (!response.ok) {
-            throw new Error('Network response was not ok: ' + response.status);
-        }
-        return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
-        console.log('Map data received:', data);
-        if (data.map_data) {
-            console.log('Number of map points:', data.map_data.length);
-            addMarkersToMap(data.map_data);
-        } else {
-            console.error('No map data received');
-        }
+        if (data.map_data) addMarkersToMap(data.map_data);
     })
-    .catch(error => {
-        console.error('Error loading map data:', error);
-    });
+    .catch(() => {});
 }
 
 // Load fields from API when window.allFields is empty
 function loadFieldsFromAPI() {
-    console.log('=== loadFieldsFromAPI called ===');
-    
-    // Get the current dataset ID from the URL
     var pathParts = window.location.pathname.split('/');
     var datasetId = null;
     for (var i = 0; i < pathParts.length; i++) {
@@ -111,34 +77,19 @@ function loadFieldsFromAPI() {
         return;
     }
     
-    console.log('Loading fields for dataset ID:', datasetId);
-    
-    // Make an API call to get the dataset fields
     var url = window.location.origin + '/datasets/' + datasetId + '/fields/';
-    console.log('Loading fields from:', url);
     
     fetch(url, {
         method: 'GET',
         credentials: 'same-origin',
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-        }
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
     })
-    .then(response => {
-        console.log('Fields API response status:', response.status);
-        if (!response.ok) {
-            throw new Error('Network response was not ok: ' + response.status);
-        }
-        return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
-        console.log('Fields API response:', data);
         if (data.fields) {
             window.allFields = data.fields;
             allFields = data.fields;
-            console.log('Fields loaded from API:', window.allFields);
             
-            // Now show the geometry details
             if (currentPoint) {
                 showGeometryDetails(currentPoint);
             }
@@ -148,7 +99,6 @@ function loadFieldsFromAPI() {
     })
     .catch(error => {
         console.error('Error loading fields from API:', error);
-        // Show a message that no fields are configured
         var entriesList = document.getElementById('entriesList');
         if (entriesList) {
             entriesList.innerHTML = '<div class="alert alert-info"><i class="bi bi-info-circle"></i> No fields configured for this dataset.</div>';
@@ -159,60 +109,23 @@ function loadFieldsFromAPI() {
 // Load detailed data for a specific geometry point
 function loadGeometryDetails(geometryId) {
     var url = window.location.origin + '/datasets/geometry/' + geometryId + '/details/';
-    console.log('Loading geometry details from:', url);
-    
     return fetch(url, {
         method: 'GET',
         credentials: 'same-origin',
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-        }
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
     })
-    .then(response => {
-        console.log('Geometry details response status:', response.status);
-        if (!response.ok) {
-            throw new Error('Network response was not ok: ' + response.status);
-        }
-        return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
-        console.log('Geometry details received:', data);
-        if (data.success && data.geometry) {
-            return data.geometry;
-        } else {
-            throw new Error(data.error || 'Failed to load geometry details');
-        }
-    })
-    .catch(error => {
-        console.error('Error loading geometry details:', error);
-        throw error;
+        if (data.success && data.geometry) return data.geometry;
+        throw new Error('Failed to load geometry details');
     });
 }
 
 // Add markers to the map
 function addMarkersToMap(mapData) {
-    console.log('addMarkersToMap called with:', mapData);
-    
-    // Clear existing markers
     markers.forEach(marker => map.removeLayer(marker));
     markers = [];
-
-    if (!mapData) {
-        console.log('No map data provided');
-        return;
-    }
-
-    if (!Array.isArray(mapData)) {
-        console.error('Map data is not an array:', mapData);
-        return;
-    }
-
-    if (mapData.length === 0) {
-        console.log('No map data to display');
-        return;
-    }
-    
-    console.log('Adding', mapData.length, 'markers to map');
+    if (!Array.isArray(mapData) || mapData.length === 0) return;
 
     mapData.forEach(function(point) {
         var marker = L.circleMarker([point.lat, point.lng], {
@@ -223,28 +136,34 @@ function addMarkersToMap(mapData) {
             opacity: 1,
             fillOpacity: 0.8
         });
-
         marker.pointData = point;
-
-        marker.on('click', function() {
-            selectPoint(point);
-        });
-
+        marker.on('click', function() { selectPoint(point); });
         marker.addTo(map);
         markers.push(marker);
     });
 
-    // Focus on all points
     focusOnAllPoints();
+
+    // Auto-select newly added marker if we have a cached location
+    if (lastAddedLatLng && markers.length > 0) {
+        var nearest = null;
+        var bestDist = Infinity;
+        markers.forEach(function(m) {
+            var mp = m.pointData || m.geometryData;
+            if (!mp) return;
+            var dLat = (mp.lat - lastAddedLatLng.lat);
+            var dLng = (mp.lng - lastAddedLatLng.lng);
+            var dist = dLat * dLat + dLng * dLng;
+            if (dist < bestDist) { bestDist = dist; nearest = m; }
+        });
+        if (nearest) selectPoint(nearest.pointData || nearest.geometryData);
+        lastAddedLatLng = null;
+    }
 }
 
 // Focus on all points on the map
 function focusOnAllPoints() {
-    if (!map || markers.length === 0) {
-        console.log('No map or markers available');
-        return;
-    }
-    
+    if (!map || markers.length === 0) return;
     var group = new L.featureGroup(markers);
     map.fitBounds(group.getBounds().pad(0.1));
 }
@@ -252,103 +171,58 @@ function focusOnAllPoints() {
 // Select a point and show its details
 function selectPoint(point) {
     currentPoint = point;
-    
-    // Update visual selection
     markers.forEach(marker => {
-        if (marker.pointData.id === point.id) {
-            marker.setStyle({
-                fillColor: '#FFB81C',
-                color: '#FFB81C'
-            });
+        var markerId = null;
+        if (marker.pointData && marker.pointData.id) markerId = marker.pointData.id;
+        else if (marker.geometryData && marker.geometryData.id) markerId = marker.geometryData.id;
+        if (markerId === point.id) {
+            marker.setStyle({ fillColor: '#FFB81C', color: '#FFB81C' });
         } else {
-            marker.setStyle({
-                fillColor: '#0047BB',
-                color: '#001A70'
-            });
+            marker.setStyle({ fillColor: '#0047BB', color: '#001A70' });
         }
     });
 
-    // Load detailed data for this geometry point
     loadGeometryDetails(point.id)
-        .then(detailedPoint => {
-            // Show geometry details with the detailed data
-            showGeometryDetails(detailedPoint);
-        })
-        .catch(error => {
-            console.error('Failed to load geometry details:', error);
-            // Show basic details with the lightweight point data
-            showGeometryDetails(point);
-        });
+        .then(detailedPoint => { showGeometryDetails(detailedPoint); })
+        .catch(() => { showGeometryDetails(point); });
 }
 
 // Show geometry details
 function showGeometryDetails(point) {
     currentPoint = point;
-    
-    console.log('=== showGeometryDetails called ===');
-    console.log('point:', point);
-    console.log('point.entries:', point.entries);
-    console.log('window.allFields before check:', window.allFields);
-    console.log('allFields before check:', allFields);
-    
-    // Ensure window.allFields is defined and not empty
+
     if (!window.allFields || window.allFields.length === 0) {
-        console.warn('window.allFields is empty or undefined, attempting to re-initialize...');
         try {
             var allFieldsElement = document.getElementById('allFields');
             if (allFieldsElement && allFieldsElement.textContent) {
                 window.allFields = JSON.parse(allFieldsElement.textContent);
-                allFields = window.allFields; // Also update the global variable
-                console.log('window.allFields re-initialized:', window.allFields);
-                console.log('allFields also updated:', allFields);
+                allFields = window.allFields;
             } else {
-                console.error('allFields element not found in DOM or empty');
                 window.allFields = [];
                 allFields = [];
             }
         } catch (e) {
-            console.error('Error parsing allFields:', e);
             window.allFields = [];
             allFields = [];
         }
     }
-    
-    // If still empty, try to get fields from the API
+
     if (!window.allFields || window.allFields.length === 0) {
-        console.warn('window.allFields is still empty, attempting to load fields from API...');
         loadFieldsFromAPI();
-        return; // Exit early, will be called again after fields are loaded
+        return;
     }
-    
-    console.log('window.allFields is available:', window.allFields);
-    console.log('allFields is available:', allFields);
-    
-    // Update geometry info (no longer needed)
-    
-    // Show details section
+
     var detailsDiv = document.getElementById('geometryDetails');
     detailsDiv.classList.add('active');
-    
-    // Generate entries table
     generateEntriesTable(point);
-    
-    // Load uploaded files for this geometry
     loadUploadedFiles();
-    
-    // Adjust column layout
-    if (typeof adjustColumnLayout === 'function') {
-        adjustColumnLayout();
-    }
+    if (typeof adjustColumnLayout === 'function') adjustColumnLayout();
 }
 
 // Generate entries table
 function generateEntriesTable(point) {
     var entriesList = document.getElementById('entriesList');
     if (!entriesList) return;
-
-    console.log('generateEntriesTable called with point:', point);
-    console.log('window.allFields:', window.allFields);
-    console.log('point.entries:', point.entries);
 
     var entriesHtml = '';
     
@@ -384,9 +258,6 @@ function generateEntriesTable(point) {
         
         // Dynamic fields - render all configured fields from window.allFields or allFields
         var fieldsToUse = window.allFields || allFields || [];
-        console.log('Checking fieldsToUse:', fieldsToUse);
-        console.log('window.allFields:', window.allFields);
-        console.log('allFields:', allFields);
         
         if (fieldsToUse && fieldsToUse.length > 0) {
             // Sort fields by order
@@ -394,19 +265,14 @@ function generateEntriesTable(point) {
                 return (a.order || 0) - (b.order || 0);
             });
             
-            console.log('Sorted fields:', sortedFields);
-            
             // Check if there are any enabled fields
             var hasEnabledFields = sortedFields.some(function(field) {
                 return field.enabled;
             });
             
-            console.log('Has enabled fields:', hasEnabledFields);
-            
             if (hasEnabledFields) {
                 sortedFields.forEach(function(field) {
                     if (field.enabled) {
-                        console.log('Rendering field:', field.field_name, 'with value:', entry[field.field_name]);
                     var value = '';
                     if (entry[field.field_name] !== undefined) {
                         value = entry[field.field_name];
@@ -464,9 +330,6 @@ function generateEntriesTable(point) {
         
         // Dynamic fields for new entry
         var fieldsToUse = window.allFields || allFields || [];
-        console.log('New entry form - Checking fieldsToUse:', fieldsToUse);
-        console.log('New entry form - window.allFields:', window.allFields);
-        console.log('New entry form - allFields:', allFields);
         
         if (fieldsToUse && fieldsToUse.length > 0) {
             // Sort fields by order
@@ -474,19 +337,14 @@ function generateEntriesTable(point) {
                 return (a.order || 0) - (b.order || 0);
             });
             
-            console.log('New entry form - Sorted fields:', sortedFields);
-            
             // Check if there are any enabled fields
             var hasEnabledFields = sortedFields.some(function(field) {
                 return field.enabled;
             });
             
-            console.log('New entry form - Has enabled fields:', hasEnabledFields);
-            
             if (hasEnabledFields) {
                 sortedFields.forEach(function(field) {
                     if (field.enabled) {
-                        console.log('New entry form - Rendering field:', field.field_name);
                         entriesHtml += '<div class="mb-3">';
                         entriesHtml += '<label for="field_' + field.field_name + '" class="form-label">';
                         entriesHtml += field.label;
@@ -866,9 +724,7 @@ function createEntry() {
         method: 'POST',
         body: formData,
         credentials: 'same-origin',
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-        }
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
     })
     .then(response => response.json())
     .then(data => {
@@ -950,9 +806,7 @@ function saveEntries() {
         method: 'POST',
         body: formData,
         credentials: 'same-origin',
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-        }
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
     })
     .then(response => response.json())
     .then(data => {
@@ -977,7 +831,6 @@ function saveEntries() {
 
 // Setup event listeners
 function setupEventListeners() {
-    // File upload functionality
     document.addEventListener('change', function(e) {
         if (e.target.type === 'file') {
             var files = e.target.files;
@@ -991,25 +844,32 @@ function setupEventListeners() {
             }
         }
     });
-    
-    // Map control buttons
-    document.getElementById('focusAllBtn').addEventListener('click', focusOnAllPoints);
-    document.getElementById('myLocationBtn').addEventListener('click', zoomToMyLocation);
-    document.getElementById('zoomInBtn').addEventListener('click', function() {
-        map.zoomIn();
-    });
-    document.getElementById('zoomOutBtn').addEventListener('click', function() {
-        map.zoomOut();
-    });
+
+    setTimeout(function() {
+        var addPointBtn = document.getElementById('addPointBtn');
+        if (addPointBtn) {
+            addPointBtn.replaceWith(addPointBtn.cloneNode(true));
+            addPointBtn = document.getElementById('addPointBtn');
+            addPointBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                toggleAddPointMode();
+            });
+        }
+
+        var focusAllBtn = document.getElementById('focusAllBtn');
+        if (focusAllBtn) focusAllBtn.addEventListener('click', focusOnAllPoints);
+        var myLocationBtn = document.getElementById('myLocationBtn');
+        if (myLocationBtn) myLocationBtn.addEventListener('click', zoomToMyLocation);
+        var zoomInBtn = document.getElementById('zoomInBtn');
+        if (zoomInBtn) zoomInBtn.addEventListener('click', function() { map.zoomIn(); });
+        var zoomOutBtn = document.getElementById('zoomOutBtn');
+        if (zoomOutBtn) zoomOutBtn.addEventListener('click', function() { map.zoomOut(); });
+    }, 100);
 }
 
 // Focus on all points
 function focusOnAllPoints() {
-    if (!map || markers.length === 0) {
-        console.log('No map or markers available');
-        return;
-    }
-    
+    if (!map || markers.length === 0) return;
     var group = new L.featureGroup(markers);
     map.fitBounds(group.getBounds().pad(0.1));
 }
@@ -1165,9 +1025,7 @@ function uploadFiles() {
     fetch('/datasets/upload-files/', {
         method: 'POST',
         body: formData,
-        headers: {
-            'X-CSRFToken': csrfToken
-        }
+        headers: { 'X-CSRFToken': csrfToken }
     })
     .then(response => response.json())
     .then(data => {
@@ -1202,9 +1060,7 @@ function loadUploadedFiles() {
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
     
     fetch('/datasets/geometry/' + currentPoint.id + '/files/', {
-        headers: {
-            'X-CSRFToken': csrfToken
-        }
+        headers: { 'X-CSRFToken': csrfToken }
     })
     .then(response => response.json())
     .then(data => {
@@ -1289,10 +1145,7 @@ function deleteFile(fileId) {
     
     fetch('/datasets/files/' + fileId + '/delete/', {
         method: 'POST',
-        headers: {
-            'X-CSRFToken': csrfToken,
-            'Content-Type': 'application/json'
-        }
+        headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' }
     })
     .then(response => response.json())
     .then(data => {
@@ -1306,5 +1159,90 @@ function deleteFile(fileId) {
     .catch(error => {
         console.error('Delete error:', error);
         alert('Error deleting file. Please try again.');
+    });
+}
+
+// Toggle add point mode
+function toggleAddPointMode() {
+    addPointMode = !addPointMode;
+    var button = document.getElementById('addPointBtn');
+    if (!button) return;
+
+    if (addPointMode) {
+        button.classList.remove('btn-primary');
+        button.classList.add('btn-success');
+        button.innerHTML = '<i class="bi bi-check-circle"></i> Click on Map';
+        button.title = 'Click on the map to add a new point, or click this button to cancel';
+        if (map && map.getContainer()) map.getContainer().style.cursor = 'crosshair';
+    } else {
+        button.classList.remove('btn-success');
+        button.classList.add('btn-primary');
+        button.innerHTML = '<i class="bi bi-plus-circle"></i> Add Point';
+        button.title = 'Add New Point';
+        if (map && map.getContainer()) map.getContainer().style.cursor = '';
+        if (addPointMarker) { map.removeLayer(addPointMarker); addPointMarker = null; }
+    }
+}
+
+// Add new point to the map
+function addNewPoint(latlng) {
+    if (addPointMarker) { map.removeLayer(addPointMarker); }
+    addPointMarker = L.marker(latlng, {
+        icon: L.divIcon({
+            className: 'custom-marker add-point-marker',
+            html: '<div style="background-color: #28a745; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">+</div>',
+            iconSize: [20, 20], iconAnchor: [10, 10]
+        })
+    }).addTo(map);
+    if (confirm('Add new point at this location?\n\nLatitude: ' + latlng.lat.toFixed(6) + '\nLongitude: ' + latlng.lng.toFixed(6))) {
+        createNewGeometry(latlng);
+    } else {
+        map.removeLayer(addPointMarker); addPointMarker = null;
+    }
+}
+
+// Create new geometry via AJAX
+function createNewGeometry(latlng) {
+    var datasetId = getDatasetId();
+    var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    var newId = 'NEW_' + Date.now();
+    var geometryData = { id_kurz: newId, address: 'New Point', geometry: { type: 'Point', coordinates: [latlng.lng, latlng.lat] } };
+    
+    fetch('/datasets/' + datasetId + '/geometries/create/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify(geometryData)
+    })
+    .then(async (response) => {
+        const contentType = response.headers ? (response.headers.get && response.headers.get('content-type')) || '' : '';
+        if (!response.ok) {
+            const text = await (response.text ? response.text() : Promise.resolve(''));
+            throw new Error('HTTP ' + response.status + (text ? (' - ' + text.substring(0, 200)) : ''));
+        }
+        if (contentType && contentType.indexOf('application/json') !== -1) return response.json();
+        return { success: true, fallback: true };
+    })
+    .then(data => {
+        if (addPointMarker) { try { map.removeLayer(addPointMarker); } catch(e) {} addPointMarker = null; }
+
+        if (data && data.success && !data.fallback) {
+            var newMarker = L.circleMarker([latlng.lat, latlng.lng], {
+                radius: 8, fillColor: '#0047BB', color: '#001A70', weight: 2, opacity: 1, fillOpacity: 0.8
+            }).addTo(map);
+            newMarker.geometryData = { id: data.geometry_id, id_kurz: data.id_kurz, address: data.address, lat: latlng.lat, lng: latlng.lng, entries: [] };
+            markers.push(newMarker);
+            newMarker.on('click', function() { selectPoint(newMarker.geometryData); });
+            toggleAddPointMode();
+            selectPoint(newMarker.geometryData);
+        } else {
+            lastAddedLatLng = { lat: latlng.lat, lng: latlng.lng };
+            toggleAddPointMode();
+            loadMapData();
+        }
+    })
+    .catch(() => {
+        lastAddedLatLng = { lat: latlng.lat, lng: latlng.lng };
+        toggleAddPointMode();
+        loadMapData();
     });
 }

@@ -25,6 +25,9 @@
                 
                 <!-- Map Control Buttons -->
                 <div class="map-controls">
+                    <button id="addPointBtn" class="btn btn-primary btn-sm" title="{% trans 'Add New Point' %}">
+                        <i class="bi bi-plus-circle"></i> {% trans "Add Point" %}
+                    </button>
                     <button id="focusAllBtn" class="btn btn-light btn-sm" title="{% trans 'Focus on All Points' %}">
                         <i class="bi bi-geo-alt"></i> {% trans "Focus All" %}
                     </button>
@@ -148,15 +151,11 @@
 
 {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="{% static 'js/data-input.js' %}"></script>
+<script src="{% static 'js/data-input.js' %}?v={% now 'U' %}"></script>
 <script>
-    // Initialize the data input functionality when the page loads
     document.addEventListener('DOMContentLoaded', function() {
-        // Pass data from Django to JavaScript
         var typologyData = {% if typology_data %}{{ typology_data|safe }}{% else %}null{% endif %};
         var allFields = window.allFields || [];
-        
-        // Initialize the data input functionality
         initializeDataInput(typologyData, allFields);
     });
 </script>

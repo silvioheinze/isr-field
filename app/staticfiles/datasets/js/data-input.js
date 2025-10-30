@@ -249,7 +249,15 @@ function selectPoint(point) {
     
     // Update visual selection
     markers.forEach(marker => {
-        if (marker.pointData.id === point.id) {
+        // Check both pointData and geometryData for compatibility
+        var markerId = null;
+        if (marker.pointData && marker.pointData.id) {
+            markerId = marker.pointData.id;
+        } else if (marker.geometryData && marker.geometryData.id) {
+            markerId = marker.geometryData.id;
+        }
+        
+        if (markerId === point.id) {
             marker.setStyle({
                 fillColor: '#FFB81C',
                 color: '#FFB81C'

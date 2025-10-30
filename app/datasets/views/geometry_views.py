@@ -15,9 +15,54 @@ def geometry_create_view(request, dataset_id):
     
     # Check if user has access to this dataset
     if not dataset.can_access(request.user):
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
         return render(request, 'datasets/403.html', status=403)
     
     if request.method == 'POST':
+        # Handle AJAX requests
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            try:
+                import json
+                data = json.loads(request.body)
+                
+                id_kurz = data.get('id_kurz')
+                address = data.get('address', 'New Point')
+                geometry_data = data.get('geometry', {})
+                
+                if geometry_data.get('type') == 'Point':
+                    coordinates = geometry_data.get('coordinates', [])
+                    if len(coordinates) >= 2:
+                        lng, lat = coordinates[0], coordinates[1]
+                    else:
+                        return JsonResponse({'success': False, 'error': 'Invalid coordinates'}, status=400)
+                else:
+                    return JsonResponse({'success': False, 'error': 'Only Point geometry is supported'}, status=400)
+                
+                if id_kurz and lng and lat:
+                    # Create geometry point
+                    geometry = DataGeometry.objects.create(
+                        dataset=dataset,
+                        id_kurz=id_kurz,
+                        address=address,
+                        geometry=Point(float(lng), float(lat)),
+                        user=request.user
+                    )
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'geometry_id': geometry.id,
+                        'id_kurz': geometry.id_kurz,
+                        'address': geometry.address,
+                        'message': f'Geometry point "{id_kurz}" created successfully!'
+                    })
+                else:
+                    return JsonResponse({'success': False, 'error': 'ID, longitude, and latitude are required.'}, status=400)
+                    
+            except Exception as e:
+                return JsonResponse({'success': False, 'error': str(e)}, status=500)
+        
+        # Handle regular form requests
         id_kurz = request.POST.get('id_kurz')
         address = request.POST.get('address')
         lng = request.POST.get('lng')
