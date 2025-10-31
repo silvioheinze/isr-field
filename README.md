@@ -67,6 +67,21 @@ docker compose exec app python manage.py migrate
 docker compose exec app python manage.py createsuperuser
 ```
 
+### Database Backup & Restore
+
+Run the following commands from the project root (where `docker-compose.yml` lives). They use the database credentials defined in your `.env` file.
+
+```bash
+# Optional: ensure the backups directory exists
+mkdir -p backups
+
+# Dump the Postgres database to a gzipped SQL file on the host
+docker compose exec -T db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists | gzip > backups/isrfield.sql.gz
+
+# Restore the backup into the running Postgres container
+gunzip -c backups/isrfield.sql.gz | docker compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 --single-transaction
+```
+
 ## Production Deployment
 
 The application includes a production-ready Docker setup with GitHub Actions for automated builds.
