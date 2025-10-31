@@ -119,5 +119,5 @@ class FieldsDataDebugTestCase(TestCase):
         content = response.content.decode()
         
         # Check that the initialization code is present
-        self.assertIn('window.allFields = JSON.parse(document.getElementById(\'allFields\').textContent);', content)
+        self.assertIn('window.allFields = JSON.parse(allFieldsElement.textContent);', content)
         self.assertIn('console.log(\'window.allFields initialized:\', window.allFields);', content)

@@ -3,167 +3,216 @@
 {% block title %}Edit Typology - {{ typology.name }}{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-md-8">
-            <h2>Edit Typology: {{ typology.name }}</h2>
-            
-            <form method="post">
-                {% csrf_token %}
-                
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0">Typology Information</h5>
+<div class="container py-4">
+    <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-1">Edit Typology: {{ typology.name }}</h1>
+            <div class="text-muted small">
+                Created by {{ typology.created_by.username }} on {{ typology.created_at|date:"F d, Y" }}
+                <span class="badge bg-info text-dark ms-2">{{ typology.entries.count }} entries</span>
+                <span class="badge bg-secondary text-light ms-1">Used by {{ typology.datasets.count }} dataset{{ typology.datasets.count|pluralize }}</span>
+            </div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{% url 'typology_detail' typology.id %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Back to Typology
+            </a>
+            <a href="{% url 'typology_export' typology.id %}" class="btn btn-success btn-sm">
+                <i class="bi bi-download"></i> Export Entries
+            </a>
+        </div>
+    </div>
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-light fw-semibold">
+                        <i class="bi bi-info-circle me-2"></i>Typology Information
                     </div>
                     <div class="card-body">
                         <div class="mb-3">
                             <label for="name" class="form-label">Typology Name</label>
                             <input type="text" class="form-control" id="name" name="name" value="{{ typology.name }}" required>
+                            <div class="form-text">Choose a descriptive name. This is shown when selecting typologies for dataset fields.</div>
                         </div>
                     </div>
                 </div>
-                
-                <div class="card mb-4">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Existing Typology Entries</h5>
-                        <div class="btn-group" role="group">
-                            <a href="{% url 'typology_import' typology.id %}" class="btn btn-sm btn-info">
-                                <i class="bi bi-upload"></i> Import CSV
+
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <span><i class="bi bi-list-check me-2"></i>Typology Entries</span>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a href="{% url 'typology_import' typology.id %}" class="btn btn-info btn-sm">
+                                <i class="bi bi-upload"></i> Import from CSV
                             </a>
-                            <button type="button" class="btn btn-sm btn-success" id="addEntryBtn">
-                                <i class="bi bi-plus-circle"></i> Add New Entry
+                            <button type="button" class="btn btn-success btn-sm" id="addEntryBtn">
+                                <i class="bi bi-plus-circle"></i> Add Entry
                             </button>
                         </div>
                     </div>
                     <div class="card-body">
-                        {% if typology.entries.all %}
-                            <div class="table-responsive">
-                                <table class="table table-striped">
-                                    <thead>
-                                        <tr>
-                                            <th>Code</th>
-                                            <th>Category</th>
-                                            <th>Name</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for entry in typology.entries.all %}
-                                        <tr>
-                                            <td>
-                                                <input type="number" class="form-control form-control-sm" name="entry_code_{{ entry.id }}" value="{{ entry.code }}" required>
-                                            </td>
-                                            <td>
-                                                <input type="text" class="form-control form-control-sm" name="entry_category_{{ entry.id }}" value="{{ entry.category }}" required>
-                                            </td>
-                                            <td>
-                                                <input type="text" class="form-control form-control-sm" name="entry_name_{{ entry.id }}" value="{{ entry.name }}" required>
-                                            </td>
-                                            <td>
-                                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteEntry({{ entry.id }})">Delete</button>
-                                            </td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                        {% else %}
-                            <p class="text-muted text-center">No entries yet. Add your first entry below.</p>
-                        {% endif %}
-                        
-                        <div id="newEntriesContainer">
-                            <!-- New entries will be added here dynamically -->
+                        <p class="text-muted small">Codes must be unique within this typology. Use categories to group related codes.</p>
+
+                        <div class="table-responsive mb-3">
+                            <table class="table table-striped table-sm align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th scope="col" style="width: 120px;">Code</th>
+                                        <th scope="col" style="width: 180px;">Category</th>
+                                        <th scope="col">Name</th>
+                                        <th scope="col" class="text-center" style="width: 100px;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for entry in typology.entries.all %}
+                                    <tr>
+                                        <td>
+                                            <input type="number" class="form-control form-control-sm" name="entry_code_{{ entry.id }}" value="{{ entry.code }}" required>
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control form-control-sm" name="entry_category_{{ entry.id }}" value="{{ entry.category }}" placeholder="Category" required>
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control form-control-sm" name="entry_name_{{ entry.id }}" value="{{ entry.name }}" placeholder="Entry name" required>
+                                        </td>
+                                        <td class="text-center">
+                                            <button type="button" class="btn btn-outline-danger btn-sm" onclick="deleteEntry({{ entry.id }})" title="Remove entry">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="4" class="text-center text-muted py-4">No entries yet. Use the buttons above to add or import entries.</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div id="newEntriesContainer" class="d-flex flex-column gap-2"></div>
+
+                        <div class="alert alert-secondary d-flex align-items-center gap-2 small mt-3">
+                            <i class="bi bi-lightbulb"></i>
+                            <div>Adding multiple entries? Import from CSV for faster updates. Exports are available from the typology detail page.</div>
                         </div>
                     </div>
                 </div>
-                
-                <div class="d-flex justify-content-between">
-                    <a href="{% url 'typology_detail' typology.id %}" class="btn btn-secondary">Cancel</a>
-                    <button type="submit" class="btn btn-primary">Save Changes</button>
-                </div>
-            </form>
-        </div>
-        
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-header">
-                    <h6 class="mb-0">Typology Information</h6>
-                </div>
-                <div class="card-body">
-                    <p class="small text-muted">
-                        <strong>Created by:</strong> {{ typology.created_by.username }}<br>
-                        <strong>Created on:</strong> {{ typology.created_at|date:"F d, Y" }}<br>
-                        <strong>Total entries:</strong> {{ typology.entries.count }}<br>
-                        <strong>Used by datasets:</strong> {{ typology.datasets.count }}
-                    </p>
+
+                <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center">
+                    <a href="{% url 'typology_detail' typology.id %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-circle"></i> Cancel
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Save Changes
+                    </button>
                 </div>
             </div>
-            
-            <div class="card mt-3">
-                <div class="card-header">
-                    <h6 class="mb-0">Instructions</h6>
+
+            <div class="col-lg-4">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-light fw-semibold">
+                        <i class="bi bi-graph-up-arrow me-2"></i>Typology Summary
+                    </div>
+                    <div class="card-body small text-muted">
+                        <dl class="row mb-0">
+                            <dt class="col-5">Created by</dt>
+                            <dd class="col-7">{{ typology.created_by.username }}</dd>
+                            <dt class="col-5">Created on</dt>
+                            <dd class="col-7">{{ typology.created_at|date:"F d, Y" }}</dd>
+                            <dt class="col-5">Total entries</dt>
+                            <dd class="col-7">{{ typology.entries.count }}</dd>
+                            <dt class="col-5">Datasets using</dt>
+                            <dd class="col-7">{{ typology.datasets.count }}</dd>
+                        </dl>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <p class="small text-muted">
-                        <strong>Code:</strong> Numeric identifier (must be unique within this typology)<br>
-                        <strong>Category:</strong> Grouping category<br>
-                        <strong>Name:</strong> Descriptive name<br><br>
-                        <strong>Note:</strong> Changes to this typology will affect all datasets using it.
-                    </p>
+
+                <div class="card shadow-sm">
+                    <div class="card-header bg-light fw-semibold">
+                        <i class="bi bi-journal-text me-2"></i>Editing Tips
+                    </div>
+                    <div class="card-body small text-muted">
+                        <ul class="ps-3 mb-0">
+                            <li><strong>Code</strong>: Numeric value that appears in exported data; must be unique.</li>
+                            <li><strong>Category</strong>: Optional grouping label to support filtered dropdowns.</li>
+                            <li><strong>Name</strong>: Human-readable option shown to data entry users.</li>
+                            <li class="mt-2"><strong>Note</strong>: Updates take effect immediately across datasets using this typology.</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
+    </form>
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+(function() {
     const newEntriesContainer = document.getElementById('newEntriesContainer');
     const addEntryBtn = document.getElementById('addEntryBtn');
     let newEntryCount = 0;
-    
-    function addNewEntry() {
-        newEntryCount++;
-        const entryDiv = document.createElement('div');
-        entryDiv.className = 'row mb-3 new-entry-row';
-        entryDiv.innerHTML = `
-            <div class="col-md-2">
-                <input type="number" class="form-control form-control-sm" name="new_entry_code_${newEntryCount}" placeholder="Code" required>
-            </div>
-            <div class="col-md-3">
-                <input type="text" class="form-control form-control-sm" name="new_entry_category_${newEntryCount}" placeholder="Category" required>
-            </div>
-            <div class="col-md-5">
-                <input type="text" class="form-control form-control-sm" name="new_entry_name_${newEntryCount}" placeholder="Name" required>
-            </div>
-            <div class="col-md-2">
-                <button type="button" class="btn btn-sm btn-outline-danger remove-new-entry">Remove</button>
+
+    function createEntryRow(index) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'border rounded p-3 bg-light-subtle';
+        wrapper.innerHTML = `
+            <div class="row g-2 align-items-center">
+                <div class="col-sm-2">
+                    <label class="form-label small mb-1">Code</label>
+                    <input type="number" class="form-control form-control-sm" name="new_entry_code_${index}" placeholder="123" required>
+                </div>
+                <div class="col-sm-3">
+                    <label class="form-label small mb-1">Category</label>
+                    <input type="text" class="form-control form-control-sm" name="new_entry_category_${index}" placeholder="Category" required>
+                </div>
+                <div class="col-sm-5">
+                    <label class="form-label small mb-1">Name</label>
+                    <input type="text" class="form-control form-control-sm" name="new_entry_name_${index}" placeholder="Descriptive name" required>
+                </div>
+                <div class="col-sm-2 text-end">
+                    <label class="form-label small mb-1 d-block">&nbsp;</label>
+                    <button type="button" class="btn btn-outline-danger btn-sm remove-entry" title="Remove entry">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
             </div>
         `;
-        
-        entryDiv.querySelector('.remove-new-entry').addEventListener('click', function() {
-            entryDiv.remove();
-        });
-        
-        newEntriesContainer.appendChild(entryDiv);
-    }
-    
-    addEntryBtn.addEventListener('click', addNewEntry);
-});
 
-function deleteEntry(entryId) {
-    if (confirm('Are you sure you want to delete this entry? This action cannot be undone.')) {
-        // Create a hidden input to mark this entry for deletion
+        wrapper.querySelector('.remove-entry').addEventListener('click', function () {
+            wrapper.remove();
+        });
+
+        return wrapper;
+    }
+
+    if (addEntryBtn) {
+        addEntryBtn.addEventListener('click', function () {
+            newEntryCount += 1;
+            const entryRow = createEntryRow(newEntryCount);
+            newEntriesContainer.appendChild(entryRow);
+            entryRow.querySelector('input').focus();
+        });
+    }
+
+    window.deleteEntry = function(entryId) {
+        if (!confirm('Remove this entry from the typology? This cannot be undone.')) {
+            return;
+        }
+        const form = document.querySelector('form');
         const deleteInput = document.createElement('input');
         deleteInput.type = 'hidden';
         deleteInput.name = 'delete_entry';
         deleteInput.value = entryId;
-        document.querySelector('form').appendChild(deleteInput);
-        
-        // Hide the row
-        const row = event.target.closest('tr');
-        row.style.display = 'none';
-    }
-}
+        form.appendChild(deleteInput);
+
+        const row = document.querySelector(`button[onclick="deleteEntry(${entryId})"]`)?.closest('tr');
+        if (row) {
+            row.classList.add('table-danger');
+            row.style.opacity = '0.6';
+        }
+    };
+})();
 </script>
 {% endblock %}

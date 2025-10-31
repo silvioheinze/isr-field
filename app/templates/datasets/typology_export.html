@@ -3,37 +3,40 @@
 {% block title %}Export Typology - {{ typology.name }}{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-md-8">
-            <h2>Export Typology</h2>
-            <p class="text-muted">Export entries from typology: <strong>{{ typology.name }}</strong></p>
-            
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">Export Options</h5>
+<div class="container py-4">
+    <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-1">Export Typology</h1>
+            <p class="text-muted small mb-0">Download entries from <strong>{{ typology.name }}</strong> as a CSV for reporting or backup.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{% url 'typology_edit' typology.id %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Back to Typology
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="bi bi-download me-2"></i>Export Options
                 </div>
                 <div class="card-body">
-                    <form method="post">
+                    <form method="post" class="row g-3">
                         {% csrf_token %}
-                        
-                        <div class="mb-3">
+                        <div class="col-12">
                             <label for="filename" class="form-label">Filename</label>
-                            <input type="text" class="form-control" id="filename" name="filename" 
-                                   value="{{ typology.name|slugify }}_entries" required>
-                            <div class="form-text">The file will be saved as [filename].csv</div>
+                            <input type="text" class="form-control" id="filename" name="filename" value="{{ typology.name|slugify }}_entries" required>
+                            <div class="form-text">File will be saved as <code>[filename].csv</code>.</div>
                         </div>
-                        
-                        <div class="mb-3">
-                            <div class="form-check">
+                        <div class="col-12">
+                            <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" id="include_header" name="include_header" checked>
-                                <label class="form-check-label" for="include_header">
-                                    Include header row (column names)
-                                </label>
+                                <label class="form-check-label" for="include_header">Include header row (column names)</label>
                             </div>
                         </div>
-                        
-                        <div class="mb-3">
+                        <div class="col-12 col-md-6">
                             <label for="sort_by" class="form-label">Sort by</label>
                             <select class="form-select" id="sort_by" name="sort_by">
                                 <option value="code">Code</option>
@@ -41,35 +44,35 @@
                                 <option value="name">Name</option>
                             </select>
                         </div>
-                        
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-download"></i> Export to CSV
-                        </button>
-                        <a href="{% url 'typology_edit' typology.id %}" class="btn btn-secondary">Cancel</a>
+                        <div class="col-12 text-end">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-download"></i> Export CSV
+                            </button>
+                        </div>
                     </form>
                 </div>
             </div>
-            
+
             {% if typology.entries.all %}
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">Preview (First 10 entries)</h5>
+            <div class="card shadow-sm">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="bi bi-table me-2"></i>Preview (First 10 entries)
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table class="table table-striped">
-                            <thead>
+                        <table class="table table-sm align-middle">
+                            <thead class="table-light">
                                 <tr>
-                                    <th>Code</th>
-                                    <th>Category</th>
-                                    <th>Name</th>
+                                    <th scope="col">Code</th>
+                                    <th scope="col">Category</th>
+                                    <th scope="col">Name</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for entry in typology.entries.all|slice:":10" %}
                                 <tr>
                                     <td>{{ entry.code }}</td>
-                                    <td>{{ entry.category }}</td>
+                                    <td>{{ entry.category|default:"—" }}</td>
                                     <td>{{ entry.name }}</td>
                                 </tr>
                                 {% endfor %}
@@ -77,59 +80,62 @@
                         </table>
                     </div>
                     {% if typology.entries.count > 10 %}
-                    <p class="text-muted small">Showing first 10 of {{ typology.entries.count }} entries</p>
+                    <p class="text-muted small mb-0">Showing first 10 of {{ typology.entries.count }} entries.</p>
                     {% endif %}
                 </div>
             </div>
             {% endif %}
         </div>
-        
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-header">
-                    <h6 class="mb-0">Export Information</h6>
+
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="bi bi-clipboard-data me-2"></i>Typology Summary
                 </div>
-                <div class="card-body">
-                    <p class="small text-muted">
-                        <strong>Total entries:</strong> {{ typology.entries.count }}<br>
-                        <strong>Categories:</strong> {{ categories_count }}<br>
-                        <strong>Code range:</strong> 
-                        {% if typology.entries.all %}
-                            {{ typology.entries.aggregate.min_code|default:"N/A" }} - {{ typology.entries.aggregate.max_code|default:"N/A" }}
-                        {% else %}
-                            N/A
-                        {% endif %}
-                    </p>
+                <div class="card-body small text-muted">
+                    <dl class="row mb-0">
+                        <dt class="col-5">Total entries</dt>
+                        <dd class="col-7">{{ typology.entries.count }}</dd>
+                        <dt class="col-5">Categories</dt>
+                        <dd class="col-7">{{ categories_count }}</dd>
+                        <dt class="col-5">Code range</dt>
+                        <dd class="col-7">
+                            {% if typology.entries.all %}
+                                {{ typology.entries.aggregate.min_code|default:"N/A" }} – {{ typology.entries.aggregate.max_code|default:"N/A" }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </dd>
+                        <dt class="col-5">Used by</dt>
+                        <dd class="col-7">{{ typology.datasets.count }} dataset{{ typology.datasets.count|pluralize }}</dd>
+                    </dl>
                 </div>
             </div>
-            
-            <div class="card mt-3">
-                <div class="card-header">
-                    <h6 class="mb-0">CSV Format</h6>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="bi bi-info-circle me-2"></i>CSV Structure
                 </div>
-                <div class="card-body">
-                    <p class="small text-muted">
-                        The exported CSV will contain:
-                    </p>
-                    <ul class="small">
-                        <li><strong>code</strong> - Numeric identifier</li>
-                        <li><strong>category</strong> - Category grouping</li>
-                        <li><strong>name</strong> - Descriptive name</li>
+                <div class="card-body small text-muted">
+                    <p class="mb-2">Each row in the exported CSV includes:</p>
+                    <ul class="ps-3 mb-0">
+                        <li class="mb-1"><strong>code</strong> – Numeric identifier.</li>
+                        <li class="mb-1"><strong>category</strong> – Optional grouping label.</li>
+                        <li><strong>name</strong> – Human-readable value shown in dropdowns.</li>
                     </ul>
                 </div>
             </div>
-            
-            <div class="card mt-3">
-                <div class="card-header">
-                    <h6 class="mb-0">Current Typology</h6>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-dark fw-semibold">
+                    <i class="bi bi-lightbulb me-2"></i>Tips
                 </div>
-                <div class="card-body">
-                    <p class="small text-muted">
-                        <strong>Name:</strong> {{ typology.name }}<br>
-                        <strong>Created by:</strong> {{ typology.created_by.username }}<br>
-                        <strong>Created on:</strong> {{ typology.created_at|date:"F d, Y" }}<br>
-                        <strong>Used by datasets:</strong> {{ typology.datasets.count }}
-                    </p>
+                <div class="card-body small text-muted">
+                    <ul class="ps-3 mb-0">
+                        <li class="mb-1">Export regularly to archive changes or share with external systems.</li>
+                        <li class="mb-1">Use the exported CSV as a template when importing updates.</li>
+                        <li>Store exports securely if they contain sensitive information.</li>
+                    </ul>
                 </div>
             </div>
         </div>

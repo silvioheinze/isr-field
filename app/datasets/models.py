@@ -272,6 +272,7 @@ class DatasetField(models.Model):
     is_id_field = models.BooleanField(default=False, help_text="Whether this field is the unique identifier")
     is_address_field = models.BooleanField(default=False, help_text="Whether this field represents the address")
     typology = models.ForeignKey(Typology, on_delete=models.SET_NULL, null=True, blank=True, help_text="Typology to use for this field (for choice fields)")
+    typology_category = models.CharField(max_length=100, blank=True, null=True, help_text="Limit typology options to a specific category")
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -281,16 +282,18 @@ class DatasetField(models.Model):
     
     def get_choices_list(self):
         """Get choices as a list for choice fields"""
-        if self.field_type == 'choice':
-            # If typology is assigned, use typology entries
-            if self.typology:
-                return [
-                    {'value': entry.code, 'label': f"{entry.code} - {entry.name}"}
-                    for entry in self.typology.entries.all().order_by('code')
-                ]
-            # Otherwise, use manual choices
-            elif self.choices:
-                return [choice.strip() for choice in self.choices.split(',') if choice.strip()]
+        # If typology is assigned, use typology entries regardless of stored field_type
+        if self.typology:
+            entries = self.typology.entries.all()
+            if self.typology_category:
+                entries = entries.filter(category=self.typology_category)
+            return [
+                {'value': str(entry.code), 'label': f"{entry.code} - {entry.name}"}
+                for entry in entries.order_by('code')
+            ]
+        # Otherwise, fall back to manual choices for choice fields
+        if self.field_type == 'choice' and self.choices:
+            return [choice.strip() for choice in self.choices.split(',') if choice.strip()]
         return []
     
     class Meta:

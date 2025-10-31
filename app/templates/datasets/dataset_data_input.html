@@ -96,6 +96,7 @@
     } catch (e) {
         window.allFields = [];
     }
+    console.log('window.allFields initialized:', window.allFields);
     window.allowMultipleEntries = {% if allow_multiple_entries %}true{% else %}false{% endif %};
     
     // Translation strings for JavaScript

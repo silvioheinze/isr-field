@@ -5,32 +5,33 @@
 {% block title %}{% trans "Entries Table" %} - {{ dataset.name }}{% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-4">
-    <div class="row">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <div>
-                    <h2>{% trans "Entries Table" %} - {{ dataset.name }}</h2>
-                    <p class="text-muted">{% trans "View and manage all data entries in this dataset" %}</p>
-                </div>
-                <div>
-                    <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-outline-secondary">
-                        <i class="bi bi-arrow-left"></i> {% trans "Back to Dataset" %}
-                    </a>
-                    <a href="{% url 'dataset_data_input' dataset.id %}" class="btn btn-primary">
-                        <i class="bi bi-plus-circle"></i> {% trans "Data Input" %}
-                    </a>
-                </div>
-            </div>
+<div class="container py-4">
+    <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-1">{% trans "Entries Table" %}</h1>
+            <p class="text-muted small mb-0">{% blocktrans %}View and manage all data entries for {{ dataset.name }}{% endblocktrans %}</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> {% trans "Back to Dataset" %}
+            </a>
+            <a href="{% url 'dataset_data_input' dataset.id %}" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus-circle"></i> {% trans "Data Input" %}
+            </a>
+        </div>
+    </div>
 
-            <!-- Search and Filter Bar -->
-            <div class="card mb-4">
-                <div class="card-body search-form">
-                    <form method="get" class="row g-3">
+    <div class="row g-4">
+        <div class="col-lg-9">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="bi bi-funnel me-2"></i>{% trans "Search & Sort" %}
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3 align-items-end">
                         <div class="col-md-6">
                             <label for="search" class="form-label">{% trans "Search" %}</label>
-                            <input type="text" class="form-control" id="search" name="search" 
-                                   value="{{ search_query }}" placeholder="{% trans 'Search by ID, address, or entry name...' %}">
+                            <input type="text" class="form-control" id="search" name="search" value="{{ search_query }}" placeholder="{% trans 'Search by ID, address, or entry name…' %}">
                         </div>
                         <div class="col-md-3">
                             <label for="sort" class="form-label">{% trans "Sort by" %}</label>
@@ -41,9 +42,7 @@
                                 <option value="year" {% if sort_by == 'year' %}selected{% endif %}>{% trans "Year" %}</option>
                                 <option value="user" {% if sort_by == 'user' %}selected{% endif %}>{% trans "User" %}</option>
                                 {% for field in all_fields %}
-                                <option value="field_{{ field.field_name }}" {% if sort_by == 'field_'|add:field.field_name %}selected{% endif %}>
-                                    {{ field.label }}
-                                </option>
+                                <option value="field_{{ field.field_name }}" {% if sort_by == 'field_'|add:field.field_name %}selected{% endif %}>{{ field.label }}</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -55,7 +54,6 @@
                             </select>
                         </div>
                         <div class="col-md-1">
-                            <label class="form-label">&nbsp;</label>
                             <button type="submit" class="btn btn-primary w-100">
                                 <i class="bi bi-search"></i>
                             </button>
@@ -64,133 +62,164 @@
                 </div>
             </div>
 
-            <!-- Entries Table -->
-            <div class="card entries-table">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">
-                        {% trans "Data Entries" %} 
-                        <span class="badge bg-secondary">{{ page_obj.paginator.count }} {% trans "total" %}</span>
-                    </h5>
+            <div class="card shadow-sm entries-table">
+                <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-table me-2"></i>{% trans "Data Entries" %}</span>
+                    <span class="badge bg-secondary">{{ page_obj.paginator.count }} {% trans "total" %}</span>
                 </div>
                 <div class="card-body p-0">
                     {% if page_obj %}
-                        <div class="table-responsive">
-                            <table class="table table-hover mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>{% trans "ID" %}</th>
-                                        <th>{% trans "Address" %}</th>
-                                        <th>{% trans "Entry Name" %}</th>
-                                        <th>{% trans "Year" %}</th>
-                                        <th>{% trans "User" %}</th>
-                                        <th>{% trans "Created" %}</th>
-                                        {% for field in all_fields %}
-                                        <th>{{ field.label }}</th>
-                                        {% endfor %}
-                                        <th>{% trans "Actions" %}</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for entry in page_obj %}
-                                    <tr>
-                                        <td>
-                                            <strong>{{ entry.id_kurz }}</strong>
-                                            <br><small class="text-muted">#{{ entry.geometry_id }}</small>
-                                        </td>
-                                        <td>{{ entry.address }}</td>
-                                        <td>{{ entry.entry_name|default:"-" }}</td>
-                                        <td>{{ entry.year|default:"-" }}</td>
-                                        <td>{{ entry.user }}</td>
-                                        <td>
-                                            <small>{{ entry.created_at|date:"M d, Y" }}</small>
-                                            <br><small class="text-muted">{{ entry.created_at|time:"H:i" }}</small>
-                                        </td>
-                                        {% for field in all_fields %}
-                                        <td>
-                                            {% if field.field_name in entry.fields %}
-                                                {% if field.field_type == 'choice' %}
-                                                    <span class="badge bg-info">{{ entry.fields|get_item:field.field_name }}</span>
-                                                {% else %}
-                                                    {{ entry.fields|get_item:field.field_name|default:"-" }}
-                                                {% endif %}
-                                            {% else %}
-                                                -
-                                            {% endif %}
-                                        </td>
-                                        {% endfor %}
-                                        <td>
-                                            <div class="btn-group btn-group-sm" role="group">
-                                                <a href="{% url 'entry_edit' entry.id %}" class="btn btn-outline-primary" title="{% trans 'Edit Entry' %}">
-                                                    <i class="bi bi-pencil"></i>
-                                                </a>
-                                                <a href="{% url 'entry_detail' entry.id %}" class="btn btn-outline-info" title="{% trans 'View Details' %}">
-                                                    <i class="bi bi-eye"></i>
-                                                </a>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    {% empty %}
-                                    <tr>
-                                        <td colspan="{% widthratio all_fields|length 1 1 %}" class="text-center text-muted py-4">
-                                            <i class="bi bi-inbox display-4"></i>
-                                            <br>{% trans "No entries found" %}
-                                        </td>
-                                    </tr>
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>{% trans "ID" %}</th>
+                                    <th>{% trans "Address" %}</th>
+                                    <th>{% trans "Entry Name" %}</th>
+                                    <th>{% trans "Year" %}</th>
+                                    <th>{% trans "User" %}</th>
+                                    <th>{% trans "Created" %}</th>
+                                    {% for field in all_fields %}
+                                    <th>{{ field.label }}</th>
                                     {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
+                                    <th>{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in page_obj %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ entry.id_kurz }}</strong><br>
+                                        <small class="text-muted">#{{ entry.geometry_id }}</small>
+                                    </td>
+                                    <td>{{ entry.address }}</td>
+                                    <td>{{ entry.entry_name|default:"-" }}</td>
+                                    <td>{{ entry.year|default:"-" }}</td>
+                                    <td>{{ entry.user }}</td>
+                                    <td>
+                                        <small>{{ entry.created_at|date:"M d, Y" }}</small><br>
+                                        <small class="text-muted">{{ entry.created_at|time:"H:i" }}</small>
+                                    </td>
+                                    {% for field in all_fields %}
+                                    <td>
+                                        {% if field.field_name in entry.fields %}
+                                            {% if field.field_type == 'choice' %}
+                                                <span class="badge bg-info text-dark">{{ entry.fields|get_item:field.field_name }}</span>
+                                            {% else %}
+                                                {{ entry.fields|get_item:field.field_name|default:"-" }}
+                                            {% endif %}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    {% endfor %}
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{% url 'entry_edit' entry.id %}" class="btn btn-outline-primary" title="{% trans 'Edit Entry' %}">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <a href="{% url 'entry_detail' entry.id %}" class="btn btn-outline-secondary" title="{% trans 'View Details' %}">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="{{ all_fields|length|add:'7' }}" class="text-center text-muted py-5">
+                                        <i class="bi bi-inbox display-4"></i>
+                                        <p class="mt-2 mb-1 fw-semibold">{% trans "No entries found" %}</p>
+                                        <p class="small mb-3 text-muted">{% trans "Try adjusting your search filters or add new entries from the data input view." %}</p>
+                                        <a href="{% url 'dataset_data_input' dataset.id %}" class="btn btn-primary btn-sm">
+                                            <i class="bi bi-plus-circle"></i> {% trans "Add Entry" %}
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
 
-                        <!-- Pagination -->
-                        {% if page_obj.has_other_pages %}
-                        <div class="card-footer">
-                            <nav aria-label="{% trans 'Entries pagination' %}">
-                                <ul class="pagination pagination-sm justify-content-center mb-0">
-                                    {% if page_obj.has_previous %}
-                                        <li class="page-item">
-                                            <a class="page-link" href="?{% if search_query %}search={{ search_query }}&{% endif %}sort={{ sort_by }}&order={{ order }}&page=1">
-                                                <i class="bi bi-chevron-double-left"></i>
-                                            </a>
-                                        </li>
-                                        <li class="page-item">
-                                            <a class="page-link" href="?{% if search_query %}search={{ search_query }}&{% endif %}sort={{ sort_by }}&order={{ order }}&page={{ page_obj.previous_page_number }}">
-                                                <i class="bi bi-chevron-left"></i>
-                                            </a>
-                                        </li>
-                                    {% endif %}
-
-                                    <li class="page-item active">
-                                        <span class="page-link">
-                                            {% trans "Page" %} {{ page_obj.number }} {% trans "of" %} {{ page_obj.paginator.num_pages }}
-                                        </span>
-                                    </li>
-
-                                    {% if page_obj.has_next %}
-                                        <li class="page-item">
-                                            <a class="page-link" href="?{% if search_query %}search={{ search_query }}&{% endif %}sort={{ sort_by }}&order={{ order }}&page={{ page_obj.next_page_number }}">
-                                                <i class="bi bi-chevron-right"></i>
-                                            </a>
-                                        </li>
-                                        <li class="page-item">
-                                            <a class="page-link" href="?{% if search_query %}search={{ search_query }}&{% endif %}sort={{ sort_by }}&order={{ order }}&page={{ page_obj.paginator.num_pages }}">
-                                                <i class="bi bi-chevron-double-right"></i>
-                                            </a>
-                                        </li>
-                                    {% endif %}
-                                </ul>
-                            </nav>
-                        </div>
-                        {% endif %}
-                    {% else %}
-                        <div class="text-center py-5">
-                            <i class="bi bi-inbox display-1 text-muted"></i>
-                            <h4 class="text-muted mt-3">{% trans "No entries found" %}</h4>
-                            <p class="text-muted">{% trans "This dataset doesn't have any data entries yet." %}</p>
-                            <a href="{% url 'dataset_data_input' dataset.id %}" class="btn btn-primary">
-                                <i class="bi bi-plus-circle"></i> {% trans "Add First Entry" %}
-                            </a>
-                        </div>
+                    {% if page_obj.has_other_pages %}
+                    <div class="card-footer bg-light">
+                        <nav aria-label="{% trans 'Entries pagination' %}">
+                            <ul class="pagination pagination-sm justify-content-center mb-0">
+                                {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?{% if search_query %}search={{ search_query }}&{% endif %}sort={{ sort_by }}&order={{ order }}&page=1" title="{% trans 'First page' %}">
+                                        <i class="bi bi-chevron-double-left"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?{% if search_query %}search={{ search_query }}&{% endif %}sort={{ sort_by }}&order={{ order }}&page={{ page_obj.previous_page_number }}" title="{% trans 'Previous page' %}">
+                                        <i class="bi bi-chevron-left"></i>
+                                    </a>
+                                </li>
+                                {% endif %}
+                                <li class="page-item active">
+                                    <span class="page-link">
+                                        {% trans "Page" %} {{ page_obj.number }} {% trans "of" %} {{ page_obj.paginator.num_pages }}
+                                    </span>
+                                </li>
+                                {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?{% if search_query %}search={{ search_query }}&{% endif %}sort={{ sort_by }}&order={{ order }}&page={{ page_obj.next_page_number }}" title="{% trans 'Next page' %}">
+                                        <i class="bi bi-chevron-right"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?{% if search_query %}search={{ search_query }}&{% endif %}sort={{ sort_by }}&order={{ order }}&page={{ page_obj.paginator.num_pages }}" title="{% trans 'Last page' %}">
+                                        <i class="bi bi-chevron-double-right"></i>
+                                    </a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    </div>
                     {% endif %}
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-inbox display-1 text-muted"></i>
+                        <h4 class="text-muted mt-3">{% trans "No entries found" %}</h4>
+                        <p class="text-muted">{% trans "This dataset doesn't have any data entries yet." %}</p>
+                        <a href="{% url 'dataset_data_input' dataset.id %}" class="btn btn-primary">
+                            <i class="bi bi-plus-circle"></i> {% trans "Add First Entry" %}
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="bi bi-clipboard-data me-2"></i>{% trans "Dataset Summary" %}
+                </div>
+                <div class="card-body small text-muted">
+                    <dl class="row mb-0">
+                        <dt class="col-5">{% trans "Dataset" %}</dt>
+                        <dd class="col-7">{{ dataset.name }}</dd>
+                        <dt class="col-5">{% trans "Owner" %}</dt>
+                        <dd class="col-7">{{ dataset.owner.username }}</dd>
+                        <dt class="col-5">{% trans "Entries" %}</dt>
+                        <dd class="col-7">{{ page_obj.paginator.count }}</dd>
+                        <dt class="col-5">{% trans "Geometries" %}</dt>
+                        <dd class="col-7">{{ dataset.geometries.count }}</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-dark fw-semibold">
+                    <i class="bi bi-lightbulb me-2"></i>{% trans "Tips" %}
+                </div>
+                <div class="card-body small text-muted">
+                    <ul class="ps-3 mb-0">
+                        <li class="mb-2">{% trans "Use the search bar to filter entries by ID, address, or entry name." %}</li>
+                        <li class="mb-2">{% trans "Sort by any custom field to review specific attributes quickly." %}</li>
+                        <li>{% trans "Open the data input view to edit entries directly on the map." %}</li>
+                    </ul>
                 </div>
             </div>
         </div>

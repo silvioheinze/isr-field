@@ -3,115 +3,103 @@
 {% block title %}Edit Group - {{ group.name }}{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-md-8">
-            <h2>Edit Group: {{ group.name }}</h2>
-            
-            <form method="post">
+<div class="container py-4">
+    <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-1">Edit Group</h1>
+            <p class="text-muted small mb-0">Update members and settings for <strong>{{ group.name }}</strong>.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{% url 'user_management' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Back to User Management
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <form method="post" class="d-flex flex-column gap-4">
                 {% csrf_token %}
-                
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0">Group Information</h5>
+
+                <div class="card shadow-sm">
+                    <div class="card-header bg-light fw-semibold">
+                        <i class="bi bi-info-circle me-2"></i>Group Details
                     </div>
                     <div class="card-body">
                         <div class="mb-3">
                             <label for="name" class="form-label">Group Name</label>
                             <input type="text" class="form-control" id="name" name="name" value="{{ group.name }}" required>
+                            <div class="form-text">Choose a descriptive name that reflects the access level or team.</div>
                         </div>
                     </div>
                 </div>
-                
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0">Group Members</h5>
+
+                <div class="card shadow-sm">
+                    <div class="card-header bg-light fw-semibold">
+                        <i class="bi bi-people me-2"></i>Group Members
                     </div>
                     <div class="card-body">
-                        <p class="text-muted mb-3">Select users to include in this group:</p>
-                        
-                        <div class="row">
+                        {% if all_users %}
+                        <p class="text-muted small mb-3">Select the users who should belong to this group.</p>
+                        <div class="row g-3">
                             {% for user in all_users %}
-                            <div class="col-md-6 mb-2">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="users" value="{{ user.id }}" id="user_{{ user.id }}"
-                                           {% if user.id in group_members %}checked{% endif %}>
-                                    <label class="form-check-label" for="user_{{ user.id }}">
-                                        <strong>{{ user.username }}</strong>
-                                        {% if user.email %}
-                                            <br><small class="text-muted">{{ user.email }}</small>
-                                        {% endif %}
-                                        {% if user.is_staff %}
-                                            <span class="badge bg-warning">Staff</span>
-                                        {% endif %}
-                                        {% if user.is_superuser %}
-                                            <span class="badge bg-danger">Superuser</span>
-                                        {% endif %}
-                                    </label>
+                            <div class="col-md-6">
+                                <div class="border rounded p-3 h-100 bg-light-subtle">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="users" value="{{ user.id }}" id="user_{{ user.id }}" {% if user.id in group_members %}checked{% endif %}>
+                                        <label class="form-check-label" for="user_{{ user.id }}">
+                                            <div class="fw-semibold">{{ user.username }}</div>
+                                            {% if user.email %}<div class="small text-muted">{{ user.email }}</div>{% endif %}
+                                        </label>
+                                    </div>
+                                    <div class="mt-2 small text-muted">
+                                        {% if user.is_staff %}<span class="badge bg-warning text-dark me-1">Staff</span>{% endif %}
+                                        {% if user.is_superuser %}<span class="badge bg-danger">Superuser</span>{% endif %}
+                                        {% if not user.is_staff and not user.is_superuser %}<span class="text-muted">Standard user</span>{% endif %}
+                                    </div>
                                 </div>
                             </div>
                             {% endfor %}
                         </div>
-                        
-                        {% if not all_users %}
-                        <p class="text-muted text-center">No users available.</p>
+                        {% else %}
+                        <p class="text-muted text-center mb-0">No users available to assign.</p>
                         {% endif %}
                     </div>
                 </div>
-                
-                <div class="d-flex justify-content-between">
-                    <a href="{% url 'user_management' %}" class="btn btn-secondary">Cancel</a>
-                    <button type="submit" class="btn btn-primary">Save Changes</button>
+
+                <div class="d-flex flex-wrap gap-2 justify-content-end">
+                    <a href="{% url 'user_management' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-circle"></i> Cancel
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle"></i> Save Changes
+                    </button>
                 </div>
             </form>
         </div>
-        
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-header">
-                    <h6 class="mb-0">Group Information</h6>
+
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="bi bi-clipboard-data me-2"></i>Group Summary
                 </div>
-                <div class="card-body">
-                    <p class="small text-muted">
-                        <strong>Current members:</strong> {{ group.user_set.count }} user{{ group.user_set.count|pluralize }}<br>
-                        <strong>Total users:</strong> {{ all_users.count }}<br>
-                        <strong>Created:</strong> System group
-                    </p>
+                <div class="card-body small text-muted">
+                    <div class="mb-2"><span class="fw-semibold text-dark">Current members:</span> {{ group.user_set.count }}</div>
+                    <div class="mb-2"><span class="fw-semibold text-dark">Users available:</span> {{ all_users.count }}</div>
+                    <div class="mb-0"><span class="fw-semibold text-dark">Created:</span> System group</div>
                 </div>
             </div>
-            
-            <div class="card mt-3">
-                <div class="card-header">
-                    <h6 class="mb-0">Instructions</h6>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="bi bi-lightbulb me-2"></i>Tips
                 </div>
-                <div class="card-body">
-                    <p class="small text-muted">
-                        <strong>Group Name:</strong> Change the name of the group<br>
-                        <strong>Members:</strong> Check/uncheck users to add/remove them from the group<br><br>
-                        <strong>Note:</strong> Changes to group membership will affect user permissions immediately.
-                    </p>
-                </div>
-            </div>
-            
-            <div class="card mt-3">
-                <div class="card-header">
-                    <h6 class="mb-0">Current Members</h6>
-                </div>
-                <div class="card-body">
-                    {% if group.user_set.all %}
-                        <ul class="list-unstyled mb-0">
-                            {% for user in group.user_set.all %}
-                            <li class="mb-1">
-                                <strong>{{ user.username }}</strong>
-                                {% if user.email %}
-                                    <br><small class="text-muted">{{ user.email }}</small>
-                                {% endif %}
-                            </li>
-                            {% endfor %}
-                        </ul>
-                    {% else %}
-                        <p class="text-muted small mb-0">No members in this group.</p>
-                    {% endif %}
+                <div class="card-body small text-muted">
+                    <ul class="ps-3 mb-0">
+                        <li class="mb-2">Group membership updates apply immediately to dataset permissions.</li>
+                        <li class="mb-2">Use clear naming conventions so other admins understand the role.</li>
+                        <li>Review membership periodically to keep access up to date.</li>
+                    </ul>
                 </div>
             </div>
         </div>

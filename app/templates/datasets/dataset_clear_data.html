@@ -3,95 +3,125 @@
 {% block title %}Clear Data - {{ dataset.name }}{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card border-danger">
-                <div class="card-header bg-danger text-white">
-                    <h4 class="mb-0">
-                        <i class="bi bi-exclamation-triangle"></i> Clear Dataset Data
-                    </h4>
+<div class="container py-4" style="max-width: 940px;">
+    <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-1 text-danger">Clear Dataset Data</h1>
+            <p class="text-muted small mb-0">This will permanently remove every entry, geometry, and file in <strong>{{ dataset.name }}</strong>.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <span class="badge bg-danger text-uppercase">Irreversible</span>
+            <span class="badge bg-warning text-dark">Requires confirmation</span>
+            <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Back to Dataset
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-danger">
+                <div class="card-header bg-danger text-white fw-semibold">
+                    <i class="bi bi-exclamation-triangle me-2"></i>Danger Zone
                 </div>
                 <div class="card-body">
                     <div class="alert alert-warning">
-                        <h5 class="alert-heading">⚠️ Warning: This action cannot be undone!</h5>
-                        <p class="mb-0">
-                            You are about to permanently delete <strong>ALL</strong> data from the dataset 
-                            "<strong>{{ dataset.name }}</strong>". This includes:
-                        </p>
+                        <h5 class="alert-heading mb-2">This action cannot be undone</h5>
+                        <p class="mb-0">Once cleared, the data cannot be recovered. Consider exporting a backup before continuing.</p>
                     </div>
-                    
-                    <div class="row mb-4">
+
+                    <div class="row g-3 mb-4">
                         <div class="col-md-4">
-                            <div class="card bg-light">
+                            <div class="card h-100 border-0 bg-light-subtle">
                                 <div class="card-body text-center">
-                                    <h3 class="text-danger">{{ geometry_count }}</h3>
-                                    <p class="mb-0">Geometry Points</p>
+                                    <div class="text-danger display-6 fw-semibold">{{ geometry_count }}</div>
+                                    <div class="text-uppercase small text-muted">Geometry Points</div>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-4">
-                            <div class="card bg-light">
+                            <div class="card h-100 border-0 bg-light-subtle">
                                 <div class="card-body text-center">
-                                    <h3 class="text-danger">{{ entry_count }}</h3>
-                                    <p class="mb-0">Data Entries</p>
+                                    <div class="text-danger display-6 fw-semibold">{{ entry_count }}</div>
+                                    <div class="text-uppercase small text-muted">Data Entries</div>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-4">
-                            <div class="card bg-light">
+                            <div class="card h-100 border-0 bg-light-subtle">
                                 <div class="card-body text-center">
-                                    <h3 class="text-danger">{{ file_count }}</h3>
-                                    <p class="mb-0">Uploaded Files</p>
+                                    <div class="text-danger display-6 fw-semibold">{{ file_count }}</div>
+                                    <div class="text-uppercase small text-muted">Uploaded Files</div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    
-                    <div class="alert alert-info">
-                        <h6>What will be deleted:</h6>
-                        <ul class="mb-0">
-                            <li>All geometry points and their spatial coordinates</li>
-                            <li>All data entries with usage codes and categories</li>
-                            <li>All uploaded files and photos</li>
-                            <li>All associated metadata and relationships</li>
+
+                    <div class="alert alert-info mb-3">
+                        <h6 class="fw-semibold mb-2">What will be deleted</h6>
+                        <ul class="mb-0 small">
+                            <li>All geometry points with their coordinates</li>
+                            <li>Every data entry, including usage codes and categories</li>
+                            <li>All uploaded attachments and photos</li>
+                            <li>Any metadata tied directly to entries or geometries</li>
                         </ul>
                     </div>
-                    
-                    <div class="alert alert-success">
-                        <h6>What will be preserved:</h6>
-                        <ul class="mb-0">
-                            <li>The dataset itself (name, description, access settings)</li>
-                            <li>Dataset ownership and sharing permissions</li>
-                            <li>Audit logs of this deletion action</li>
+
+                    <div class="alert alert-success mb-4">
+                        <h6 class="fw-semibold mb-2">What stays intact</h6>
+                        <ul class="mb-0 small">
+                            <li>Dataset configuration (name, description, visibility)</li>
+                            <li>Ownership, sharing, and permission settings</li>
+                            <li>Audit log entries documenting this deletion</li>
                         </ul>
                     </div>
-                    
-                    <form method="post" id="clearDataForm">
+
+                    <form method="post" id="clearDataForm" class="d-flex flex-column gap-3">
                         {% csrf_token %}
-                        <div class="form-check mb-3">
+                        <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="confirmCheck" required>
-                            <label class="form-check-label" for="confirmCheck">
-                                I understand that this action will permanently delete all data and cannot be undone
-                            </label>
+                            <label class="form-check-label" for="confirmCheck">I understand that this action will permanently delete all dataset data.</label>
                         </div>
-                        
-                        <div class="form-group mb-3">
-                            <label for="confirmationText">Type "DELETE" to confirm:</label>
-                            <input type="text" class="form-control" id="confirmationText" name="confirmation_text" 
-                                   placeholder="DELETE" required pattern="DELETE" 
-                                   title="Please type DELETE to confirm">
+
+                        <div>
+                            <label for="confirmationText" class="form-label">Type "DELETE" to confirm</label>
+                            <input type="text" class="form-control" id="confirmationText" name="confirmation_text" placeholder="DELETE" required pattern="DELETE" title="Please type DELETE to confirm">
                         </div>
-                        
-                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-secondary">
-                                <i class="bi bi-arrow-left"></i> Cancel
+
+                        <div class="d-flex flex-wrap gap-2 justify-content-end pt-2">
+                            <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle"></i> Cancel
                             </a>
                             <button type="submit" class="btn btn-danger" id="clearButton" disabled>
                                 <i class="bi bi-trash"></i> Clear All Data
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="bi bi-lightbulb me-2"></i>Before you clear
+                </div>
+                <div class="card-body small text-muted">
+                    <ul class="ps-3 mb-0">
+                        <li class="mb-2">Export the dataset first if you need a backup for auditing or recovery.</li>
+                        <li class="mb-2">Notify collaborators so they are aware of the scheduled clean-up.</li>
+                        <li>Rebuild custom reports or dashboards that rely on this data afterwards.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="bi bi-shield-lock me-2"></i>Access reminder
+                </div>
+                <div class="card-body small text-muted">
+                    <p class="mb-2">Only dataset owners can perform this action. The request is logged with your user account for traceability.</p>
+                    <p class="mb-0">Need to restrict who can clear data? Adjust permissions in dataset access settings.</p>
                 </div>
             </div>
         </div>
@@ -104,30 +134,28 @@ document.addEventListener('DOMContentLoaded', function() {
     const confirmationText = document.getElementById('confirmationText');
     const clearButton = document.getElementById('clearButton');
     const form = document.getElementById('clearDataForm');
-    
+
     function updateButtonState() {
         const isChecked = confirmCheck.checked;
         const isTextCorrect = confirmationText.value === 'DELETE';
         clearButton.disabled = !(isChecked && isTextCorrect);
     }
-    
+
     confirmCheck.addEventListener('change', updateButtonState);
     confirmationText.addEventListener('input', updateButtonState);
-    
+
     form.addEventListener('submit', function(e) {
         if (!confirmCheck.checked || confirmationText.value !== 'DELETE') {
             e.preventDefault();
             alert('Please check the confirmation box and type "DELETE" to proceed.');
             return false;
         }
-        
-        // Final confirmation
+
         if (!confirm('Are you absolutely sure you want to delete ALL data from this dataset? This action cannot be undone.')) {
             e.preventDefault();
             return false;
         }
-        
-        // Show loading state
+
         clearButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Clearing Data...';
         clearButton.disabled = true;
     });

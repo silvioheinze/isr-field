@@ -47,7 +47,7 @@ class FormFieldDisplayTest(TestCase):
         self.assertEqual(response.status_code, 200)
         
         # Check that window.allFields is empty (no fields configured)
-        self.assertContains(response, 'window.allFields = JSON.parse(document.getElementById')
+        self.assertContains(response, 'window.allFields = JSON.parse(allFieldsElement.textContent);')
         self.assertContains(response, '[]')
     
     def test_fields_configured_but_disabled(self):
@@ -77,7 +77,7 @@ class FormFieldDisplayTest(TestCase):
         self.assertEqual(response.status_code, 200)
         
         # Check that window.allFields is empty (no enabled fields)
-        self.assertContains(response, 'window.allFields = JSON.parse(document.getElementById')
+        self.assertContains(response, 'window.allFields = JSON.parse(allFieldsElement.textContent);')
         self.assertContains(response, '[]')
     
     def test_fields_configured_and_enabled(self):
@@ -110,7 +110,7 @@ class FormFieldDisplayTest(TestCase):
         self.assertNotContains(response, 'No fields configured for this dataset')
         
         # Check that window.allFields contains the enabled fields
-        self.assertContains(response, 'window.allFields = JSON.parse(document.getElementById')
+        self.assertContains(response, 'window.allFields = JSON.parse(allFieldsElement.textContent);')
         self.assertContains(response, 'enabled_field')
         self.assertContains(response, 'another_enabled_field')
     
@@ -145,7 +145,7 @@ class FormFieldDisplayTest(TestCase):
         self.assertNotContains(response, 'No fields configured for this dataset')
         
         # Check that window.allFields contains only the enabled field
-        self.assertContains(response, 'window.allFields = JSON.parse(document.getElementById')
+        self.assertContains(response, 'window.allFields = JSON.parse(allFieldsElement.textContent);')
         self.assertContains(response, 'enabled_field')
         self.assertNotContains(response, 'disabled_field')
     
@@ -174,7 +174,7 @@ class FormFieldDisplayTest(TestCase):
         self.assertEqual(response.status_code, 200)
         
         # Check that window.allFields is empty (no enabled fields)
-        self.assertContains(response, 'window.allFields = JSON.parse(document.getElementById')
+        self.assertContains(response, 'window.allFields = JSON.parse(allFieldsElement.textContent);')
         self.assertContains(response, '[]')
     
     def test_fields_with_typology_choices(self):
@@ -205,7 +205,7 @@ class FormFieldDisplayTest(TestCase):
             dataset=self.dataset,
             field_name='typology_field',
             label='Typology Field',
-            field_type='choice',
+            field_type='text',
             enabled=True,
             order=1,
             typology=typology
@@ -220,9 +220,51 @@ class FormFieldDisplayTest(TestCase):
         self.assertNotContains(response, 'No fields configured for this dataset')
         
         # Check that window.allFields contains the typology field
-        self.assertContains(response, 'window.allFields = JSON.parse(document.getElementById')
+        self.assertContains(response, 'window.allFields = JSON.parse(allFieldsElement.textContent);')
         self.assertContains(response, 'typology_field')
+
+        fields_data = response.context['fields_data']
+        typology_field_data = next((f for f in fields_data if f['field_name'] == 'typology_field'), None)
+        self.assertIsNotNone(typology_field_data)
+        self.assertEqual(typology_field_data['field_type'], 'choice')
+        self.assertIsInstance(typology_field_data['typology_choices'], list)
+        self.assertEqual(len(typology_field_data['typology_choices']), 2)
+        self.assertEqual(typology_field_data['typology_choices'][0]['value'], '1')
+        self.assertTrue('Option 1' in typology_field_data['typology_choices'][0]['label'])
     
+    def test_typology_field_with_category_filter(self):
+        """Typology category selection should limit available choices"""
+        from ..models import Typology, TypologyEntry
+
+        typology = Typology.objects.create(name='Category Typology')
+        TypologyEntry.objects.create(typology=typology, code=1, category='A', name='Option A1')
+        TypologyEntry.objects.create(typology=typology, code=2, category='B', name='Option B1')
+
+        DatasetField.objects.create(
+            dataset=self.dataset,
+            field_name='filtered_typology_field',
+            label='Filtered Typology Field',
+            field_type='text',
+            enabled=True,
+            order=1,
+            typology=typology,
+            typology_category='A'
+        )
+
+        self.client.login(username='testuser', password='testpass123')
+
+        response = self.client.get(reverse('dataset_data_input', args=[self.dataset.id]))
+        self.assertEqual(response.status_code, 200)
+
+        fields_data = response.context['fields_data']
+        filtered_field = next((f for f in fields_data if f['field_name'] == 'filtered_typology_field'), None)
+        self.assertIsNotNone(filtered_field)
+        self.assertEqual(filtered_field['field_type'], 'choice')
+        self.assertEqual(filtered_field['typology_category'], 'A')
+        self.assertEqual(len(filtered_field['typology_choices']), 1)
+        self.assertEqual(filtered_field['typology_choices'][0]['value'], '1')
+        self.assertIn('Option A1', filtered_field['typology_choices'][0]['label'])
+
     def test_fields_ordering(self):
         """Test that fields are displayed in the correct order"""
         # Create fields with different orders
@@ -262,7 +304,7 @@ class FormFieldDisplayTest(TestCase):
         self.assertNotContains(response, 'No fields configured for this dataset')
         
         # Check that window.allFields contains all fields
-        self.assertContains(response, 'window.allFields = JSON.parse(document.getElementById')
+        self.assertContains(response, 'window.allFields = JSON.parse(allFieldsElement.textContent);')
         self.assertContains(response, 'field_a')
         self.assertContains(response, 'field_b')
         self.assertContains(response, 'field_c')
@@ -292,7 +334,7 @@ class FormFieldDisplayTest(TestCase):
         self.assertNotContains(response, 'No fields configured for this dataset')
         
         # Check that window.allFields contains the field
-        self.assertContains(response, 'window.allFields = JSON.parse(document.getElementById')
+        self.assertContains(response, 'window.allFields = JSON.parse(allFieldsElement.textContent);')
         self.assertContains(response, 'single_entry_field')
     
     def test_dataset_with_allow_multiple_entries_true(self):
@@ -320,7 +362,7 @@ class FormFieldDisplayTest(TestCase):
         self.assertNotContains(response, 'No fields configured for this dataset')
         
         # Check that window.allFields contains the field
-        self.assertContains(response, 'window.allFields = JSON.parse(document.getElementById')
+        self.assertContains(response, 'window.allFields = JSON.parse(allFieldsElement.textContent);')
         self.assertContains(response, 'multiple_entry_field')
     
     def test_debug_field_configuration_data(self):
@@ -371,7 +413,7 @@ class FormFieldDisplayTest(TestCase):
         self.assertNotContains(response, 'No fields configured for this dataset')
         
         # Check that window.allFields contains the enabled fields
-        self.assertContains(response, 'window.allFields = JSON.parse(document.getElementById')
+        self.assertContains(response, 'window.allFields = JSON.parse(allFieldsElement.textContent);')
         self.assertContains(response, 'text_field')
         self.assertContains(response, 'integer_field')
         self.assertNotContains(response, 'disabled_text_field')

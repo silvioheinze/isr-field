@@ -3,131 +3,148 @@
 {% block title %}User Profile - ISR Field{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-md-8">
-            <h2>User Profile</h2>
-            <p class="text-muted">Account information and settings</p>
-            
-            {% if message %}
-                <div class="alert alert-{{ message_type|yesno:'success,danger' }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+<div class="container py-4">
+    <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-1">Account Profile</h1>
+            <p class="text-muted small mb-0">Review your account details, update contact information, or change your password.</p>
+        </div>
+        <div>
+            <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    {% if message %}
+    <div class="alert alert-{{ message_type|yesno:'success,danger' }} alert-dismissible fade show shadow-sm" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="bi bi-person-circle me-2"></i>Profile Information
                 </div>
-            {% endif %}
-            
-            <!-- Profile Information -->
-            <div class="mb-4">
-                <h5>Profile Information</h5>
-                <div class="card">
-                    <div class="card-body">
-                        <ul class="list-unstyled">
-                            <li class="mb-2"><strong>Username:</strong> {{ user.username }}</li>
-                            <li class="mb-2"><strong>Email:</strong> {{ user.email }}</li>
-                            <li class="mb-2"><strong>Date Joined:</strong> {{ user.date_joined|date:"F d, Y" }}</li>
-                            <li class="mb-2"><strong>Last Login:</strong> {{ user.last_login|date:"F d, Y H:i" }}</li>
-                            <li class="mb-2"><strong>Status:</strong> 
-                                {% if user.is_active %}
-                                    <span class="badge bg-success">Active</span>
-                                {% else %}
-                                    <span class="badge bg-danger">Inactive</span>
-                                {% endif %}
-                            </li>
-                            {% if user.is_staff %}
-                                <li class="mb-2"><strong>Role:</strong> <span class="badge bg-primary">Staff Member</span></li>
+                <div class="card-body">
+                    <dl class="row mb-0 small text-muted">
+                        <dt class="col-sm-4">Username</dt>
+                        <dd class="col-sm-8">{{ user.username }}</dd>
+                        <dt class="col-sm-4">Email</dt>
+                        <dd class="col-sm-8">{{ user.email }}</dd>
+                        <dt class="col-sm-4">Date Joined</dt>
+                        <dd class="col-sm-8">{{ user.date_joined|date:"F d, Y" }}</dd>
+                        <dt class="col-sm-4">Last Login</dt>
+                        <dd class="col-sm-8">{{ user.last_login|default:"—"|date:"F d, Y H:i" }}</dd>
+                        <dt class="col-sm-4">Status</dt>
+                        <dd class="col-sm-8">
+                            {% if user.is_active %}
+                                <span class="badge bg-success">Active</span>
+                            {% else %}
+                                <span class="badge bg-danger">Inactive</span>
                             {% endif %}
-                            {% if user.is_superuser %}
-                                <li class="mb-2"><strong>Role:</strong> <span class="badge bg-warning">Superuser</span></li>
-                            {% endif %}
-                        </ul>
-                    </div>
+                        </dd>
+                        {% if user.is_staff %}
+                        <dt class="col-sm-4">Role</dt>
+                        <dd class="col-sm-8"><span class="badge bg-primary">Staff Member</span></dd>
+                        {% endif %}
+                        {% if user.is_superuser %}
+                        <dt class="col-sm-4">Privileges</dt>
+                        <dd class="col-sm-8"><span class="badge bg-warning text-dark">Superuser</span></dd>
+                        {% endif %}
+                    </dl>
                 </div>
             </div>
-            
-            <!-- Change Email -->
-            <div class="mb-4">
-                <h5>Change Email Address</h5>
-                <div class="card">
-                    <div class="card-body">
-                        <form method="post">
-                            {% csrf_token %}
-                            <div class="mb-3">
-                                <label for="email" class="form-label">New Email Address</label>
-                                <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}" required>
-                            </div>
-                            <button type="submit" name="change_email" class="btn btn-primary">
-                                <i class="bi bi-envelope"></i> Update Email
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="bi bi-envelope me-2"></i>Update Email Address
+                </div>
+                <div class="card-body">
+                    <form method="post" class="row g-3 align-items-end">
+                        {% csrf_token %}
+                        <div class="col-md-8">
+                            <label for="email" class="form-label">Email Address</label>
+                            <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}" required>
+                            <div class="form-text">Use a reachable address for notifications and password recovery.</div>
+                        </div>
+                        <div class="col-md-4 text-md-end">
+                            <button type="submit" name="change_email" class="btn btn-primary w-100">
+                                <i class="bi bi-save"></i> Update Email
                             </button>
-                        </form>
-                    </div>
+                        </div>
+                    </form>
                 </div>
             </div>
-            
-            <!-- Change Password -->
-            <div class="mb-4">
-                <h5>Change Password</h5>
-                <div class="card">
-                    <div class="card-body">
-                        <form method="post">
-                            {% csrf_token %}
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label for="id_old_password" class="form-label">Current Password</label>
-                                        <input type="password" class="form-control" id="id_old_password" name="old_password" required>
-                                        {% if password_form.old_password.errors %}
-                                            <div class="text-danger small">{{ password_form.old_password.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label for="id_new_password1" class="form-label">New Password</label>
-                                        <input type="password" class="form-control" id="id_new_password1" name="new_password1" required>
-                                        {% if password_form.new_password1.errors %}
-                                            <div class="text-danger small">{{ password_form.new_password1.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label for="id_new_password2" class="form-label">Confirm New Password</label>
-                                        <input type="password" class="form-control" id="id_new_password2" name="new_password2" required>
-                                        {% if password_form.new_password2.errors %}
-                                            <div class="text-danger small">{{ password_form.new_password2.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="bi bi-shield-lock me-2"></i>Change Password
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted mb-3">Choose a strong password with letters, numbers, and special characters.</p>
+                    <form method="post" class="row g-3">
+                        {% csrf_token %}
+                        <div class="col-md-6">
+                            <label for="id_old_password" class="form-label">Current Password</label>
+                            <input type="password" class="form-control" id="id_old_password" name="old_password" required>
+                            {% if password_form.old_password.errors %}
+                                <div class="text-danger small mt-1">{{ password_form.old_password.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="id_new_password1" class="form-label">New Password</label>
+                            <input type="password" class="form-control" id="id_new_password1" name="new_password1" required>
+                            {% if password_form.new_password1.errors %}
+                                <div class="text-danger small mt-1">{{ password_form.new_password1.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="id_new_password2" class="form-label">Confirm New Password</label>
+                            <input type="password" class="form-control" id="id_new_password2" name="new_password2" required>
+                            {% if password_form.new_password2.errors %}
+                                <div class="text-danger small mt-1">{{ password_form.new_password2.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-12 text-end">
                             <button type="submit" name="change_password" class="btn btn-warning">
-                                <i class="bi bi-shield-lock"></i> Change Password
+                                <i class="bi bi-shield-check"></i> Change Password
                             </button>
-                        </form>
-                    </div>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
-        
-        <div class="col-md-4">
 
-            
-
-            
-
-            
-            <!-- Navigation -->
-            <div class="card">
-                <div class="card-header">
-                    <h6 class="mb-0"><i class="bi bi-arrow-left"></i> Navigation</h6>
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="bi bi-info-circle me-2"></i>Account Tips
                 </div>
-                <div class="card-body">
-                    <div class="d-grid gap-2">
-                        <a href="{% url 'dashboard' %}" class="btn btn-secondary btn-sm">
-                            <i class="bi bi-arrow-left"></i> Back to Dashboard
-                        </a>
-                    </div>
+                <div class="card-body small text-muted">
+                    <ul class="ps-3 mb-0">
+                        <li class="mb-2">Use a recognizable email so teammates can identify shared invitations.</li>
+                        <li class="mb-2">Update your password regularly to maintain account security.</li>
+                        <li class="mb-2">If you need additional dataset access, contact an administrator.</li>
+                        <li>Keep your information current for accurate audit records.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white fw-semibold">
+                    <i class="bi bi-gear me-2"></i>Need More Control?
+                </div>
+                <div class="card-body small text-white-50">
+                    <p class="mb-2">For advanced account changes:</p>
+                    <ul class="ps-3 mb-0">
+                        <li class="mb-1">Reach out to your workspace administrator.</li>
+                        <li class="mb-1">Review shared datasets from the main dashboard.</li>
+                        <li>Check your email filters to ensure project notifications arrive safely.</li>
+                    </ul>
                 </div>
             </div>
         </div>
