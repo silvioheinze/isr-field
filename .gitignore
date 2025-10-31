@@ -152,6 +152,7 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+backups
 
 # docker compose production environment
 #docker-compose.prod.yml
