@@ -136,35 +136,6 @@ SERVER_EMAIL=server@isrfield.dataplexity.eu
 EMAIL_SUBJECT_PREFIX=[ISR Field]
 ```
 
-#### Common SMTP Providers
-
-**Gmail**:
-```bash
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_USE_TLS=True
-EMAIL_HOST_USER=your-email@gmail.com
-EMAIL_HOST_PASSWORD=your-app-password  # Use App Password, not regular password
-```
-
-**Outlook/Hotmail**:
-```bash
-EMAIL_HOST=smtp-mail.outlook.com
-EMAIL_PORT=587
-EMAIL_USE_TLS=True
-EMAIL_HOST_USER=your-email@outlook.com
-EMAIL_HOST_PASSWORD=your-password
-```
-
-**Custom SMTP Server**:
-```bash
-EMAIL_HOST=your-smtp-server.com
-EMAIL_PORT=587
-EMAIL_USE_TLS=True
-EMAIL_HOST_USER=your-username
-EMAIL_HOST_PASSWORD=your-password
-```
-
 #### Testing Email Configuration
 
 Test your SMTP configuration:
