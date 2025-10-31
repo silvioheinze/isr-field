@@ -248,7 +248,7 @@ function generateEntriesTable(point) {
         
         entriesHtml += '<div class="card mb-3">';
         entriesHtml += '<div class="card-header d-flex justify-content-between align-items-center">';
-        entriesHtml += '<h6 class="mb-0">' + (entry.name || 'Unnamed Entry') + ' (' + (entry.year || 'No Year') + ')</h6>';
+        entriesHtml += '<h6 class="mb-0">' + (entry.name || 'Unnamed Entry') + '</h6>';
         entriesHtml += '<small class="text-muted">Entry ' + (entryIndex + 1) + '</small>';
         entriesHtml += '</div>';
         entriesHtml += '<div class="card-body">';
