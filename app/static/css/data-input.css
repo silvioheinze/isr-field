@@ -50,22 +50,45 @@
     box-shadow: 0 4px 8px rgba(0,0,0,0.3);
 }
 
+/* Fullscreen map */
+.map-fullscreen {
+    width: 100%;
+    height: calc(100vh - 140px);
+    min-height: 400px;
+    /* border: 1px solid #ddd;
+    border-radius: 8px; */
+}
+
 /* Geometry Details Styling */
 .geometry-details {
-    background: #f8f9fa;
+    background: #ffffff;
     border: 1px solid #dee2e6;
     border-radius: 8px;
     padding: 1rem;
-    margin-top: 0;
-    transition: all 0.3s ease;
+    margin-top: 10px; /* visible below map on small screens */
+    transition: all 0.2s ease;
 }
 
-.geometry-details.active {
-    display: block;
-}
+.geometry-details.active { display: block; }
+.geometry-details:not(.active) { display: none; }
 
-.geometry-details:not(.active) {
-    display: none;
+/* Overlay on medium and larger screens */
+@media (min-width: 768px) {
+    .geometry-details {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 380px;
+        max-height: calc(100vh - 170px);
+        overflow: auto;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        margin-top: 0; /* no extra margin in overlay mode */
+        z-index: 900;
+    }
+    /* When details are visible, shift map controls to sit next to the box */
+    .geometry-details.active ~ .map-controls {
+        right: 400px; /* 380px width + ~10-20px gap */
+    }
 }
 
 /* Entries Table Styling */
@@ -78,150 +101,56 @@
     letter-spacing: 0.5px;
 }
 
-.entries-table .table td {
-    vertical-align: middle;
-    font-size: 0.875rem;
-}
-
-.entries-table .table tbody tr:hover {
-    background-color: #f8f9fa;
-}
-
-.entries-table .badge {
-    font-size: 0.75rem;
-}
-
-.entries-table .btn-group-sm .btn {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-}
-
-.entries-table .pagination .page-link {
-    color: #0d6efd;
-    border-color: #dee2e6;
-}
-
-.entries-table .pagination .page-item.active .page-link {
-    background-color: #0d6efd;
-    border-color: #0d6efd;
-}
-
-.entries-table .search-form .form-control:focus {
-    border-color: #0d6efd;
-    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
-}
+.entries-table .table td { vertical-align: middle; font-size: 0.875rem; }
+.entries-table .table tbody tr:hover { background-color: #f8f9fa; }
+.entries-table .badge { font-size: 0.75rem; }
+.entries-table .btn-group-sm .btn { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
+.entries-table .pagination .page-link { color: #0d6efd; border-color: #dee2e6; }
+.entries-table .pagination .page-item.active .page-link { background-color: #0d6efd; border-color: #0d6efd; }
+.entries-table .search-form .form-control:focus { border-color: #0d6efd; box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25); }
 
 /* Responsive Design */
-@media (max-width: 768px) {
-    .map-controls {
-        top: 5px;
-        right: 5px;
+@media (max-width: 767px) {
+    /* Remove container padding for map on small screens */
+    .container-fluid {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
     }
     
-    .zoom-controls {
-        top: 5px;
-        left: 5px;
+    .container-fluid .row {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
     }
     
-    .map-controls .btn,
-    .zoom-controls .btn {
-        font-size: 0.75rem;
-        padding: 0.25rem 0.5rem;
+    .container-fluid .row #mapColumn {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
     }
     
-    .zoom-controls .btn {
-        width: 28px;
-        height: 28px;
+    /* Map styling for small screens */
+    .map-fullscreen {
+        height: 500px !important;
+        border-radius: 0 !important;
+        border-left: none !important;
+        border-right: none !important;
     }
+    
+    .map-controls { top: 5px; right: 5px; }
+    .zoom-controls { top: 5px; left: 5px; }
+    .map-controls .btn, .zoom-controls .btn { font-size: 0.75rem; padding: 0.25rem 0.5rem; }
+    .zoom-controls .btn { width: 28px; height: 28px; }
 }
 
-/* Form Styling */
-.form-control-sm,
-.form-select-sm {
-    font-size: 0.875rem;
-    padding: 0.25rem 0.5rem;
-}
-
-/* Entry Form Styling */
-.entry-form {
-    background: #fff;
-    border-radius: 0.375rem;
-}
-
-.entry-form .form-label {
-    font-weight: 600;
-    color: #495057;
-    margin-bottom: 0.5rem;
-}
-
-.entry-form .form-control,
-.entry-form .form-select {
-    border: 1px solid #ced4da;
-    border-radius: 0.375rem;
-    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-}
-
-.entry-form .form-control:focus,
-.entry-form .form-select:focus {
-    border-color: #0d6efd;
-    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
-}
-
-.entry-form .form-text {
-    font-size: 0.875rem;
-    color: #6c757d;
-    margin-top: 0.25rem;
-}
-
-.entry-form .text-danger {
-    color: #dc3545 !important;
-}
-
-/* Entry Card Styling */
-.entry-card {
-    border: 1px solid #dee2e6;
-    border-radius: 0.5rem;
-    margin-bottom: 1rem;
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-    transition: box-shadow 0.15s ease-in-out;
-}
-
-.entry-card:hover {
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-}
-
-.entry-card .card-header {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    border-bottom: 1px solid #dee2e6;
-    padding: 0.75rem 1rem;
-}
-
-.entry-card .card-header h6 {
-    margin: 0;
-    font-weight: 600;
-    color: #495057;
-}
-
-.entry-card .card-body {
-    padding: 1.25rem;
-}
-
-/* New Entry Form Styling */
-.new-entry-form {
-    border: 2px dashed #0d6efd;
-    background: linear-gradient(135deg, #f8f9ff 0%, #e6f3ff 100%);
-}
-
-.new-entry-form .card-header {
-    background: linear-gradient(135deg, #0d6efd 0%, #0056d6 100%);
-    color: white;
-    border-bottom: none;
-}
-
-.new-entry-form .card-header h6 {
-    color: white;
-    margin: 0;
-}
+/* Form & UI misc (trimmed to essentials) */
+.form-control-sm,.form-select-sm{font-size:0.875rem;padding:0.25rem 0.5rem}
+.entry-form{background:#fff;border-radius:0.375rem}
+.entry-form .form-label{font-weight:600;color:#495057;margin-bottom:0.5rem}
+.entry-form .form-control,.entry-form .form-select{border:1px solid #ced4da;border-radius:0.375rem;transition:border-color .15s ease-in-out,box-shadow .15s ease-in-out}
+.entry-form .form-control:focus,.entry-form .form-select:focus{border-color:#0d6efd;box-shadow:0 0 0 .2rem rgba(13,110,253,.25)}
+.entry-form .form-text{font-size:.875rem;color:#6c757d;margin-top:.25rem}
+.new-entry-form{border:2px dashed #0d6efd;background:linear-gradient(135deg,#f8f9ff 0%,#e6f3ff 100%)}
+.new-entry-form .card-header{background:linear-gradient(135deg,#0d6efd 0%,#0056d6 100%);color:#fff;border-bottom:none}
+.new-entry-form .card-header h6{color:#fff;margin:0}
 
 /* Form Field Groups */
 .form-field-group {

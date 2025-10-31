@@ -949,17 +949,9 @@ function getDatasetId() {
 // Adjust column layout based on content
 function adjustColumnLayout() {
     var mapColumn = document.getElementById('mapColumn');
-    var detailsColumn = document.getElementById('detailsColumn');
-    var geometryDetails = document.getElementById('geometryDetails');
-    
-    if (geometryDetails && geometryDetails.classList.contains('active')) {
-        // Show both columns when geometry details are visible
-        mapColumn.className = 'col-md-8';
-        detailsColumn.className = 'col-md-4';
-    } else {
-        // Show only map column when no geometry is selected
-        mapColumn.className = 'col-md-12';
-        detailsColumn.className = 'col-md-4 d-none';
+    // Keep map column full width; geometry details is an overlay on md+ and flows below on small screens
+    if (mapColumn) {
+        mapColumn.className = 'col-12';
     }
 }
 
