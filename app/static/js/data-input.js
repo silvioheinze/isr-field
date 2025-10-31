@@ -923,15 +923,28 @@ function zoomToMyLocation() {
 function clearSelection() {
     currentPoint = null;
     var detailsDiv = document.getElementById('geometryDetails');
-    detailsDiv.classList.remove('active');
+    if (detailsDiv) {
+        detailsDiv.classList.remove('active');
+    }
     
-    // Clear geometry info
-    document.getElementById('geometryId').textContent = '-';
-    document.getElementById('geometryAddress').textContent = '-';
-    document.getElementById('entriesCount').textContent = '-';
+    // Reset all markers to default blue style
+    markers.forEach(marker => {
+        marker.setStyle({ fillColor: '#0047BB', color: '#001A70' });
+    });
+    
+    // Clear geometry info (only if elements exist)
+    var geometryId = document.getElementById('geometryId');
+    if (geometryId) geometryId.textContent = '-';
+    var geometryAddress = document.getElementById('geometryAddress');
+    if (geometryAddress) geometryAddress.textContent = '-';
+    var entriesCount = document.getElementById('entriesCount');
+    if (entriesCount) entriesCount.textContent = '-';
     
     // Clear entries list
-    document.getElementById('entriesList').innerHTML = '';
+    var entriesList = document.getElementById('entriesList');
+    if (entriesList) {
+        entriesList.innerHTML = '';
+    }
     
     // Adjust column layout
     if (typeof adjustColumnLayout === 'function') {
