@@ -14,8 +14,8 @@ def get_field_value(entry, field_name):
 @register.filter
 def get_choices_list(field):
     """Get choices as a list for choice fields"""
-    if field.field_type == 'choice' and field.choices:
-        return [choice.strip() for choice in field.choices.split(',') if choice.strip()]
+    if field.field_type == 'choice' or field.typology:
+        return field.get_choices_list()
     return []
 
 @register.filter

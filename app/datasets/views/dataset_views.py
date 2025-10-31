@@ -8,8 +8,19 @@ from django.db import transaction
 from django.core.paginator import Paginator
 from django.db.models import Q
 
-from ..models import DataSet, DataGeometry, DataEntry, DataEntryField, DatasetField, AuditLog
+from ..models import DataSet, DataGeometry, DataEntry, DataEntryField, DatasetField, AuditLog, Typology
 from ..forms import DatasetFieldConfigForm, DatasetFieldForm
+def _get_typology_categories_map():
+    categories = {}
+    typologies = Typology.objects.all().order_by('name')
+    for typology in typologies:
+        category_values = (
+            typology.entries.order_by('category')
+            .values_list('category', flat=True)
+            .distinct()
+        )
+        categories[str(typology.id)] = [value for value in category_values if value]
+    return categories
 from .auth_views import is_manager
 
 
@@ -153,7 +164,10 @@ def dataset_edit_view(request, dataset_id):
             messages.error(request, 'Dataset name is required.')
     
     return render(request, 'datasets/dataset_edit.html', {
-        'dataset': dataset
+        'dataset': dataset,
+        'geometries_count': DataGeometry.objects.filter(dataset=dataset).count(),
+        'entries_count': DataEntry.objects.filter(geometry__dataset=dataset).count(),
+        'field_count': DatasetField.objects.filter(dataset=dataset).count()
     })
 
 
@@ -297,14 +311,15 @@ def dataset_data_input_view(request, dataset_id):
             'id': field.id,
             'name': field.label,  # Use label for display
             'label': field.label,
-            'field_type': field.field_type,
+            'field_type': 'choice' if field.typology else field.field_type,
             'field_name': field.field_name,
             'required': field.required,
             'enabled': field.enabled,
             'help_text': field.help_text or '',
             'choices': field.choices or '',
             'order': field.order,
-            'typology_choices': field.get_choices_list() if field.field_type == 'choice' else []
+            'typology_choices': field.get_choices_list() if field.typology else [],
+            'typology_category': field.typology_category or ''
         }
         fields_data.append(field_data)
     
@@ -402,14 +417,15 @@ def dataset_fields_view(request, dataset_id):
                 'id': field.id,
                 'name': field.label,
                 'label': field.label,
-                'field_type': field.field_type,
+                'field_type': 'choice' if field.typology else field.field_type,
                 'field_name': field.field_name,
                 'required': field.required,
                 'enabled': field.enabled,
                 'help_text': field.help_text or '',
                 'choices': field.choices or '',
                 'order': field.order,
-                'typology_choices': field.get_choices_list() if field.field_type == 'choice' else []
+                'typology_choices': field.get_choices_list() if field.typology else [],
+                'typology_category': field.typology_category or ''
             }
             fields_data.append(field_data)
         
@@ -524,7 +540,8 @@ def custom_field_create_view(request, dataset_id):
     return render(request, 'datasets/custom_field_form.html', {
         'dataset': dataset,
         'form': form,
-        'title': 'Create Custom Field'
+        'title': 'Create Custom Field',
+        'typology_categories': _get_typology_categories_map()
     })
 
 
@@ -551,7 +568,8 @@ def custom_field_edit_view(request, dataset_id, field_id):
         'dataset': dataset,
         'field': field,
         'form': form,
-        'title': 'Edit Custom Field'
+        'title': 'Edit Custom Field',
+        'typology_categories': _get_typology_categories_map()
     })
 
 

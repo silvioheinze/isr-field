@@ -175,7 +175,7 @@ class DataInputFieldsTestCase(TestCase):
         content = response.content.decode('utf-8')
         
         # Check that window.allFields is set
-        self.assertIn('window.allFields = JSON.parse(document.getElementById(\'allFields\').textContent);', content)
+        self.assertIn('window.allFields = JSON.parse(allFieldsElement.textContent);', content)
         
         # Check that window.allowMultipleEntries is set
         self.assertIn('window.allowMultipleEntries =', content)

@@ -9,6 +9,55 @@ var addPointMode = false;
 var addPointMarker = null;
 var lastAddedLatLng = null;
 
+function escapeHtml(value) {
+    if (value === null || value === undefined) {
+        return '';
+    }
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function normalizeFieldChoices(field) {
+    var options = [];
+    if (field && Array.isArray(field.typology_choices) && field.typology_choices.length > 0) {
+        field.typology_choices.forEach(function(choice) {
+            if (choice === null || choice === undefined) return;
+            if (typeof choice === 'object') {
+                var rawValue = choice.value !== undefined ? choice.value : (choice.code !== undefined ? choice.code : '');
+                var label = choice.label || choice.name || rawValue;
+                if (rawValue !== undefined && rawValue !== null && label !== undefined && label !== null) {
+                    options.push({
+                        value: String(rawValue),
+                        label: String(label)
+                    });
+                }
+            } else {
+                options.push({
+                    value: String(choice),
+                    label: String(choice)
+                });
+            }
+        });
+    } else if (field && field.choices) {
+        var rawChoices = Array.isArray(field.choices) ? field.choices : field.choices.split(',');
+        rawChoices.forEach(function(choice) {
+            if (choice === null || choice === undefined) return;
+            var trimmed = typeof choice === 'string' ? choice.trim() : choice;
+            if (trimmed !== '') {
+                options.push({
+                    value: String(trimmed),
+                    label: String(trimmed)
+                });
+            }
+        });
+    }
+    return options;
+}
+
 // Initialize the data input functionality
 function initializeDataInput(typologyDataParam, fieldsData) {
     allFields = fieldsData || [];
@@ -225,6 +274,8 @@ function generateEntriesTable(point) {
     if (!entriesList) return;
 
     var entriesHtml = '';
+    console.log('generateEntriesTable called with point:', point);
+    console.log('window.allFields:', window.allFields);
     
     // Sort entries by year (newest first)
     var sortedEntries = (point.entries || []).sort(function(a, b) {
@@ -341,10 +392,13 @@ function generateEntriesTable(point) {
             var hasEnabledFields = sortedFields.some(function(field) {
                 return field.enabled;
             });
+            console.log('New entry form - Checking window.allFields:', window.allFields);
+            console.log('New entry form - Has enabled fields:', hasEnabledFields);
             
             if (hasEnabledFields) {
                 sortedFields.forEach(function(field) {
                     if (field.enabled) {
+                        console.log('New entry form - Rendering field:', field);
                         entriesHtml += '<div class="mb-3">';
                         entriesHtml += '<label for="field_' + field.field_name + '" class="form-label">';
                         entriesHtml += field.label;
@@ -453,23 +507,20 @@ function createFormFieldInput(field, value, entryIndex) {
             break;
             
         case 'choice':
+            var options = normalizeFieldChoices(field);
+            var fieldValueStr = fieldValue !== undefined && fieldValue !== null ? String(fieldValue) : '';
             inputHtml = '<select class="form-select" id="' + fieldId + '" name="' + fieldName + '"';
             if (field.required) inputHtml += ' required';
             inputHtml += '>';
-            inputHtml += '<option value="">' + (field.placeholder || 'Select option') + '</option>';
-            
-            if (field.typology_choices && field.typology_choices.length > 0) {
-                field.typology_choices.forEach(function(choice) {
-                    var selected = (fieldValue === choice) ? ' selected' : '';
-                    inputHtml += '<option value="' + choice + '"' + selected + '>' + choice + '</option>';
-                });
-            } else if (field.choices) {
-                var choices = field.choices.split(',').map(function(choice) { return choice.trim(); });
-                choices.forEach(function(choice) {
-                    var selected = (fieldValue === choice) ? ' selected' : '';
-                    inputHtml += '<option value="' + choice + '"' + selected + '>' + choice + '</option>';
-                });
-            }
+            inputHtml += '<option value="">' + escapeHtml(field.placeholder || 'Select option') + '</option>';
+
+            options.forEach(function(option) {
+                var optionValue = option.value !== undefined ? option.value : '';
+                var optionLabel = option.label !== undefined ? option.label : optionValue;
+                var selected = fieldValueStr !== '' && fieldValueStr === String(optionValue) ? ' selected' : '';
+                inputHtml += '<option value="' + escapeHtml(optionValue) + '"' + selected + '>' + escapeHtml(optionLabel) + '</option>';
+            });
+
             inputHtml += '</select>';
             break;
             
@@ -563,19 +614,14 @@ function createCustomFieldInput(field) {
             inputHtml += '</select>';
             break;
         case 'choice':
-            if (field.typology_choices && field.typology_choices.length > 0) {
+            var customOptions = normalizeFieldChoices(field);
+            if (customOptions.length > 0) {
                 inputHtml = '<select class="form-select form-select-sm" id="' + fieldId + '" name="' + fieldName + '">';
-                inputHtml += '<option value="">' + (window.translations?.selectOption || 'Select option') + '</option>';
-                field.typology_choices.forEach(function(choice) {
-                    inputHtml += '<option value="' + choice + '">' + choice + '</option>';
-                });
-                inputHtml += '</select>';
-            } else if (field.choices) {
-                var choices = field.choices.split(',').map(function(choice) { return choice.trim(); });
-                inputHtml = '<select class="form-select form-select-sm" id="' + fieldId + '" name="' + fieldName + '">';
-                inputHtml += '<option value="">' + (window.translations?.selectOption || 'Select option') + '</option>';
-                choices.forEach(function(choice) {
-                    inputHtml += '<option value="' + choice + '">' + choice + '</option>';
+                inputHtml += '<option value="">' + escapeHtml(window.translations?.selectOption || 'Select option') + '</option>';
+                customOptions.forEach(function(option) {
+                    var optionValue = option.value !== undefined ? option.value : '';
+                    var optionLabel = option.label !== undefined ? option.label : optionValue;
+                    inputHtml += '<option value="' + escapeHtml(optionValue) + '">' + escapeHtml(optionLabel) + '</option>';
                 });
                 inputHtml += '</select>';
             } else {
@@ -633,21 +679,16 @@ function createEditableFieldInput(field, value, entryIndex) {
             inputHtml += '</select>';
             break;
         case 'choice':
-            if (field.typology_choices && field.typology_choices.length > 0) {
+            var editableOptions = normalizeFieldChoices(field);
+            var editableValue = fieldValue !== undefined && fieldValue !== null ? String(fieldValue) : '';
+            if (editableOptions.length > 0) {
                 inputHtml = '<select class="form-select form-select-sm" id="' + fieldId + '" name="' + fieldName + '">';
-                inputHtml += '<option value="">' + (window.translations?.selectOption || 'Select option') + '</option>';
-                field.typology_choices.forEach(function(choice) {
-                    var selected = (fieldValue === choice) ? ' selected' : '';
-                    inputHtml += '<option value="' + choice + '"' + selected + '>' + choice + '</option>';
-                });
-                inputHtml += '</select>';
-            } else if (field.choices) {
-                var choices = field.choices.split(',').map(function(choice) { return choice.trim(); });
-                inputHtml = '<select class="form-select form-select-sm" id="' + fieldId + '" name="' + fieldName + '">';
-                inputHtml += '<option value="">' + (window.translations?.selectOption || 'Select option') + '</option>';
-                choices.forEach(function(choice) {
-                    var selected = (fieldValue === choice) ? ' selected' : '';
-                    inputHtml += '<option value="' + choice + '"' + selected + '>' + choice + '</option>';
+                inputHtml += '<option value="">' + escapeHtml(window.translations?.selectOption || 'Select option') + '</option>';
+                editableOptions.forEach(function(option) {
+                    var optionValue = option.value !== undefined ? option.value : '';
+                    var optionLabel = option.label !== undefined ? option.label : optionValue;
+                    var selected = editableValue !== '' && editableValue === String(optionValue) ? ' selected' : '';
+                    inputHtml += '<option value="' + escapeHtml(optionValue) + '"' + selected + '>' + escapeHtml(optionLabel) + '</option>';
                 });
                 inputHtml += '</select>';
             } else {

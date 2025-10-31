@@ -334,6 +334,31 @@ class DatasetFieldFormTest(TestCase):
         self.assertFalse(form.is_valid())
         self.assertIn('choices', form.errors)
     
+    def test_form_typology_category_choices_population(self):
+        """Typology categories should populate when a typology is selected"""
+        typology = Typology.objects.create(name='Usage Typology', created_by=self.user)
+        TypologyEntry.objects.create(typology=typology, code=1, category='Residential', name='Single Family')
+        TypologyEntry.objects.create(typology=typology, code=2, category='Commercial', name='Retail')
+
+        form = DatasetFieldForm()
+        # Ensure initial choices contain default option only when no typology selected
+        self.assertEqual(form.fields['typology_category'].choices, [('', 'All categories')])
+
+        form_with_typology = DatasetFieldForm(data={
+            'field_name': 'usage',
+            'label': 'Usage',
+            'field_type': 'choice',
+            'required': True,
+            'enabled': True,
+            'order': 1,
+            'typology': str(typology.id)
+        })
+        # Trigger validation to populate cleaned data
+        form_with_typology.is_valid()
+        choices = form_with_typology.fields['typology_category'].choices
+        self.assertIn(('Residential', 'Residential'), choices)
+        self.assertIn(('Commercial', 'Commercial'), choices)
+    
     def test_form_validation_missing_required_fields(self):
         """Test form validation with missing required fields"""
         form_data = {

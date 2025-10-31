@@ -3,114 +3,141 @@
 {% block title %}Import CSV - {{ dataset.name }}{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-md-8">
-            <h2>Import CSV Data</h2>
-            <p class="text-muted">Import spatial data from CSV file into "{{ dataset.name }}"</p>
-            
-            <div class="card">
+<div class="container py-4">
+    <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-1">Import CSV Data</h1>
+            <p class="text-muted small mb-0">Upload a CSV to populate <strong>{{ dataset.name }}</strong> with geometries and entries.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Back to Dataset
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="bi bi-diagram-3 me-2"></i>CSV Format Requirements
+                </div>
                 <div class="card-body">
-                    <h5 class="card-title">CSV Format Requirements</h5>
-                    <p>The CSV file should contain the following columns:</p>
-                    <ul>
-                        <li><strong>ID</strong> - Unique identifier for each geometry point</li>
-                        <li><strong>ADRESSE</strong> - Address of the location (optional, will use default if missing)</li>
-                        <li><strong>Coordinates</strong> - One of these coordinate column pairs:
+                    <p class="mb-3">Ensure your CSV contains the following columns for a successful import:</p>
+                    <ul class="mb-4">
+                        <li><strong>ID</strong> – Unique identifier for each geometry point.</li>
+                        <li><strong>ADRESSE</strong> – Location address (optional if defaults exist).</li>
+                        <li><strong>Coordinate pairs</strong> – Include one of these combinations:
                             <ul>
-                                <li><strong>GEB_X, GEB_Y</strong> - Austrian coordinate format</li>
-                                <li><strong>X, Y</strong> - Generic X/Y coordinates</li>
-                                <li><strong>LONGITUDE, LATITUDE</strong> - WGS84 coordinates</li>
-                                <li><strong>LON, LAT</strong> - Short form WGS84 coordinates</li>
+                                <li><strong>GEB_X</strong> &amp; <strong>GEB_Y</strong> – Austrian coordinates.</li>
+                                <li><strong>X</strong> &amp; <strong>Y</strong> – Generic projected coordinates.</li>
+                                <li><strong>LONGITUDE</strong> &amp; <strong>LATITUDE</strong> – WGS84 coordinates.</li>
+                                <li><strong>LON</strong> &amp; <strong>LAT</strong> – Short-form WGS84.</li>
                             </ul>
                         </li>
-                        <li><strong>Year-prefixed columns</strong> - Any columns starting with year (e.g., 2016_NUTZUNG, 2022_CAT_INNO, 2020_CAT_WERT, 2016_NUTZUNG_NAME)</li>
-                        <li><strong>Generic columns</strong> - NUTZUNG, NUTZUNG_POLY1, NUTZUNG_POLY2, CAT_INNO, CAT_WERT, CAT_FILI, NUTZUNG_NAME, YEAR (optional)</li>
+                        <li><strong>Year-prefixed columns</strong> – e.g. <code>2016_NUTZUNG</code>, <code>2022_CAT_INNO</code>, <code>2020_CAT_WERT</code>.</li>
+                        <li><strong>Generic columns</strong> – e.g. <code>NUTZUNG</code>, <code>NUTZUNG_POLY1</code>, <code>CAT_INNO</code>, <code>YEAR</code> (optional).
                     </ul>
-                    
-                    <h6 class="mt-3">Supported Coordinate Systems:</h6>
+
+                    <h6 class="fw-semibold">Supported Coordinate Systems</h6>
                     <ul>
-                        <li><strong>WGS84 (EPSG:4326)</strong> - Latitude/Longitude coordinates (e.g., 48.2082, 16.3738)</li>
-                        <li><strong>MGI Austria GK M34 (EPSG:31256)</strong> - Austrian projected coordinates (e.g., 656610, 3399131)</li>
-                        <li><strong>MGI Austria GK M31 (EPSG:31257)</strong> - Austrian projected coordinates (e.g., 456610, 3399131)</li>
-                        <li><strong>MGI Austria GK M28 (EPSG:31258)</strong> - Austrian projected coordinates (e.g., 256610, 3399131)</li>
-                        <li><strong>Web Mercator (EPSG:3857)</strong> - Web mapping coordinates</li>
+                        <li><strong>WGS84 (EPSG:4326)</strong> – Latitude/Longitude.</li>
+                        <li><strong>MGI Austria GK M34/M31/M28 (EPSG:31256/31257/31258)</strong> – Austrian projected coordinates.</li>
+                        <li><strong>Web Mercator (EPSG:3857)</strong> – Web mapping coordinates.</li>
                     </ul>
-                    
-                    <h6 class="mt-3">Enhanced Auto-Detection:</h6>
-                    <p class="small text-muted">
-                        The system automatically detects coordinate systems based on coordinate ranges:
-                    </p>
-                    <ul class="small">
-                        <li><strong>WGS84</strong>: Latitude 47-49°, Longitude 9-18°</li>
-                        <li><strong>MGI Austria GK M34</strong>: X 500,000-900,000, Y 3,000,000-5,000,000</li>
-                        <li><strong>MGI Austria GK M31</strong>: X 300,000-700,000, Y 3,000,000-5,000,000</li>
-                        <li><strong>MGI Austria GK M28</strong>: X 100,000-500,000, Y 3,000,000-5,000,000</li>
-                        <li><strong>Scaled Austrian Coordinates</strong>: X 100-2,000, Y 330,000-350,000</li>
+
+                    <h6 class="fw-semibold mt-3">Enhanced Auto-Detection</h6>
+                    <p class="small text-muted mb-2">Coordinate systems are detected automatically based on value ranges:</p>
+                    <ul class="small mb-4">
+                        <li><strong>WGS84</strong>: Latitude 47–49°, Longitude 9–18°.</li>
+                        <li><strong>MGI GK M34</strong>: X 500 000–900 000, Y 3 000 000–5 000 000.</li>
+                        <li><strong>MGI GK M31</strong>: X 300 000–700 000, Y 3 000 000–5 000 000.</li>
+                        <li><strong>MGI GK M28</strong>: X 100 000–500 000, Y 3 000 000–5 000 000.</li>
+                        <li><strong>Scaled Austrian</strong>: X 100–2 000, Y 330 000–350 000.</li>
                     </ul>
-                    
-                    <div class="alert alert-info">
-                        <strong>Note:</strong> The import will create geometry points and separate data entries for all years detected in column headers. 
-                        If a geometry with the same ID already exists, that row will be skipped.
-                        Each geometry may have multiple entries (one for each year found in the data).
-                        <br><br>
-                        <strong>Coordinate System:</strong> The system automatically detects and transforms coordinates from multiple Austrian projections (MGI Austria GK) to WGS84. 
-                        Supports both full-scale and scaled coordinate formats.
-                        <br><br>
-                        <strong>Data Processing:</strong> Year-prefixed columns (e.g., 2016_NUTZUNG) create separate entries for each year. 
-                        Generic columns (e.g., NUTZUNG) create a single entry if no year-specific data is found.
-                        <br><br>
-                        <strong>Entry Names:</strong> Use {YEAR}_NUTZUNG_NAME or NUTZUNG_NAME columns to set custom names for data entries. 
-                        If not provided, entry names will be left empty.
+
+                    <div class="alert alert-info mb-0">
+                        <ul class="mb-0 small">
+                            <li><strong>Data creation:</strong> Each year-specific column creates a separate entry; generic columns create a single entry when no year columns exist.</li>
+                            <li><strong>Existing IDs:</strong> Rows with geometry IDs that already exist are skipped to avoid duplicates.</li>
+                            <li><strong>Entry names:</strong> Use <code>{YEAR}_NUTZUNG_NAME</code> or <code>NUTZUNG_NAME</code> to label entries. Otherwise, names remain blank.</li>
+                            <li><strong>Coordinate transforms:</strong> Multiple Austrian projections are transformed to WGS84 automatically.</li>
+                        </ul>
                     </div>
                 </div>
             </div>
-            
-            <div class="card mt-4">
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="bi bi-upload me-2"></i>Upload CSV File
+                </div>
                 <div class="card-body">
-                    <h5 class="card-title">Upload CSV File</h5>
-                    <form method="post" enctype="multipart/form-data">
+                    <form method="post" enctype="multipart/form-data" class="d-flex flex-column gap-3">
                         {% csrf_token %}
-                        <div class="mb-3">
+                        <div>
                             <label for="csv_file" class="form-label">Select CSV File</label>
                             <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv" required>
-                            <div class="form-text">Only CSV files are accepted.</div>
+                            <div class="form-text">Only comma-separated CSV files are accepted.</div>
                         </div>
-                        
-                        <button type="submit" class="btn btn-primary">Next: Select Columns</button>
-                        <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-secondary">Cancel</a>
+                        <div class="d-flex flex-wrap gap-2 justify-content-end">
+                            <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-arrow-right-circle"></i> Next: Select Columns
+                            </button>
+                        </div>
                     </form>
                 </div>
             </div>
         </div>
-        
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Actions</h5>
-                    <div class="d-grid gap-2">
-                        <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-secondary">Back to Dataset</a>
-                        <a href="{% url 'dataset_data_input' dataset.id %}" class="btn btn-info">Data Input</a>
-                        {% if dataset.owner == user %}
-                            <a href="{% url 'dataset_edit' dataset.id %}" class="btn btn-warning">Edit Dataset</a>
-                        {% endif %}
-                    </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="bi bi-lightbulb me-2"></i>Tips before Importing
+                </div>
+                <div class="card-body small text-muted">
+                    <ul class="ps-3 mb-0">
+                        <li class="mb-2">Clean spreadsheets of extra header rows or merged cells.</li>
+                        <li class="mb-2">Verify coordinate formats are consistent throughout the file.</li>
+                        <li class="mb-2">Keep a backup of your CSV in case you need to re-import.</li>
+                        <li>Consider importing a small sample first to validate the structure.</li>
+                    </ul>
                 </div>
             </div>
-            
-            <div class="card mt-3">
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="bi bi-clipboard-data me-2"></i>Quick Access
+                </div>
+                <div class="card-body d-grid gap-2">
+                    <a href="{% url 'dataset_data_input' dataset.id %}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-pencil-square"></i> Data Input
+                    </a>
+                    {% if dataset.owner == user %}
+                    <a href="{% url 'dataset_edit' dataset.id %}" class="btn btn-outline-warning btn-sm">
+                        <i class="bi bi-gear"></i> Edit Dataset
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="bi bi-file-earmark-spreadsheet me-2"></i>Sample CSV Format
+                </div>
                 <div class="card-body">
-                    <h5 class="card-title">Sample CSV Format</h5>
                     <small class="text-muted">
-                        <pre>ID,ADRESSE,2016_NUTZUNG,2016_CAT_INNO,2016_CAT_WERT,2016_CAT_FILI,2016_NUTZUNG_NAME,GEB_X,GEB_Y,2022_NUTZUNG,2022_CAT_INNO,2022_CAT_WERT,2022_CAT_FILI,2022_NUTZUNG_NAME
+<pre class="mb-3">ID,ADRESSE,2016_NUTZUNG,2016_CAT_INNO,2016_CAT_WERT,2016_CAT_FILI,2016_NUTZUNG_NAME,GEB_X,GEB_Y,2022_NUTZUNG,2022_CAT_INNO,2022_CAT_WERT,2022_CAT_FILI,2022_NUTZUNG_NAME
 ss16_kg01_001_1,Apollogasse 19,870,999,999,999,Residential Building,656.61,339913.14,870,999,999,999,Office Building
 ss16_kg01_001_2,Apollogasse 28,640,0,0,0,Commercial Space,636.41,339972.43,640,0,0,0,Retail Store
 
-Alternative coordinate formats:
+Alternative coordinates:
 ID,ADRESSE,LONGITUDE,LATITUDE,2016_NUTZUNG,2016_CAT_INNO,2016_NUTZUNG_NAME
 point_001,Test Address,16.3738,48.2082,870,999,Residential Building
 
-Generic data format:
+Generic format:
 ID,ADRESSE,X,Y,NUTZUNG,CAT_INNO,CAT_WERT,NUTZUNG_NAME,YEAR
 point_002,Another Address,656610,3399131,870,999,999,Office Building,2022</pre>
                     </small>

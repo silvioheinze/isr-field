@@ -203,6 +203,25 @@ class DatasetFieldModelTest(TestCase):
         choices = field.get_choices_list()
         self.assertEqual(choices, [])
 
+    def test_typology_choices_list_for_non_choice_field(self):
+        """Typology fields should return typology entries even if stored as text"""
+        typology = Typology.objects.create(name='Test Typology', created_by=self.user)
+        TypologyEntry.objects.create(typology=typology, code=1, category='A', name='Option 1')
+        TypologyEntry.objects.create(typology=typology, code=2, category='B', name='Option 2')
+
+        field = DatasetField.objects.create(
+            dataset=self.dataset,
+            field_name='typology_field',
+            label='Typology Field',
+            field_type='text',
+            typology=typology
+        )
+
+        choices = field.get_choices_list()
+        self.assertEqual(len(choices), 2)
+        self.assertEqual(choices[0]['value'], '1')
+        self.assertIn('Option 1', choices[0]['label'])
+
 
 class DataEntryFieldModelTest(TestCase):
     """Test cases for DataEntryField model"""

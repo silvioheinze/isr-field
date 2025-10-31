@@ -3,150 +3,238 @@
 {% block title %}{{ title }} - {{ dataset.name }}{% endblock %}
 
 {% block content %}
-<div class="container mt-4" style="max-width: 800px;">
-    <h2>{{ title }}</h2>
-    <p class="text-muted">Dataset: {{ dataset.name }}</p>
-    
-    <form method="post">
-        {% csrf_token %}
-        
-        <div class="row">
-            <div class="col-md-6">
-                <div class="mb-3">
-                    <label for="{{ form.field_name.id_for_label }}" class="form-label">Field Name</label>
-                    {{ form.field_name }}
-                    {% if form.field_name.help_text %}
-                        <div class="form-text">{{ form.field_name.help_text }}</div>
-                    {% endif %}
-                    {% if form.field_name.errors %}
-                        <div class="text-danger">{{ form.field_name.errors }}</div>
-                    {% endif %}
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="mb-3">
-                    <label for="{{ form.label.id_for_label }}" class="form-label">Display Label</label>
-                    {{ form.label }}
-                    {% if form.label.help_text %}
-                        <div class="form-text">{{ form.label.help_text }}</div>
-                    {% endif %}
-                    {% if form.label.errors %}
-                        <div class="text-danger">{{ form.label.errors }}</div>
-                    {% endif %}
-                </div>
-            </div>
+<div class="container py-4" style="max-width: 960px;">
+    <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-1">{{ title }}</h1>
+            <p class="text-muted small mb-0">Configure how the <strong>{{ dataset.name }}</strong> dataset captures this field in data entry.</p>
         </div>
-        
-        <div class="row">
-            <div class="col-md-6">
-                <div class="mb-3">
-                    <label for="{{ form.field_type.id_for_label }}" class="form-label">Field Type</label>
-                    {{ form.field_type }}
-                    {% if form.field_type.help_text %}
-                        <div class="form-text">{{ form.field_type.help_text }}</div>
-                    {% endif %}
-                    {% if form.field_type.errors %}
-                        <div class="text-danger">{{ form.field_type.errors }}</div>
-                    {% endif %}
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="mb-3">
-                    <label for="{{ form.order.id_for_label }}" class="form-label">Display Order</label>
-                    {{ form.order }}
-                    {% if form.order.help_text %}
-                        <div class="form-text">{{ form.order.help_text }}</div>
-                    {% endif %}
-                    {% if form.order.errors %}
-                        <div class="text-danger">{{ form.order.errors }}</div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-        
-        <div class="mb-3">
-            <label for="{{ form.help_text.id_for_label }}" class="form-label">Help Text</label>
-            {{ form.help_text }}
-            {% if form.help_text.help_text %}
-                <div class="form-text">{{ form.help_text.help_text }}</div>
-            {% endif %}
-            {% if form.help_text.errors %}
-                <div class="text-danger">{{ form.help_text.errors }}</div>
-            {% endif %}
-        </div>
-        
-        <div class="mb-3">
-            <label for="{{ form.choices.id_for_label }}" class="form-label">Manual Choices (comma-separated)</label>
-            {{ form.choices }}
-            <div class="form-text">Only used if no typology is selected. Leave empty if using typology.</div>
-            {% if form.choices.errors %}
-                <div class="text-danger">{{ form.choices.errors }}</div>
-            {% endif %}
-        </div>
-        
-        <div class="mb-3">
-            <label for="{{ form.typology.id_for_label }}" class="form-label">Typology</label>
-            {{ form.typology }}
-            <div class="form-text">Select a typology to use for choice fields. Typology entries will be used as options.</div>
-            {% if form.typology.errors %}
-                <div class="text-danger">{{ form.typology.errors }}</div>
-            {% endif %}
-        </div>
-        
-        <div class="row">
-            <div class="col-md-4">
-                <div class="form-check">
-                    {{ form.required }}
-                    <label class="form-check-label" for="{{ form.required.id_for_label }}">
-                        Required Field
-                    </label>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="form-check">
-                    {{ form.enabled }}
-                    <label class="form-check-label" for="{{ form.enabled.id_for_label }}">
-                        Enabled
-                    </label>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="form-check">
-                    {{ form.is_coordinate_field }}
-                    <label class="form-check-label" for="{{ form.is_coordinate_field.id_for_label }}">
-                        Coordinate Field
-                    </label>
-                </div>
-            </div>
-        </div>
-        
-        <div class="row mt-2">
-            <div class="col-md-4">
-                <div class="form-check">
-                    {{ form.is_id_field }}
-                    <label class="form-check-label" for="{{ form.is_id_field.id_for_label }}">
-                        ID Field
-                    </label>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="form-check">
-                    {{ form.is_address_field }}
-                    <label class="form-check-label" for="{{ form.is_address_field.id_for_label }}">
-                        Address Field
-                    </label>
-                </div>
-            </div>
-        </div>
-        
-        <div class="mt-4">
-            <button type="submit" class="btn btn-primary">
-                <i class="bi bi-check-circle"></i> Save Field
-            </button>
-            <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-secondary">
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-arrow-left"></i> Back to Field Configuration
             </a>
         </div>
+    </div>
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light fw-semibold">
+                <i class="bi bi-info-circle me-2"></i>Basic Field Details
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <label for="{{ form.field_name.id_for_label }}" class="form-label">Field Name</label>
+                        {{ form.field_name }}
+                        {% if form.field_name.help_text %}
+                            <div class="form-text">{{ form.field_name.help_text }}</div>
+                        {% endif %}
+                        {% if form.field_name.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.field_name.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ form.label.id_for_label }}" class="form-label">Display Label</label>
+                        {{ form.label }}
+                        {% if form.label.help_text %}
+                            <div class="form-text">{{ form.label.help_text }}</div>
+                        {% endif %}
+                        {% if form.label.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.label.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="{{ form.field_type.id_for_label }}" class="form-label">Field Type</label>
+                        {{ form.field_type }}
+                        {% if form.field_type.help_text %}
+                            <div class="form-text">{{ form.field_type.help_text }}</div>
+                        {% endif %}
+                        {% if form.field_type.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.field_type.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ form.order.id_for_label }}" class="form-label">Display Order</label>
+                        {{ form.order }}
+                        {% if form.order.help_text %}
+                            <div class="form-text">{{ form.order.help_text }}</div>
+                        {% else %}
+                            <div class="form-text">Lower numbers appear earlier in data entry forms.</div>
+                        {% endif %}
+                        {% if form.order.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.order.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-12">
+                        <label for="{{ form.help_text.id_for_label }}" class="form-label">Help Text</label>
+                        {{ form.help_text }}
+                        {% if form.help_text.help_text %}
+                            <div class="form-text">{{ form.help_text.help_text }}</div>
+                        {% else %}
+                            <div class="form-text">Optional guidance displayed to editors beneath the field.</div>
+                        {% endif %}
+                        {% if form.help_text.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.help_text.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light fw-semibold">
+                <i class="bi bi-ui-checks me-2"></i>Field Behaviour
+            </div>
+            <div class="card-body">
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-3">
+                    <div class="col">
+                        <div class="form-check">
+                            {{ form.required }}
+                            <label class="form-check-label" for="{{ form.required.id_for_label }}">Required Field</label>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="form-check">
+                            {{ form.enabled }}
+                            <label class="form-check-label" for="{{ form.enabled.id_for_label }}">Enabled</label>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="form-check">
+                            {{ form.is_coordinate_field }}
+                            <label class="form-check-label" for="{{ form.is_coordinate_field.id_for_label }}">Coordinate Field</label>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="form-check">
+                            {{ form.is_id_field }}
+                            <label class="form-check-label" for="{{ form.is_id_field.id_for_label }}">ID Field</label>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="form-check">
+                            {{ form.is_address_field }}
+                            <label class="form-check-label" for="{{ form.is_address_field.id_for_label }}">Address Field</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light fw-semibold">
+                <i class="bi bi-list-check me-2"></i>Choice &amp; Typology Options
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    <div class="col-12">
+                        <label for="{{ form.choices.id_for_label }}" class="form-label">Manual Choices</label>
+                        {{ form.choices }}
+                        <div class="form-text">Provide a comma-separated list of options when not using a typology.</div>
+                        {% if form.choices.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.choices.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="{{ form.typology.id_for_label }}" class="form-label">Typology</label>
+                        {{ form.typology }}
+                        <div class="form-text">Automatically populate dropdown values from a typology.</div>
+                        {% if form.typology.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.typology.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="{{ form.typology_category.id_for_label }}" class="form-label">Typology Category</label>
+                        {{ form.typology_category }}
+                        <div class="form-text">Optionally limit choices to a single category within the typology.</div>
+                        {% if form.typology_category.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.typology_category.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 justify-content-end">
+            <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-outline-secondary">
+                <i class="bi bi-x-circle"></i> Cancel
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-circle"></i> Save Field
+            </button>
+        </div>
     </form>
 </div>
+
+{{ typology_categories|json_script:"typologyCategoriesData" }}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var typologySelect = document.getElementById('id_typology');
+        var categorySelect = document.getElementById('id_typology_category');
+        if (!typologySelect || !categorySelect) {
+            return;
+        }
+
+        var categoriesElement = document.getElementById('typologyCategoriesData');
+        var categoriesData = {};
+        if (categoriesElement && categoriesElement.textContent) {
+            try {
+                categoriesData = JSON.parse(categoriesElement.textContent);
+            } catch (err) {
+                categoriesData = {};
+            }
+        }
+
+        function renderCategoryOptions() {
+            var currentValue = categorySelect.value;
+            var typologyId = typologySelect.value || '';
+            var options = categoriesData[typologyId] || [];
+
+            categorySelect.innerHTML = '';
+
+            var defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = 'All categories';
+            categorySelect.appendChild(defaultOption);
+
+            options.forEach(function(category) {
+                var option = document.createElement('option');
+                option.value = category;
+                option.textContent = category;
+                categorySelect.appendChild(option);
+            });
+
+            if (options.includes(currentValue)) {
+                categorySelect.value = currentValue;
+            } else {
+                categorySelect.value = '';
+            }
+        }
+
+        renderCategoryOptions();
+        typologySelect.addEventListener('change', renderCategoryOptions);
+    });
+</script>
 {% endblock %}

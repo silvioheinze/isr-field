@@ -3,26 +3,94 @@
 {% block title %}Create Dataset - ISR Field{% endblock %}
 
 {% block content %}
-<div class="container mt-4" style="max-width: 600px;">
-    <h2>Create New Dataset</h2>
-    <form method="post">
-        {% csrf_token %}
-        <div class="mb-3">
-            <label for="name" class="form-label">Dataset Name</label>
-            <input type="text" class="form-control" id="name" name="name" required>
+<div class="container py-4" style="max-width: 860px;">
+    <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-1">Create New Dataset</h1>
+            <p class="text-muted small mb-0">Group spatial data points, configure custom fields, and collaborate with your team.</p>
         </div>
-        <div class="mb-3">
-            <label for="description" class="form-label">Description</label>
-            <textarea class="form-control" id="description" name="description" rows="4"></textarea>
+        <div>
+            <a href="{% url 'dataset_list' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Back to Datasets
+            </a>
         </div>
-        <div class="mb-3 form-check">
-            <input type="checkbox" class="form-check-input" id="is_public" name="is_public">
-            <label class="form-check-label" for="is_public">Make this dataset public</label>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <form method="post" novalidate>
+                {% csrf_token %}
+
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-light fw-semibold">
+                        <i class="bi bi-info-circle me-2"></i>Dataset Basics
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Dataset Name</label>
+                            <input type="text" class="form-control" id="name" name="name" placeholder="e.g. Vienna Land Use Survey" required>
+                            <div class="form-text">Choose a descriptive name so collaborators instantly know the dataset scope.</div>
+                        </div>
+                        <div class="mb-0">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="4" placeholder="Summarize the dataset purpose, coverage, and notable attributes."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-light fw-semibold">
+                        <i class="bi bi-shield-check me-2"></i>Visibility & Defaults
+                    </div>
+                    <div class="card-body">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="is_public" name="is_public">
+                            <label class="form-check-label fw-semibold" for="is_public">Make dataset public</label>
+                            <div class="form-text">Public datasets are visible to any authenticated user. Leave unchecked to restrict visibility to invited collaborators.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 justify-content-end">
+                    <a href="{% url 'dataset_list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-circle"></i> Cancel
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Create Dataset
+                    </button>
+                </div>
+            </form>
         </div>
-                        <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-plus-circle"></i> Create Dataset
-                </button>
-        <a href="{% url 'dataset_list' %}" class="btn btn-secondary">Cancel</a>
-    </form>
+
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="bi bi-lightbulb me-2"></i>Get Started Quickly
+                </div>
+                <div class="card-body small text-muted">
+                    <ul class="ps-3 mb-0">
+                        <li class="mb-2">After creation, configure custom fields to capture the attributes you require.</li>
+                        <li class="mb-2">Invite collaborators via the dataset access page to share editing or viewing rights.</li>
+                        <li class="mb-2">Use typologies to provide standardized dropdowns for commonly used classifications.</li>
+                        <li>Import existing geometry and entry data via CSV to jumpstart population.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-info">
+                <div class="card-header bg-info text-dark fw-semibold">
+                    <i class="bi bi-map me-2"></i>Next Steps
+                </div>
+                <div class="card-body small text-muted">
+                    <p class="mb-2">Once your dataset is ready:</p>
+                    <ul class="ps-3 mb-0">
+                        <li class="mb-1">Open <strong>Data Input</strong> to add geometry points on an interactive map.</li>
+                        <li class="mb-1">Add or import <strong>custom fields</strong> for the data you want to track.</li>
+                        <li>Export data anytime to share with stakeholders or archive snapshots.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %} 

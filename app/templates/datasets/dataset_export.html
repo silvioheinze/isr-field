@@ -5,53 +5,45 @@
 {% block title %}{{ dataset.name }} - {% trans "Export Dataset" %}{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-md-8">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <div>
-                    <h2>{% trans "Export Dataset" %}: {{ dataset.name }}</h2>
-                    <p class="text-muted">{% trans "Export your spatial dataset as a CSV file for analysis, backup, or sharing." %}</p>
-                </div>
-                <div>
-                    <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-outline-secondary">
-                        <i class="bi bi-arrow-left"></i> {% trans "Back to Dataset" %}
-                    </a>
-                </div>
+<div class="container py-4">
+    <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-1">{% trans "Export Dataset" %}</h1>
+            <div class="text-muted small">
+                <span class="me-2">{{ dataset.name }}</span>
+                <span class="badge bg-info text-dark">{{ geometries_count }} {% trans "geometries" %}</span>
+                <span class="badge bg-secondary ms-1">{{ data_entries_count }} {% trans "entries" %}</span>
             </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-gear"></i> {% trans "Export Options" %}</h5>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> {% trans "Back to Dataset" %}
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="bi bi-gear me-2"></i>{% trans "Export Options" %}
                 </div>
                 <div class="card-body">
-                    <form method="get" action="{% url 'dataset_csv_export' dataset.id %}">
-                        <div class="mb-3">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="include_coordinates" name="include_coordinates" value="true" checked>
-                                <label class="form-check-label" for="include_coordinates">
-                                    <strong>{% trans "Include Coordinates" %}</strong>
-                                </label>
-                                <div class="form-text">
-                                    {% trans "Include X and Y coordinates for each geometry point. Essential for GIS analysis and mapping." %}
-                                </div>
-                            </div>
+                    <form method="get" action="{% url 'dataset_csv_export' dataset.id %}" class="d-flex flex-column gap-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="include_coordinates" name="include_coordinates" value="true" checked>
+                            <label class="form-check-label fw-semibold" for="include_coordinates">{% trans "Include Coordinates" %}</label>
+                            <div class="form-text">{% trans "Include X and Y coordinates for each geometry point. Essential for GIS analysis and mapping." %}</div>
                         </div>
-                        
-                        <div class="mb-3">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="include_empty_years" name="include_empty_years" value="true" checked>
-                                <label class="form-check-label" for="include_empty_years">
-                                    <strong>{% trans "Include Empty Years" %}</strong>
-                                </label>
-                                <div class="form-text">
-                                    {% trans "Include columns for all years in the dataset, even if no data exists for that year. Useful for maintaining consistent column structure." %}
-                                </div>
-                            </div>
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="include_empty_years" name="include_empty_years" value="true" checked>
+                            <label class="form-check-label fw-semibold" for="include_empty_years">{% trans "Include Empty Years" %}</label>
+                            <div class="form-text">{% trans "Include columns for all years even when no data exists. Helpful for keeping a consistent table structure." %}</div>
                         </div>
-                        
-                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-secondary">
+
+                        <div class="d-flex flex-wrap gap-2 justify-content-end pt-2">
+                            <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-outline-secondary">
                                 <i class="bi bi-x-circle"></i> {% trans "Cancel" %}
                             </a>
                             <button type="submit" class="btn btn-success">
@@ -61,83 +53,85 @@
                     </form>
                 </div>
             </div>
-            
-            <div class="mt-4">
-                <h5><i class="bi bi-file-text"></i> {% trans "Export Format Details" %}</h5>
-                <p>{% trans "The exported CSV file will contain the following information:" %}</p>
-                
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6>{% trans "Basic Information" %}</h6>
-                        <ul class="list-unstyled">
-                            <li><i class="bi bi-check-circle text-success"></i> <strong>{% trans "ID" %}</strong>: {% trans "Unique identifier for each geometry point" %}</li>
-                            <li><i class="bi bi-geo-alt text-primary"></i> <strong>{% trans "Address" %}</strong>: {% trans "Location address or description" %}</li>
-                            <li><i class="bi bi-person text-info"></i> <strong>{% trans "User" %}</strong>: {% trans "User who created the geometry" %}</li>
-                            <li><i class="bi bi-calendar text-warning"></i> <strong>{% trans "Entry Name" %}</strong>: {% trans "Name of the data entry" %}</li>
-                            <li><i class="bi bi-calendar-date text-warning"></i> <strong>{% trans "Year" %}</strong>: {% trans "Year of the data entry" %}</li>
-                        </ul>
-                    </div>
-                    <div class="col-md-6">
-                        <h6>{% trans "Coordinate Information" %}</h6>
-                        <ul class="list-unstyled">
-                            <li><i class="bi bi-geo text-success"></i> <strong>X</strong>: {% trans "Longitude or X coordinate" %}</li>
-                            <li><i class="bi bi-geo text-success"></i> <strong>Y</strong>: {% trans "Latitude or Y coordinate" %}</li>
-                        </ul>
-                    </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="bi bi-file-text me-2"></i>{% trans "Export Format Details" %}
                 </div>
-                
-                {% if enabled_fields %}
-                <div class="mt-3">
-                    <h6>{% trans "Custom Fields" %}</h6>
-                    <p class="text-muted">{% trans "The following custom fields will be included in the export:" %}</p>
-                    <div class="row">
-                        {% for field in enabled_fields %}
-                        <div class="col-md-6 mb-2">
-                            <div class="d-flex align-items-center">
-                                <span class="badge bg-{% if field.is_coordinate_field %}success{% elif field.is_id_field %}primary{% elif field.is_address_field %}info{% else %}secondary{% endif %} me-2">
-                                    {{ field.get_field_type_display }}
-                                </span>
-                                <strong>{{ field.label }}</strong>
-                                {% with field_stat=field_stats|get_item:field.field_name %}
-                                <small class="text-muted ms-2">({{ field_stat.usage_count|default:"0" }} {% trans "entries" %})</small>
-                                {% endwith %}
-                            </div>
+                <div class="card-body">
+                    <p class="text-muted small">{% trans "The exported CSV file will contain the following information:" %}</p>
+
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <h6 class="fw-semibold">{% trans "Basic Information" %}</h6>
+                            <ul class="list-unstyled small mb-0">
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i><strong>{% trans "ID" %}</strong> – {% trans "Unique identifier for each geometry point" %}</li>
+                                <li class="mb-2"><i class="bi bi-geo-alt text-primary me-2"></i><strong>{% trans "Address" %}</strong> – {% trans "Location address or description" %}</li>
+                                <li class="mb-2"><i class="bi bi-person text-info me-2"></i><strong>{% trans "User" %}</strong> – {% trans "Creator of the geometry" %}</li>
+                                <li class="mb-2"><i class="bi bi-journal-text text-warning me-2"></i><strong>{% trans "Entry Name" %}</strong> – {% trans "Title of the data entry" %}</li>
+                                <li><i class="bi bi-calendar-date text-warning me-2"></i><strong>{% trans "Year" %}</strong> – {% trans "Year attached to the entry" %}</li>
+                            </ul>
                         </div>
-                        {% endfor %}
+                        <div class="col-md-6">
+                            <h6 class="fw-semibold">{% trans "Coordinate Information" %}</h6>
+                            <ul class="list-unstyled small mb-0">
+                                <li class="mb-2"><i class="bi bi-geo text-success me-2"></i><strong>X</strong> – {% trans "Longitude or X coordinate" %}</li>
+                                <li><i class="bi bi-geo text-success me-2"></i><strong>Y</strong> – {% trans "Latitude or Y coordinate" %}</li>
+                            </ul>
+                        </div>
                     </div>
-                </div>
-                {% endif %}
-                
-                <div class="alert alert-info mt-3">
-                    <h6><i class="bi bi-info-circle"></i> {% trans "Export Structure" %}</h6>
-                    <p class="mb-2">{% trans "Each row in the CSV represents one data entry. If a geometry has multiple entries (different years), each entry will be a separate row with the same geometry information." %}</p>
-                    <p class="mb-0"><strong>{% trans "Example" %}:</strong> {% trans "If geometry 'A' has entries for 2020 and 2022, you'll get two rows with the same ID and coordinates but different entry data." %}</p>
+
+                    {% if enabled_fields %}
+                    <div class="mt-4">
+                        <h6 class="fw-semibold">{% trans "Custom Fields" %}</h6>
+                        <p class="text-muted small">{% trans "These additional columns will be included in the export:" %}</p>
+                        <div class="row g-2">
+                            {% for field in enabled_fields %}
+                            <div class="col-md-6">
+                                <div class="border rounded px-3 py-2 bg-light-subtle d-flex align-items-center justify-content-between">
+                                    <div>
+                                        <div class="fw-semibold">{{ field.label }}</div>
+                                        {% with field_stat=field_stats|get_item:field.field_name %}
+                                        <div class="small text-muted">{{ field_stat.usage_count|default:"0" }} {% trans "entries" %}</div>
+                                        {% endwith %}
+                                    </div>
+                                    <span class="badge bg-{% if field.is_coordinate_field %}success{% elif field.is_id_field %}primary{% elif field.is_address_field %}info{% else %}secondary{% endif %}">{{ field.get_field_type_display }}</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="alert alert-info mt-4 mb-0">
+                        <h6 class="fw-semibold"><i class="bi bi-info-circle me-2"></i>{% trans "Export Structure" %}</h6>
+                        <p class="small mb-1">{% trans "Each row in the CSV represents one data entry. If a geometry has multiple entries, each year appears on its own row while geometry details repeat." %}</p>
+                        <p class="small mb-0"><strong>{% trans "Example" %}:</strong> {% trans "Geometry ‘A’ with entries for 2020 and 2022 will produce two rows sharing the same geometry ID and coordinates." %}</p>
+                    </div>
                 </div>
             </div>
         </div>
-        
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-bar-chart"></i> {% trans "Dataset Statistics" %}</h5>
+
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="bi bi-bar-chart me-2"></i>{% trans "Dataset Statistics" %}
                 </div>
-                <div class="card-body">
-                    <div class="row text-center mb-3">
-                        <div class="col-6">
-                            <div class="border-end">
-                                <h3 class="text-primary mb-0">{{ geometries_count }}</h3>
-                                <small class="text-muted">{% trans "Geometry Points" %}</small>
-                            </div>
+                <div class="card-body small text-muted">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <div class="fw-semibold">{% trans "Geometries" %}</div>
+                            <div>{{ geometries_count }}</div>
                         </div>
-                        <div class="col-6">
-                            <h3 class="text-success mb-0">{{ data_entries_count }}</h3>
-                            <small class="text-muted">{% trans "Data Entries" %}</small>
+                        <div>
+                            <div class="fw-semibold">{% trans "Data Entries" %}</div>
+                            <div>{{ data_entries_count }}</div>
                         </div>
                     </div>
-                    
+
                     {% if years %}
                     <div class="mb-3">
-                        <h6>{% trans "Years Covered" %}</h6>
+                        <div class="fw-semibold mb-1">{% trans "Years Covered" %}</div>
                         <div class="d-flex flex-wrap gap-1">
                             {% for year in years %}
                             <span class="badge bg-light text-dark">{{ year }}</span>
@@ -145,36 +139,37 @@
                         </div>
                     </div>
                     {% endif %}
-                    
+
                     {% if coordinate_systems %}
                     <div class="mb-3">
-                        <h6>{% trans "Coordinate Systems" %}</h6>
-                        {% for srid in coordinate_systems %}
-                        <span class="badge bg-info me-1">SRID: {{ srid }}</span>
-                        {% endfor %}
+                        <div class="fw-semibold mb-1">{% trans "Coordinate Systems" %}</div>
+                        <div class="d-flex flex-wrap gap-1">
+                            {% for srid in coordinate_systems %}
+                            <span class="badge bg-info">SRID: {{ srid }}</span>
+                            {% endfor %}
+                        </div>
                     </div>
                     {% endif %}
-                    
+
                     {% if enabled_fields %}
                     <div>
-                        <h6>{% trans "Custom Fields" %}</h6>
-                        <p class="text-muted small mb-0">{{ enabled_fields.count }} {% trans "configured fields" %}</p>
+                        <div class="fw-semibold">{% trans "Custom Fields" %}</div>
+                        <p class="mb-0">{{ enabled_fields.count }} {% trans "configured" %}</p>
                     </div>
                     {% endif %}
                 </div>
             </div>
-            
-            <div class="card mt-3">
-                <div class="card-header">
-                    <h6 class="mb-0"><i class="bi bi-question-circle"></i> {% trans "Need Help?" %}</h6>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-dark fw-semibold">
+                    <i class="bi bi-lightbulb me-2"></i>{% trans "Tips" %}
                 </div>
-                <div class="card-body">
-                    <p class="small text-muted mb-2">{% trans "The exported CSV can be used for:" %}</p>
-                    <ul class="small text-muted mb-0">
-                        <li>{% trans "GIS analysis in QGIS, ArcGIS, or other mapping software" %}</li>
-                        <li>{% trans "Data analysis in Excel, R, Python, or other tools" %}</li>
-                        <li>{% trans "Backup and archival purposes" %}</li>
-                        <li>{% trans "Sharing data with colleagues or external partners" %}</li>
+                <div class="card-body small text-muted">
+                    <ul class="ps-3 mb-0">
+                        <li class="mb-2">{% trans "Open the CSV in QGIS or ArcGIS to visualize spatial data." %}</li>
+                        <li class="mb-2">{% trans "Use spreadsheet tools for quick filtering and summaries." %}</li>
+                        <li class="mb-2">{% trans "Keep a timestamped export as a backup before bulk edits." %}</li>
+                        <li>{% trans "Share the file with stakeholders who do not have platform access." %}</li>
                     </ul>
                 </div>
             </div>

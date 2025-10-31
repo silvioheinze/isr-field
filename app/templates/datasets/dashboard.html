@@ -3,138 +3,158 @@
 {% block title %}Dashboard - ISR Field{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="row align-items-center mb-4">
-        <div class="col-md-8">
-            <h1>Welcome to ISR Field</h1>
-            <p class="text-muted mb-0">Manage your spatial datasets and collaborate with your team.</p>
+<div class="container py-4">
+    <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-1">Welcome to ISR Field</h1>
+            <p class="text-muted small mb-0">Manage spatial datasets, collaborate with your team, and keep data up to date.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            {% if can_create_datasets %}
+            <a href="{% url 'dataset_create' %}" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus-circle"></i> Create Dataset
+            </a>
+            {% endif %}
+            <a href="{% url 'dataset_list' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-list"></i> View All Datasets
+            </a>
         </div>
     </div>
-    
-    <div class="row mt-4">
-        <div class="col-md-8">
-            <div class="card mb-3">
-                <div class="card-header">
-                    <h5 class="mb-0">Your Datasets</h5>
-                </div>
-                <div class="card-body">
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-folder2-open me-2"></i>Your Datasets</span>
                     {% if datasets %}
-                        <div class="list-group list-group-flush">
-                            {% for dataset in datasets %}
-                                <div class="list-group-item d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h6 class="mb-1"><a href="{% url 'dataset_detail' dataset.id %}" title="View Details">{{ dataset.name }}</a></h6>
-                                        <small class="text-muted">{{ dataset.description|truncatewords:15 }}</small>
+                    <span class="badge bg-secondary">{{ datasets|length }} total</span>
+                    {% endif %}
+                </div>
+                <div class="card-body p-0">
+                    {% if datasets %}
+                    <div class="list-group list-group-flush">
+                        {% for dataset in datasets %}
+                        <div class="list-group-item py-3">
+                            <div class="d-flex justify-content-between flex-column flex-sm-row gap-3">
+                                <div>
+                                    <h6 class="mb-1">
+                                        <a href="{% url 'dataset_detail' dataset.id %}" class="text-decoration-none">{{ dataset.name }}</a>
+                                    </h6>
+                                    <div class="small text-muted mb-2">
+                                        {{ dataset.description|default:"No description provided."|truncatewords:18 }}
                                     </div>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <div class="me-2">
-                                            {% if dataset.is_public %}
-                                                <span class="badge bg-success">Public</span>
-                                            {% else %}
-                                                <span class="badge bg-secondary">Private</span>
-                                            {% endif %}
-                                            {% if dataset.shared_with.all or dataset.shared_with_groups.all %}
-                                                <span class="badge bg-info">Shared</span>
-                                            {% endif %}
-                                        </div>
-                                        <a href="{% url 'dataset_data_input' dataset.id %}" class="btn btn-success btn-sm me-2" title="Data Input">
-                                            Data Input
-                                        </a>
-                                        <div class="btn-group btn-group-sm" role="group">
-                                            <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-outline-primary" title="View Details">
-                                                <i class="bi bi-eye"></i>
-                                            </a>
-                                            {% if dataset.owner == user %}
-                                            <a href="{% url 'dataset_edit' dataset.id %}" class="btn btn-outline-secondary" title="Edit Dataset">
-                                                <i class="bi bi-pencil"></i>
-                                            </a>
-                                            {% endif %}
-                                        </div>
+                                    <div class="d-flex flex-wrap gap-2 small">
+                                        {% if dataset.is_public %}
+                                            <span class="badge bg-success">Public</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Private</span>
+                                        {% endif %}
+                                        {% if dataset.shared_with.all or dataset.shared_with_groups.all %}
+                                            <span class="badge bg-info text-dark">Shared</span>
+                                        {% endif %}
+                                        {% if dataset.allow_multiple_entries %}
+                                            <span class="badge bg-warning text-dark">Multiple Entries</span>
+                                        {% endif %}
                                     </div>
                                 </div>
-                            {% endfor %}
-                        </div>
-                        {% if datasets|length >= 5 %}
-                            <div class="mt-3 text-center">
-                                <a href="{% url 'dataset_list' %}" class="btn btn-outline-primary btn-sm">
-                                    <i class="bi bi-arrow-right"></i> View All {{ datasets|length }} Datasets
-                                </a>
+                                <div class="d-grid gap-2 align-self-start align-self-sm-center">
+                                    <a href="{% url 'dataset_data_input' dataset.id %}" class="btn btn-primary btn-sm">
+                                        <i class="bi bi-map"></i> Data Input
+                                    </a>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-outline-secondary" title="View details">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        {% if dataset.owner == user %}
+                                        <a href="{% url 'dataset_edit' dataset.id %}" class="btn btn-outline-primary" title="Edit dataset">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
                             </div>
-                        {% endif %}
-                    {% else %}
-                        <div class="text-center py-4">
-                            <i class="bi bi-database text-muted" style="font-size: 3rem;"></i>
-                            <p class="text-muted mt-2">No datasets available yet.</p>
-                            {% if can_create_datasets %}
-                            <a href="{% url 'dataset_create' %}" class="btn btn-primary">
-                                <i class="bi bi-plus-circle"></i> Create your first dataset
-                            </a>
-                            {% endif %}
                         </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-database fs-1 text-muted"></i>
+                        <h5 class="mt-3">No datasets yet</h5>
+                        <p class="text-muted small mb-4">Create a dataset to start collecting spatial information.</p>
+                        {% if can_create_datasets %}
+                        <a href="{% url 'dataset_create' %}" class="btn btn-primary">
+                            <i class="bi bi-plus-circle"></i> Create Dataset
+                        </a>
+                        {% endif %}
+                    </div>
                     {% endif %}
                 </div>
             </div>
         </div>
-        
-        <div class="col-md-4">
-            <!-- Dataset Actions -->
-            <div class="card mb-3">
-                <div class="card-header">
-                    <h6 class="mb-0"><i class="bi bi-database"></i> Dataset Management</h6>
+
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="bi bi-gear me-2"></i>Quick Actions
                 </div>
-                <div class="card-body">
+                <div class="card-body small text-muted">
                     <div class="d-grid gap-2">
                         {% if can_create_datasets %}
                         <a href="{% url 'dataset_create' %}" class="btn btn-primary btn-sm">
-                            <i class="bi bi-plus-circle"></i> Create Dataset
+                            <i class="bi bi-plus-circle"></i> New Dataset
                         </a>
                         {% endif %}
-                        <a href="{% url 'dataset_list' %}" class="btn btn-outline-primary btn-sm">
-                            <i class="bi bi-list"></i> View All Datasets
-                        </a>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- User Actions -->
-            <div class="card mb-3">
-                <div class="card-header">
-                    <h6 class="mb-0"><i class="bi bi-person"></i> User Management</h6>
-                </div>
-                <div class="card-body">
-                    <div class="d-grid gap-2">
-                        <a href="{% url 'profile' %}" class="btn btn-outline-secondary btn-sm">
-                            <i class="bi bi-person-circle"></i> View Profile
+                        <a href="{% url 'typology_list' %}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-diagram-3"></i> Manage Typologies
                         </a>
                         {% if user.is_superuser %}
                         <a href="{% url 'user_management' %}" class="btn btn-outline-warning btn-sm">
                             <i class="bi bi-people"></i> User Management
                         </a>
                         {% endif %}
+                        <a href="{% url 'profile' %}" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-person-circle"></i> View Profile
+                        </a>
                     </div>
                 </div>
             </div>
-            
-            <!-- Quick Stats -->
+
             {% if datasets %}
-            <div class="card">
-                <div class="card-header">
-                    <h6 class="mb-0"><i class="bi bi-graph-up"></i> Quick Stats</h6>
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light fw-semibold">
+                    <i class="bi bi-graph-up-arrow me-2"></i>Quick Stats
                 </div>
                 <div class="card-body">
                     <div class="row text-center">
-                        <div class="col-6">
-                            <h4 class="text-primary mb-0">{{ datasets|length }}</h4>
-                            <small class="text-muted">Datasets</small>
+                        <div class="col-6 mb-3">
+                            <div class="display-6 fw-semibold text-primary">{{ datasets|length }}</div>
+                            <div class="small text-muted">Datasets</div>
                         </div>
-                        <div class="col-6">
-                            <h4 class="text-success mb-0">{{ datasets|length }}</h4>
-                            <small class="text-muted">Accessible</small>
+                        <div class="col-6 mb-3">
+                            <div class="display-6 fw-semibold text-success">{{ datasets|length }}</div>
+                            <div class="small text-muted">Accessible</div>
+                        </div>
+                        <div class="col-12">
+                            <p class="small text-muted mb-0">Tip: Share datasets with teammates from the dataset detail page.</p>
                         </div>
                     </div>
                 </div>
             </div>
             {% endif %}
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-dark fw-semibold">
+                    <i class="bi bi-lightbulb me-2"></i>Workspace Tips
+                </div>
+                <div class="card-body small text-muted">
+                    <ul class="ps-3 mb-0">
+                        <li class="mb-2">Use the data input map to add geometry points directly in the field.</li>
+                        <li class="mb-2">Create typologies to keep dropdown values consistent across datasets.</li>
+                        <li class="mb-2">Export dataset entries regularly for reporting and backups.</li>
+                        <li>Manage access by inviting users or groups to collaborate securely.</li>
+                    </ul>
+                </div>
+            </div>
         </div>
     </div>
 </div>
