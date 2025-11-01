@@ -7,7 +7,7 @@ import csv
 import json
 import io
 
-from ..models import DataSet, Typology, TypologyEntry
+from ..models import Typology, TypologyEntry, DatasetField
 from .auth_views import is_manager
 
 
@@ -71,10 +71,29 @@ def typology_detail_view(request, typology_id):
     """View typology details"""
     typology = get_object_or_404(Typology, id=typology_id)
     entries = TypologyEntry.objects.filter(typology=typology).order_by('code')
-    
+    linked_fields_qs = DatasetField.objects.filter(typology=typology).select_related('dataset').order_by('dataset__name', 'order', 'label')
+
+    linked_fields = list(linked_fields_qs)
+    fields_by_dataset = []
+    for field in linked_fields:
+        dataset = field.dataset
+        if fields_by_dataset and fields_by_dataset[-1]['dataset'].id == dataset.id:
+            fields_by_dataset[-1]['fields'].append(field)
+        else:
+            fields_by_dataset.append({
+                'dataset': dataset,
+                'fields': [field],
+            })
+
+    linked_dataset_count = len(fields_by_dataset)
+    linked_field_count = len(linked_fields)
+
     return render(request, 'datasets/typology_detail.html', {
         'typology': typology,
-        'entries': entries
+        'entries': entries,
+        'fields_by_dataset': fields_by_dataset,
+        'linked_dataset_count': linked_dataset_count,
+        'linked_field_count': linked_field_count,
     })
 
 

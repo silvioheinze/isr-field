@@ -8,9 +8,10 @@
         <div>
             <h1 class="h3 mb-1">{{ typology.name }}</h1>
             <div class="text-muted small">
-                Created by {{ typology.created_by.username }} on {{ typology.created_at|date:"F d, Y" }}
+                Created by {{ typology.created_by.username|default:"Unknown" }} on {{ typology.created_at|date:"F d, Y" }}
                 <span class="badge bg-info text-dark ms-2">{{ entries.count }} entries</span>
-                <span class="badge bg-secondary ms-1">Used by {{ datasets.count }} dataset{{ datasets.count|pluralize }}</span>
+                <span class="badge bg-secondary ms-1">Used in {{ linked_dataset_count }} dataset{{ linked_dataset_count|pluralize }}</span>
+                <span class="badge bg-light text-dark ms-1">{{ linked_field_count }} field{{ linked_field_count|pluralize }}</span>
             </div>
         </div>
         <div class="d-flex flex-wrap gap-2">
@@ -18,7 +19,7 @@
             <a href="{% url 'typology_edit' typology.id %}" class="btn btn-primary btn-sm">
                 <i class="bi bi-pencil"></i> Edit Typology
             </a>
-            <a href="{% url 'typology_export' typology.id %}" class="btn btn-outline-success btn-sm">
+                <a href="{% url 'typology_export' typology.id %}" class="btn btn-outline-success btn-sm">
                 <i class="bi bi-download"></i> Export CSV
             </a>
             {% endif %}
@@ -72,30 +73,52 @@
 
             <div class="card shadow-sm">
                 <div class="card-header bg-light fw-semibold">
-                    <i class="bi bi-link-45deg me-2"></i>Linked Datasets
+                    <i class="bi bi-link-45deg me-2"></i>Linked Fields
                 </div>
                 <div class="card-body">
-                    {% if datasets %}
-                    <div class="row g-3">
-                        {% for dataset in datasets %}
-                        <div class="col-md-6">
-                            <div class="card h-100 border-0 bg-light-subtle">
-                                <div class="card-body d-flex flex-column gap-2">
-                                    <h6 class="mb-0">{{ dataset.name }}</h6>
-                                    <p class="small text-muted mb-2">{{ dataset.description|default:"No description provided."|truncatewords:18 }}</p>
-                                    <div class="d-flex justify-content-between align-items-center small text-muted">
-                                        <span><i class="bi bi-person"></i> {{ dataset.owner.username }}</span>
-                                        <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-outline-primary btn-sm">
-                                            <i class="bi bi-eye"></i> View
-                                        </a>
+                    {% if fields_by_dataset %}
+                    <div class="d-flex flex-column gap-3">
+                        {% for group in fields_by_dataset %}
+                        <div class="border rounded bg-light-subtle p-3">
+                            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-start gap-2">
+                                <div>
+                                    <h6 class="mb-1">{{ group.dataset.name }}</h6>
+                                    <div class="small text-muted">
+                                        {% if group.dataset.owner %}
+                                        <i class="bi bi-person"></i> {{ group.dataset.owner.username }}
+                                        {% endif %}
+                                        <span class="badge bg-secondary ms-2">{{ group.fields|length }} field{{ group.fields|length|pluralize }}</span>
                                     </div>
                                 </div>
+                                <a href="{% url 'dataset_detail' group.dataset.id %}" class="btn btn-outline-primary btn-sm">
+                                    <i class="bi bi-eye"></i> View Dataset
+                                </a>
                             </div>
+
+                            <ul class="list-unstyled small mb-0 mt-3">
+                                {% for field in group.fields %}
+                                <li class="py-2 border-top d-flex flex-column flex-lg-row gap-2 justify-content-lg-between align-items-lg-center">
+                                    <div>
+                                        <span class="fw-semibold text-dark">{{ field.label }}</span>
+                                        <span class="text-muted ms-2">({{ field.field_name }})</span>
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                                        <span class="badge bg-secondary">{{ field.get_field_type_display }}</span>
+                                        {% if field.typology_category %}
+                                        <span class="badge bg-info text-dark">{{ field.typology_category }}</span>
+                                        {% endif %}
+                                        <span class="badge {% if field.enabled %}bg-success{% else %}bg-secondary{% endif %}">
+                                            {{ field.enabled|yesno:"Enabled,Disabled" }}
+                                        </span>
+                                    </div>
+                                </li>
+                                {% endfor %}
+                            </ul>
                         </div>
                         {% endfor %}
                     </div>
                     {% else %}
-                    <div class="text-center text-muted py-4">No datasets currently use this typology.</div>
+                    <div class="text-center text-muted py-4">No dataset fields currently reference this typology.</div>
                     {% endif %}
                 </div>
             </div>
@@ -108,14 +131,16 @@
                 </div>
                 <div class="card-body small text-muted">
                     <dl class="row mb-0">
-                        <dt class="col-5">Entries</dt>
-                        <dd class="col-7">{{ entries.count }}</dd>
-                        <dt class="col-5">Datasets</dt>
-                        <dd class="col-7">{{ datasets.count }}</dd>
-                        <dt class="col-5">Created</dt>
-                        <dd class="col-7">{{ typology.created_at|date:"F d, Y" }}</dd>
-                        <dt class="col-5">Owner</dt>
-                        <dd class="col-7">{{ typology.created_by.username }}</dd>
+                        <dt class="col-6">Entries</dt>
+                        <dd class="col-6">{{ entries.count }}</dd>
+                        <dt class="col-6">Datasets using</dt>
+                        <dd class="col-6">{{ linked_dataset_count }}</dd>
+                        <dt class="col-6">Linked fields</dt>
+                        <dd class="col-6">{{ linked_field_count }}</dd>
+                        <dt class="col-6">Created</dt>
+                        <dd class="col-6">{{ typology.created_at|date:"F d, Y" }}</dd>
+                        <dt class="col-6">Owner</dt>
+                        <dd class="col-6">{{ typology.created_by.username|default:"Unknown" }}</dd>
                     </dl>
                 </div>
             </div>
