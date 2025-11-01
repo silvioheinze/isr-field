@@ -38,6 +38,7 @@ urlpatterns = [
     path('groups/create/', datasets_views.create_group_view, name='create_group'),
     path('groups/edit/<int:group_id>/', datasets_views.edit_group_view, name='edit_group'),
     path('users/groups/<int:user_id>/', datasets_views.modify_user_groups_view, name='modify_user_groups'),
+    path('users/groups/<int:group_id>/delete/', datasets_views.delete_group_view, name='delete_group'),
     path('datasets/', datasets_views.dataset_list_view, name='dataset_list'),
     path('datasets/create/', datasets_views.dataset_create_view, name='dataset_create'),
     path('datasets/<int:dataset_id>/', datasets_views.dataset_detail_view, name='dataset_detail'),

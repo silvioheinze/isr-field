@@ -214,7 +214,7 @@ def delete_user_view(request, user_id):
 
 
 @login_required
-@permission_required('auth.add_user')
+@permission_required('auth.add_user', raise_exception=True)
 def create_user_view(request):
     """Create user view"""
     if request.method == 'POST':
@@ -230,7 +230,7 @@ def create_user_view(request):
 
 
 @login_required
-@permission_required('auth.add_group')
+@permission_required('auth.add_group', raise_exception=True)
 def create_group_view(request):
     """Create group view"""
     if request.method == 'POST':
@@ -264,7 +264,7 @@ def modify_user_groups_view(request, user_id):
 
 
 @login_required
-@permission_required('auth.change_group')
+@permission_required('auth.change_group', raise_exception=True)
 def edit_group_view(request, group_id):
     """Edit group view"""
     group = get_object_or_404(Group, id=group_id)
@@ -280,3 +280,20 @@ def edit_group_view(request, group_id):
             messages.error(request, 'Group name is required.')
     
     return render(request, 'datasets/edit_group.html', {'group': group})
+
+
+@login_required
+@permission_required('auth.delete_group', raise_exception=True)
+def delete_group_view(request, group_id):
+    """Delete group view"""
+    group = get_object_or_404(Group, id=group_id)
+
+    if request.method == 'POST':
+        group_name = group.name
+        group.delete()
+        messages.success(request, f'Group {group_name} deleted successfully!')
+        return redirect('user_management')
+
+    return render(request, 'datasets/delete_group.html', {
+        'group': group
+    })
