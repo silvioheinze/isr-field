@@ -250,16 +250,22 @@ def create_group_view(request):
 def modify_user_groups_view(request, user_id):
     """Modify user groups view"""
     user = get_object_or_404(User, id=user_id)
-    
+
     if request.method == 'POST':
         group_ids = request.POST.getlist('groups')
         user.groups.set(Group.objects.filter(id__in=group_ids))
         messages.success(request, f'Groups updated for {user.username}!')
         return redirect('user_management')
-    
+
+    all_groups = Group.objects.all()
+    user_group_ids = list(user.groups.values_list('id', flat=True))
+
     return render(request, 'datasets/modify_user_groups.html', {
         'user': user,
-        'groups': Group.objects.all()
+        'user_obj': user,
+        'groups': all_groups,
+        'all_groups': all_groups,
+        'user_groups': user_group_ids,
     })
 
 
