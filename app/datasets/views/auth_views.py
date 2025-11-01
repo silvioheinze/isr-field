@@ -1,4 +1,4 @@
-from django.contrib.auth.forms import UserCreationForm, PasswordResetForm, SetPasswordForm
+from django.contrib.auth.forms import PasswordResetForm, SetPasswordForm
 from django.contrib.auth import login as auth_login, logout
 from django.shortcuts import redirect, render, get_object_or_404
 from django.contrib.auth.decorators import login_required, permission_required
@@ -19,6 +19,7 @@ from django.core.mail import send_mail
 from datetime import datetime
 
 from ..models import AuditLog, DataSet
+from ..forms import CustomUserCreationForm
 
 
 def health_check_view(request):
@@ -123,14 +124,14 @@ def dashboard_view(request):
 def register_view(request):
     """User registration view"""
     if request.method == 'POST':
-        form = UserCreationForm(request.POST)
+        form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
             auth_login(request, user)
             messages.success(request, 'Account created successfully!')
             return redirect('dashboard')
     else:
-        form = UserCreationForm()
+        form = CustomUserCreationForm()
     
     return render(request, 'datasets/register.html', {'form': form})
 
@@ -217,13 +218,13 @@ def delete_user_view(request, user_id):
 def create_user_view(request):
     """Create user view"""
     if request.method == 'POST':
-        form = UserCreationForm(request.POST)
+        form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
             messages.success(request, f'User {user.username} created successfully!')
             return redirect('user_management')
     else:
-        form = UserCreationForm()
+        form = CustomUserCreationForm()
     
     return render(request, 'datasets/create_user.html', {'form': form})
 
