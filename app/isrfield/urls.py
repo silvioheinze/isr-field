@@ -73,6 +73,7 @@ urlpatterns = [
     path('typologies/create/', datasets_views.typology_create_view, name='typology_create'),
     path('typologies/<int:typology_id>/', datasets_views.typology_detail_view, name='typology_detail'),
     path('typologies/<int:typology_id>/edit/', datasets_views.typology_edit_view, name='typology_edit'),
+    path('typologies/<int:typology_id>/delete/', datasets_views.typology_delete_view, name='typology_delete'),
     path('typologies/<int:typology_id>/import/', datasets_views.typology_import_view, name='typology_import'),
     path('typologies/<int:typology_id>/export/', datasets_views.typology_export_view, name='typology_export'),
     path('datasets/upload-files/', datasets_views.upload_files_view, name='upload_files'),

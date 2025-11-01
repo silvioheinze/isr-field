@@ -3,9 +3,11 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
+from django.db import transaction
 import csv
 import json
 import io
+import re
 
 from ..models import Typology, TypologyEntry, DatasetField
 from .auth_views import is_manager
@@ -14,20 +16,109 @@ from .auth_views import is_manager
 @login_required
 def typology_create_view(request):
     """Create a new typology"""
+    dataset_id = request.GET.get('dataset_id') or request.POST.get('dataset_id')
+    name_value = (request.POST.get('name') or '').strip() if request.method == 'POST' else ''
+    initial_entries = []
+    name_errors = []
+
     if request.method == 'POST':
-        name = request.POST.get('name')
-        
-        if name:
-            typology = Typology.objects.create(
-                name=name,
-                created_by=request.user
-            )
-            messages.success(request, f'Typology "{name}" created successfully!')
-            return redirect('typology_detail', typology_id=typology.id)
-        else:
-            messages.error(request, 'Typology name is required.')
-    
-    return render(request, 'datasets/typology_create.html')
+        suffix_pattern = re.compile(r'^entry_code_(?P<suffix>.+)$')
+        suffixes = []
+        for key in request.POST.keys():
+            match = suffix_pattern.match(key)
+            if match:
+                suffixes.append(match.group('suffix'))
+        suffixes = sorted(set(suffixes), key=lambda s: int(s) if s.isdigit() else s)
+
+        entries_raw = []
+        for suffix in suffixes:
+            code_raw = (request.POST.get(f'entry_code_{suffix}') or '').strip()
+            category_raw = (request.POST.get(f'entry_category_{suffix}') or '').strip()
+            name_raw = (request.POST.get(f'entry_name_{suffix}') or '').strip()
+            if not code_raw and not category_raw and not name_raw:
+                continue
+            entries_raw.append({
+                'code': code_raw,
+                'category': category_raw,
+                'name': name_raw,
+            })
+
+        errors = []
+        if not name_value:
+            error_msg = 'Typology name is required.'
+            name_errors.append(error_msg)
+            errors.append(error_msg)
+
+        if not entries_raw:
+            errors.append('Please add at least one typology entry.')
+
+        normalized_entries = []
+        seen_codes = set()
+        for index, entry in enumerate(entries_raw, start=1):
+            code_raw = entry['code']
+            category = entry['category']
+            entry_name = entry['name']
+
+            if not code_raw:
+                errors.append(f'Entry #{index}: Code is required.')
+                continue
+            try:
+                code_int = int(code_raw)
+            except ValueError:
+                errors.append(f'Entry #{index}: Code "{code_raw}" must be a number.')
+                continue
+
+            if code_int in seen_codes:
+                errors.append(f'Entry #{index}: Duplicate code {code_int} detected.')
+                continue
+            seen_codes.add(code_int)
+
+            if not category:
+                errors.append(f'Entry #{index}: Category is required.')
+            if not entry_name:
+                errors.append(f'Entry #{index}: Name is required.')
+
+            normalized_entries.append({
+                'code': code_int,
+                'category': category,
+                'name': entry_name,
+            })
+
+        if not errors:
+            try:
+                with transaction.atomic():
+                    typology = Typology.objects.create(
+                        name=name_value,
+                        created_by=request.user
+                    )
+                    TypologyEntry.objects.bulk_create([
+                        TypologyEntry(
+                            typology=typology,
+                            code=entry['code'],
+                            category=entry['category'],
+                            name=entry['name']
+                        )
+                        for entry in normalized_entries
+                    ])
+                messages.success(request, f'Typology "{name_value}" created with {len(normalized_entries)} entries.')
+                return redirect('typology_detail', typology_id=typology.id)
+            except Exception as exc:
+                errors.append(f'Error creating typology: {exc}')
+
+        for message_text in errors:
+            messages.error(request, message_text)
+
+        initial_entries = entries_raw
+
+    context = {
+        'name_value': name_value,
+        'name_errors': name_errors,
+        'initial_entries': initial_entries,
+    }
+    if dataset_id:
+        context['dataset_id'] = dataset_id
+
+    return render(request, 'datasets/typology_create.html', context)
 
 
 @login_required
@@ -52,7 +143,7 @@ def typology_edit_view(request, typology_id):
             messages.error(request, 'Typology name is required.')
     
     return render(request, 'datasets/typology_edit.html', {
-        'typology': typology
+        'typology': typology,
     })
 
 
@@ -127,12 +218,21 @@ def typology_import_view(request, typology_id):
                 csv_reader = csv.DictReader(io.StringIO(decoded_file), delimiter=delimiter)
                 
                 # Check if required columns exist (case-insensitive)
-                fieldnames_lower = [f.lower() for f in csv_reader.fieldnames] if csv_reader.fieldnames else []
+                fieldnames_lower = []
+                if csv_reader.fieldnames:
+                    for raw_name in csv_reader.fieldnames:
+                        if raw_name is None:
+                            continue
+                        normalized_name = str(raw_name).strip().lower()
+                        if normalized_name:
+                            fieldnames_lower.append(normalized_name)
                 required_columns = ['code', 'category', 'name']
                 missing_columns = [col for col in required_columns if col not in fieldnames_lower]
                 
                 if missing_columns:
-                    error_msg = f"Missing required columns: {', '.join(missing_columns)}. Found columns: {', '.join(csv_reader.fieldnames)}"
+                    found_columns_list = [str(name) if name is not None else '(blank)' for name in (csv_reader.fieldnames or [])]
+                    found_columns = ', '.join(found_columns_list) if found_columns_list else 'none'
+                    error_msg = f"Missing required columns: {', '.join(missing_columns)}. Found columns: {found_columns}"
                     messages.error(request, error_msg)
                     return redirect('typology_import', typology_id=typology.id)
                 
@@ -143,17 +243,17 @@ def typology_import_view(request, typology_id):
                 for row in csv_reader:
                     row_count += 1
                     
-                    # Case-insensitive column access
-                    code = None
-                    category = None
-                    name = None
-                    
+                    # Case-insensitive column access with safe key handling
+                    code = category = name = None
                     for key, value in row.items():
-                        if key.lower() == 'code':
+                        if key is None:
+                            continue
+                        key_lower = str(key).strip().lower()
+                        if key_lower == 'code':
                             code = value
-                        elif key.lower() == 'category':
+                        elif key_lower == 'category':
                             category = value
-                        elif key.lower() == 'name':
+                        elif key_lower == 'name':
                             name = value
                     
                     if code and category and name:
@@ -177,6 +277,8 @@ def typology_import_view(request, typology_id):
                         except Exception as e:
                             error_msg = f"Row {row_count}: Error creating entry: {str(e)}"
                             errors.append(error_msg)
+                    else:
+                        errors.append(f"Row {row_count}: Missing required values (code, category, or name)")
                 
                 if errors:
                     error_summary = f"Imported {imported_count} entries with {len(errors)} errors: " + "; ".join(errors[:3])
@@ -215,3 +317,22 @@ def typology_export_view(request, typology_id):
         writer.writerow([entry.code, entry.category, entry.name])
     
     return response
+
+
+@login_required
+def typology_delete_view(request, typology_id):
+    """Delete an existing typology."""
+    typology = get_object_or_404(Typology, id=typology_id)
+
+    if typology.created_by != request.user:
+        return render(request, 'datasets/403.html', status=403)
+
+    if request.method == 'POST':
+        typology_name = typology.name
+        typology.delete()
+        messages.success(request, f'Typology "{typology_name}" deleted successfully.')
+        return redirect('typology_list')
+
+    return render(request, 'datasets/typology_delete.html', {
+        'typology': typology,
+    })
