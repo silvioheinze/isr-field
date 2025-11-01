@@ -19,7 +19,7 @@ from django.core.mail import send_mail
 from datetime import datetime
 
 from ..models import AuditLog, DataSet
-from ..forms import CustomUserCreationForm
+from ..forms import CustomUserCreationForm, GroupForm
 
 
 def health_check_view(request):
@@ -234,15 +234,15 @@ def create_user_view(request):
 def create_group_view(request):
     """Create group view"""
     if request.method == 'POST':
-        name = request.POST.get('name')
-        if name:
-            group = Group.objects.create(name=name)
-            messages.success(request, f'Group {name} created successfully!')
+        form = GroupForm(request.POST)
+        if form.is_valid():
+            group = form.save()
+            messages.success(request, f'Group {group.name} created successfully!')
             return redirect('user_management')
-        else:
-            messages.error(request, 'Group name is required.')
-    
-    return render(request, 'datasets/create_group.html')
+    else:
+        form = GroupForm()
+
+    return render(request, 'datasets/create_group.html', {'form': form})
 
 
 @login_required
