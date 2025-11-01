@@ -20,6 +20,9 @@
         <div class="col-lg-8">
             <form method="post" enctype="multipart/form-data" novalidate>
                 {% csrf_token %}
+                {% if dataset_id %}
+                <input type="hidden" name="dataset_id" value="{{ dataset_id }}">
+                {% endif %}
 
                 <div class="card shadow-sm mb-4">
                     <div class="card-header bg-light fw-semibold">
@@ -28,9 +31,9 @@
                     <div class="card-body">
                         <div class="mb-0">
                             <label for="name" class="form-label">Typology Name</label>
-                            <input type="text" class="form-control" id="name" name="name" value="{{ form.name.value|default:'' }}" placeholder="e.g. Building Status Codes" required>
-                            {% if form.name.errors %}
-                                <div class="text-danger small mt-1">{{ form.name.errors.0 }}</div>
+                            <input type="text" class="form-control" id="name" name="name" value="{{ name_value|default:'' }}" placeholder="e.g. Building Status Codes" required>
+                            {% if name_errors %}
+                                <div class="text-danger small mt-1">{{ name_errors.0 }}</div>
                             {% endif %}
                             <div class="form-text">Choose a descriptive name so other editors can identify the typology’s purpose.</div>
                         </div>
@@ -142,6 +145,8 @@
     </div>
 </div>
 
+{{ initial_entries|json_script:"initialEntriesData" }}
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const entriesContainer = document.getElementById('entriesContainer');
@@ -153,10 +158,20 @@ document.addEventListener('DOMContentLoaded', function() {
     const importCsvDataBtn = document.getElementById('importCsvDataBtn');
     const csvPreview = document.getElementById('csvPreview');
     const previewTableBody = document.getElementById('previewTableBody');
+    const initialEntriesElement = document.getElementById('initialEntriesData');
+    let initialEntries = [];
+    if (initialEntriesElement && initialEntriesElement.textContent) {
+        try {
+            initialEntries = JSON.parse(initialEntriesElement.textContent) || [];
+        } catch (err) {
+            initialEntries = [];
+        }
+    }
+
     let entryCount = 0;
     let csvData = [];
-    
-    function addEntry() {
+
+    function addEntry(entryData = {}) {
         entryCount++;
         const entryDiv = document.createElement('div');
         entryDiv.className = 'border rounded p-3 bg-light-subtle entry-row';
@@ -182,34 +197,50 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             </div>
         `;
-        
+
+        const codeInput = entryDiv.querySelector(`[name="entry_code_${entryCount}"]`);
+        const categoryInput = entryDiv.querySelector(`[name="entry_category_${entryCount}"]`);
+        const nameInput = entryDiv.querySelector(`[name="entry_name_${entryCount}"]`);
+
+        if (entryData && typeof entryData === 'object') {
+            if (entryData.code !== undefined) {
+                codeInput.value = entryData.code;
+            }
+            if (entryData.category !== undefined) {
+                categoryInput.value = entryData.category;
+            }
+            if (entryData.name !== undefined) {
+                nameInput.value = entryData.name;
+            }
+        }
+
         entryDiv.querySelector('.remove-entry').addEventListener('click', function() {
             entryDiv.remove();
         });
-        
+
         entriesContainer.appendChild(entryDiv);
     }
-    
+
     importCsvBtn.addEventListener('click', function() {
         csvImportSection.style.display = csvImportSection.style.display === 'none' ? 'block' : 'none';
     });
-    
+
     previewCsvBtn.addEventListener('click', function() {
         const file = csvFile.files[0];
         if (!file) {
             alert('Please select a CSV file first.');
             return;
         }
-        
+
         const reader = new FileReader();
         reader.onload = function(e) {
             const text = e.target.result;
             const lines = text.split(/\r?\n/);
             const skipHeader = document.getElementById('skipHeader').checked;
-            
+
             csvData = [];
             const startIndex = skipHeader ? 1 : 0;
-            
+
             for (let i = startIndex; i < lines.length; i++) {
                 const line = lines[i].trim();
                 if (line) {
@@ -219,85 +250,69 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 }
             }
-            
+
             previewTableBody.innerHTML = '';
             csvData.slice(0, 10).forEach(row => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `<td>${row.code}</td><td>${row.category}</td><td>${row.name}</td>`;
                 previewTableBody.appendChild(tr);
             });
-            
+
             if (csvData.length > 10) {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `<td colspan="3" class="text-muted">… and ${csvData.length - 10} more rows</td>`;
                 previewTableBody.appendChild(tr);
             }
-            
+
             csvPreview.style.display = 'block';
         };
         reader.readAsText(file);
     });
-    
+
     importCsvDataBtn.addEventListener('click', function() {
         if (csvData.length === 0) {
             alert('No CSV data to import. Please preview the CSV file first.');
             return;
         }
-        
+
         entriesContainer.innerHTML = '';
         entryCount = 0;
-        csvData.forEach(row => {
-            entryCount++;
-            const entryDiv = document.createElement('div');
-            entryDiv.className = 'border rounded p-3 bg-light-subtle entry-row';
-            entryDiv.innerHTML = `
-                <div class="row g-2 align-items-center">
-                    <div class="col-md-2">
-                        <label class="form-label small mb-1">Code</label>
-                        <input type="number" class="form-control form-control-sm" name="entry_code_${entryCount}" value="${row.code}" required>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label small mb-1">Category</label>
-                        <input type="text" class="form-control form-control-sm" name="entry_category_${entryCount}" value="${row.category}" required>
-                    </div>
-                    <div class="col-md-5">
-                        <label class="form-label small mb-1">Name</label>
-                        <input type="text" class="form-control form-control-sm" name="entry_name_${entryCount}" value="${row.name}" required>
-                    </div>
-                    <div class="col-md-2 text-end">
-                        <label class="form-label small mb-1 d-block">&nbsp;</label>
-                        <button type="button" class="btn btn-outline-danger btn-sm remove-entry" name="remove_entry_${entryCount}">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            `;
-            entryDiv.querySelector('.remove-entry').addEventListener('click', function() {
-                entryDiv.remove();
-            });
-            entriesContainer.appendChild(entryDiv);
-        });
-        
+        csvData.forEach(row => addEntry(row));
+
         csvImportSection.style.display = 'none';
         csvPreview.style.display = 'none';
         csvFile.value = '';
         alert(`Successfully imported ${csvData.length} entries from CSV.`);
     });
-    
-    addEntryBtn.addEventListener('click', addEntry);
-    addEntry();
-    
+
+    addEntryBtn.addEventListener('click', function() {
+        addEntry();
+    });
+
+    if (initialEntries.length > 0) {
+        entriesContainer.innerHTML = '';
+        entryCount = 0;
+        initialEntries.forEach(entry => addEntry(entry));
+    } else {
+        addEntry();
+    }
+
     document.querySelector('form').addEventListener('submit', function(e) {
-        const emptyRows = document.querySelectorAll('.entry-row');
-        emptyRows.forEach(row => {
+        const rows = Array.from(document.querySelectorAll('.entry-row'));
+        rows.forEach(row => {
             const codeInput = row.querySelector('input[name^="entry_code_"]');
             const categoryInput = row.querySelector('input[name^="entry_category_"]');
             const nameInput = row.querySelector('input[name^="entry_name_"]');
-            if (!codeInput.value.trim() && !categoryInput.value.trim() && !nameInput.value.trim()) {
+            if (
+                codeInput && categoryInput && nameInput &&
+                !codeInput.value.trim() &&
+                !categoryInput.value.trim() &&
+                !nameInput.value.trim()
+            ) {
                 row.remove();
             }
         });
-        
+
         if (document.querySelectorAll('.entry-row').length === 0) {
             e.preventDefault();
             alert('Please add at least one typology entry before creating the typology.');
