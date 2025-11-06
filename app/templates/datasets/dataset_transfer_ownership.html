@@ -1,0 +1,104 @@
+{% extends 'datasets/_base.html' %}
+
+{% block title %}Transfer Ownership - {{ dataset.name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 800px;">
+    <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-1">Transfer Ownership</h1>
+            <p class="text-muted small mb-0">Transfer ownership of <strong>{{ dataset.name }}</strong> to another user.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Back to Dataset
+            </a>
+        </div>
+    </div>
+
+    {% if form.errors %}
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <h5 class="alert-heading"><i class="bi bi-exclamation-triangle me-2"></i>Form Errors</h5>
+        {% if form.non_field_errors %}
+            <ul class="mb-0">
+                {% for error in form.non_field_errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="mb-0">Please correct the errors below and try again.</p>
+        {% endif %}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-warning bg-opacity-10 fw-semibold">
+            <i class="bi bi-exclamation-triangle me-2"></i>Important Information
+        </div>
+        <div class="card-body">
+            <p class="mb-2"><strong>What happens when you transfer ownership:</strong></p>
+            <ul class="mb-0 small">
+                <li>You will no longer be the owner of this dataset</li>
+                <li>The new owner will have full control over the dataset</li>
+                <li>You will retain access if you are in the shared users or groups</li>
+                <li>All data, fields, and configurations will be preserved</li>
+                <li>This action cannot be undone automatically</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light fw-semibold">
+            <i class="bi bi-info-circle me-2"></i>Current Ownership
+        </div>
+        <div class="card-body">
+            <dl class="row mb-0">
+                <dt class="col-4 text-muted">Current Owner</dt>
+                <dd class="col-8">
+                    <strong>{{ dataset.owner.username }}</strong>
+                    {% if dataset.owner.email %}
+                        <br><small class="text-muted">{{ dataset.owner.email }}</small>
+                    {% endif %}
+                </dd>
+                <dt class="col-4 text-muted">Dataset</dt>
+                <dd class="col-8">{{ dataset.name }}</dd>
+                <dt class="col-4 text-muted">Created</dt>
+                <dd class="col-8">{{ dataset.created_at|date:"F d, Y" }}</dd>
+            </dl>
+        </div>
+    </div>
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+        <div class="card shadow-sm">
+            <div class="card-header bg-light fw-semibold">
+                <i class="bi bi-person-check me-2"></i>Select New Owner
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="{{ form.new_owner.id_for_label }}" class="form-label fw-semibold">New Owner</label>
+                    {{ form.new_owner }}
+                    {% if form.new_owner.help_text %}
+                        <div class="form-text">{{ form.new_owner.help_text }}</div>
+                    {% endif %}
+                    {% if form.new_owner.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.new_owner.errors %}{{ error }}{% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-footer bg-light d-flex flex-wrap gap-2 justify-content-end">
+                <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-circle"></i> Cancel
+                </a>
+                <button type="submit" class="btn btn-warning">
+                    <i class="bi bi-arrow-right-circle"></i> Transfer Ownership
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+

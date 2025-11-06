@@ -47,6 +47,7 @@ urlpatterns = [
     path('datasets/<int:dataset_id>/custom-fields/<int:field_id>/edit/', datasets_views.custom_field_edit_view, name='custom_field_edit'),
     path('datasets/<int:dataset_id>/custom-fields/<int:field_id>/delete/', datasets_views.custom_field_delete_view, name='custom_field_delete'),
     path('datasets/<int:dataset_id>/access/', datasets_views.dataset_access_view, name='dataset_access'),
+    path('datasets/<int:dataset_id>/transfer-ownership/', datasets_views.dataset_transfer_ownership_view, name='dataset_transfer_ownership'),
     path('datasets/<int:dataset_id>/import/columns/', datasets_views.dataset_csv_column_selection_view, name='dataset_csv_column_selection'),
     path('datasets/<int:dataset_id>/import/', datasets_views.dataset_csv_import_view, name='dataset_csv_import'),
     path('datasets/<int:dataset_id>/import/summary/', datasets_views.import_summary_view, name='import_summary'),

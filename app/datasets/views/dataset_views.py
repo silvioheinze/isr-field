@@ -9,7 +9,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 
 from ..models import DataSet, DataGeometry, DataEntry, DataEntryField, DatasetField, AuditLog, Typology
-from ..forms import DatasetFieldConfigForm, DatasetFieldForm
+from ..forms import DatasetFieldConfigForm, DatasetFieldForm, TransferOwnershipForm
 def _get_typology_categories_map():
     categories = {}
     typologies = Typology.objects.all().order_by('name')
@@ -594,4 +594,35 @@ def custom_field_delete_view(request, dataset_id, field_id):
     return render(request, 'datasets/custom_field_delete.html', {
         'dataset': dataset,
         'field': field
+    })
+
+
+@login_required
+def dataset_transfer_ownership_view(request, dataset_id):
+    """Transfer ownership of a dataset to another user"""
+    dataset = get_object_or_404(DataSet, id=dataset_id)
+    
+    # Only the current owner can transfer ownership
+    if dataset.owner != request.user:
+        messages.error(request, 'You do not have permission to transfer ownership of this dataset.')
+        return redirect('dataset_detail', dataset_id=dataset.id)
+    
+    if request.method == 'POST':
+        form = TransferOwnershipForm(request.POST, current_owner=dataset.owner)
+        if form.is_valid():
+            new_owner = form.cleaned_data['new_owner']
+            old_owner = dataset.owner
+            
+            # Transfer ownership
+            dataset.owner = new_owner
+            dataset.save()
+            
+            messages.success(request, f'Ownership of "{dataset.name}" has been transferred to {new_owner.username}.')
+            return redirect('dataset_detail', dataset_id=dataset.id)
+    else:
+        form = TransferOwnershipForm(current_owner=dataset.owner)
+    
+    return render(request, 'datasets/dataset_transfer_ownership.html', {
+        'dataset': dataset,
+        'form': form
     })
