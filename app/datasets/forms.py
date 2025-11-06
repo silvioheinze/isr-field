@@ -180,3 +180,22 @@ class CustomUserCreationForm(UserCreationForm):
         if commit:
             user.save()
         return user
+
+
+class TransferOwnershipForm(forms.Form):
+    """Form for transferring dataset ownership"""
+    new_owner = forms.ModelChoiceField(
+        queryset=User.objects.none(),
+        required=True,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        help_text="Select the user who will become the new owner of this dataset."
+    )
+
+    def __init__(self, *args, **kwargs):
+        current_owner = kwargs.pop('current_owner', None)
+        super().__init__(*args, **kwargs)
+        # Exclude the current owner from the list
+        queryset = User.objects.filter(is_active=True).order_by('username')
+        if current_owner:
+            queryset = queryset.exclude(id=current_owner.id)
+        self.fields['new_owner'].queryset = queryset
