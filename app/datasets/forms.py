@@ -108,10 +108,8 @@ class DatasetFieldForm(forms.ModelForm):
         return field_name
     
     def clean_choices(self):
-        """Validate choices for choice fields"""
-        choices = self.cleaned_data.get('choices')
-        field_type = self.cleaned_data.get('field_type')
-        typology = self.cleaned_data.get('typology')
+        """Normalize choices for choice fields"""
+        choices = self.cleaned_data.get('choices', '')
 
         normalized_choices = []
         if isinstance(choices, str):
@@ -119,13 +117,25 @@ class DatasetFieldForm(forms.ModelForm):
         elif isinstance(choices, (list, tuple)):
             normalized_choices = [str(choice).strip() for choice in choices if str(choice).strip()]
         
-        if field_type == 'choice' and not (normalized_choices or typology):
-            raise forms.ValidationError("Provide manual choices or select a typology for choice fields.")
-        
         return ', '.join(normalized_choices) if normalized_choices else ''
 
     def clean(self):
         cleaned_data = super().clean()
+        field_type = cleaned_data.get('field_type')
+        choices = cleaned_data.get('choices', '')
+        typology = cleaned_data.get('typology')
+        
+        # Validate that choice fields have either manual choices or a typology
+        if field_type == 'choice':
+            # Check if choices are provided (after normalization)
+            has_choices = bool(choices and choices.strip())
+            # Check if typology is provided
+            has_typology = bool(typology)
+            
+            if not (has_choices or has_typology):
+                self.add_error('choices', 'Provide manual choices or select a typology for choice fields.')
+        
+        # Handle typology category
         if not cleaned_data.get('typology'):
             cleaned_data['typology_category'] = ''
         else:
@@ -133,6 +143,7 @@ class DatasetFieldForm(forms.ModelForm):
             available_categories = [choice[0] for choice in self.fields['typology_category'].choices if choice[0]]
             if typology_category and typology_category not in available_categories:
                 self.add_error('typology_category', 'Selected category is not available for this typology.')
+        
         return cleaned_data
 
 
