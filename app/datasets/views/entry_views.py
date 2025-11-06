@@ -5,20 +5,26 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.db import transaction
 
-from ..models import DataSet, DataGeometry, DataEntry, DataEntryField
+from ..models import DataSet, DataGeometry, DataEntry, DataEntryField, DatasetField
 
 
 @login_required
 def entry_detail_view(request, entry_id):
     """View details of a specific entry"""
     entry = get_object_or_404(DataEntry, id=entry_id)
+    dataset = entry.geometry.dataset
     
     # Check if user has access to this entry's dataset
-    if not entry.geometry.dataset.can_access(request.user):
+    if not dataset.can_access(request.user):
         return render(request, 'datasets/403.html', status=403)
     
+    # Get all fields for this dataset, ordered by display order
+    all_fields = DatasetField.objects.filter(dataset=dataset).order_by('order', 'field_name')
+    
     return render(request, 'datasets/entry_detail.html', {
-        'entry': entry
+        'entry': entry,
+        'dataset': dataset,
+        'all_fields': all_fields
     })
 
 
@@ -56,8 +62,14 @@ def entry_edit_view(request, entry_id):
         else:
             messages.error(request, 'Entry name is required.')
     
+    # Get all fields for this dataset, ordered by display order
+    dataset = entry.geometry.dataset
+    all_fields = DatasetField.objects.filter(dataset=dataset).order_by('order', 'field_name')
+    
     return render(request, 'datasets/entry_edit.html', {
-        'entry': entry
+        'entry': entry,
+        'dataset': dataset,
+        'all_fields': all_fields
     })
 
 
