@@ -534,6 +534,7 @@ def custom_field_create_view(request, dataset_id):
             field.save()
             messages.success(request, f'Field "{field.label}" created successfully!')
             return redirect('dataset_detail', dataset_id=dataset.id)
+        # Form is invalid - will be re-rendered with errors below
     else:
         form = DatasetFieldForm()
     
@@ -561,6 +562,7 @@ def custom_field_edit_view(request, dataset_id, field_id):
             form.save()
             messages.success(request, f'Field "{field.label}" updated successfully!')
             return redirect('dataset_detail', dataset_id=dataset.id)
+        # Form is invalid - will be re-rendered with errors below
     else:
         form = DatasetFieldForm(instance=field)
     
