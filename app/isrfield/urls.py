@@ -19,7 +19,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from datasets import views as datasets_views
-from datasets.views import export_views
+from datasets.views import export_views, mapping_area_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -82,6 +82,11 @@ urlpatterns = [
     path('datasets/geometry/<int:geometry_id>/files/', datasets_views.geometry_files_view, name='geometry_files'),
     path('datasets/files/<int:file_id>/delete/', datasets_views.delete_file_view, name='delete_file'),
     path('entries/save/', datasets_views.save_entries_view, name='save_entries'),
+    # Mapping area URLs
+    path('datasets/<int:dataset_id>/mapping-areas/', mapping_area_views.mapping_area_list_view, name='mapping_area_list'),
+    path('datasets/<int:dataset_id>/mapping-areas/create/', mapping_area_views.mapping_area_create_view, name='mapping_area_create'),
+    path('datasets/<int:dataset_id>/mapping-areas/<int:area_id>/update/', mapping_area_views.mapping_area_update_view, name='mapping_area_update'),
+    path('datasets/<int:dataset_id>/mapping-areas/<int:area_id>/delete/', mapping_area_views.mapping_area_delete_view, name='mapping_area_delete'),
     path('health/', datasets_views.health_check_view, name='health_check'),
     path('', datasets_views.dashboard_view, name='dashboard'),
 ]

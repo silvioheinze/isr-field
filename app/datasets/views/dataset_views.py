@@ -329,13 +329,19 @@ def dataset_data_input_view(request, dataset_id):
     except AttributeError:
         allow_multiple_entries = False  # Default to False if field doesn't exist
     
+    # Get all users for allocation dropdown (only for dataset owner)
+    users_for_allocation = []
+    if dataset.owner == request.user:
+        users_for_allocation = User.objects.filter(is_active=True).order_by('username')
+    
     return render(request, 'datasets/dataset_data_input.html', {
         'dataset': dataset,
         'geometries': geometries,
         'typology_data': typology_data,
         'all_fields': all_fields,
         'fields_data': fields_data,
-        'allow_multiple_entries': allow_multiple_entries
+        'allow_multiple_entries': allow_multiple_entries,
+        'users_for_allocation': users_for_allocation
     })
 
 

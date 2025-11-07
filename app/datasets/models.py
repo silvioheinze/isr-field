@@ -1,7 +1,9 @@
-from django.db import models
+import logging
+
 from django.contrib.auth.models import User
 from django.contrib.gis.db import models as gis_models
-from django.contrib.gis.geos import Point
+from django.contrib.gis.geos import GEOSException, Point
+from django.db import models
 
 class AuditLog(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
@@ -335,4 +337,36 @@ class ExportTask(models.Model):
     class Meta:
         ordering = ['-created_at']
         verbose_name = "Export Task"
-        verbose_name_plural = "Export Tasks" 
+        verbose_name_plural = "Export Tasks"
+
+
+class MappingArea(models.Model):
+    """Mapping area defined as a polygon on the map"""
+    dataset = models.ForeignKey(DataSet, on_delete=models.CASCADE, related_name='mapping_areas')
+    name = models.CharField(max_length=255)
+    geometry = gis_models.PolygonField(srid=4326)  # WGS84 coordinate system
+    allocated_users = models.ManyToManyField(User, related_name='allocated_mapping_areas', blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_mapping_areas')
+    
+    def __str__(self):
+        return f"{self.name} ({self.dataset.name})"
+    
+    def get_point_count(self):
+        """Get the number of geometry points inside this polygon"""
+        if not self.geometry:
+            return 0
+        try:
+            return self.dataset.geometries.filter(geometry__within=self.geometry).count()
+        except Exception:  # pragma: no cover - defensive
+            logging.getLogger(__name__).exception(
+                "Failed to count geometries within mapping area %s (dataset %s)",
+                self.id,
+                self.dataset_id,
+            )
+            return 0
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name_plural = "Mapping Areas" 
