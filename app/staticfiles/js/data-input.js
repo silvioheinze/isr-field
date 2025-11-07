@@ -239,6 +239,8 @@ function selectPoint(point) {
 // Show geometry details
 function showGeometryDetails(point) {
     currentPoint = point;
+    // Reset selected entry when switching to a new geometry
+    selectedEntryId = null;
 
     if (!window.allFields || window.allFields.length === 0) {
         try {
@@ -268,6 +270,9 @@ function showGeometryDetails(point) {
     if (typeof adjustColumnLayout === 'function') adjustColumnLayout();
 }
 
+// Global variable to track selected entry
+var selectedEntryId = null;
+
 // Generate entries table
 function generateEntriesTable(point) {
     var entriesList = document.getElementById('entriesList');
@@ -282,25 +287,87 @@ function generateEntriesTable(point) {
         return (b.year || 0) - (a.year || 0);
     });
     
-    // Show entries based on allowMultipleEntries setting
-    var entriesToShow;
-    if (window.allowMultipleEntries) {
-        // Show up to 3 most recent entries when multiple entries are allowed
-        entriesToShow = Math.min(3, point.entries.length);
-    } else {
-        // Show only 1 entry when multiple entries are not allowed
-        entriesToShow = Math.min(1, point.entries.length);
+    // Entry Selection Dropdown - only show if there are entries
+    if (sortedEntries.length > 0) {
+        entriesHtml += '<div class="card mb-3">';
+        entriesHtml += '<div class="card-header bg-light fw-semibold">';
+        entriesHtml += '<i class="bi bi-list-ul me-2"></i>';
+        entriesHtml += 'Select an entry to edit or create a new one. Total entries: ' + sortedEntries.length;
+        entriesHtml += '</div>';
+        entriesHtml += '<div class="card-body">';
+        entriesHtml += '<div class="mb-3">';
+        entriesHtml += '<select class="form-select" id="entrySelector" onchange="selectEntryFromDropdown(this.value)">';
+        
+        // Determine initial selection
+        var hasInitialSelection = false;
+        if (sortedEntries.length > 0 && selectedEntryId === null) {
+            // Auto-select first entry if entries exist and nothing is selected
+            selectedEntryId = sortedEntries[0].id;
+            hasInitialSelection = true;
+        }
+        
+        // Add option for creating new entry
+        if (window.allowMultipleEntries) {
+            var isNewSelected = selectedEntryId === 'new';
+            entriesHtml += '<option value="new"' + (isNewSelected ? ' selected' : '') + '>';
+            entriesHtml += '➕ Create New Entry';
+            entriesHtml += '</option>';
+        }
+        
+        // Add options for existing entries
+        sortedEntries.forEach(function(entry, index) {
+            var isSelected = false;
+            if (selectedEntryId !== null && selectedEntryId !== 'new') {
+                var entryIdNum = typeof selectedEntryId === 'string' ? parseInt(selectedEntryId) : selectedEntryId;
+                isSelected = entry.id === entryIdNum || entry.id === selectedEntryId;
+            } else if (index === 0 && hasInitialSelection) {
+                isSelected = true;
+            }
+            
+            var entryName = entry.name || 'Unnamed Entry';
+            var entryYear = entry.year ? ' (' + entry.year + ')' : '';
+            var entryUser = entry.user ? ' - ' + entry.user : '';
+            
+            entriesHtml += '<option value="' + entry.id + '"' + (isSelected ? ' selected' : '') + '>';
+            entriesHtml += escapeHtml(entryName) + escapeHtml(entryYear) + escapeHtml(entryUser);
+            entriesHtml += '</option>';
+        });
+        
+        entriesHtml += '</select>';
+        entriesHtml += '</div>';
+        entriesHtml += '</div>';
+        entriesHtml += '</div>';
     }
     
-    // Create forms for each entry
-    for (var entryIndex = 0; entryIndex < entriesToShow; entryIndex++) {
-        var entry = sortedEntries[entryIndex];
-        if (!entry) continue;
+    // Entry Detail Form Section - Show selected entry or new entry form
+    var selectedEntry = null;
+    var selectedEntryIndex = -1;
+    var showNewEntryForm = false;
+    
+    // Check if we should show new entry form
+    // Show new entry form if "new" is selected, or if no entries exist
+    if (selectedEntryId === 'new' || (selectedEntryId === null && sortedEntries.length === 0)) {
+        showNewEntryForm = true;
+    } else {
+        // Find the selected entry
+        sortedEntries.forEach(function(entry, index) {
+            var entryIdNum = typeof selectedEntryId === 'string' ? parseInt(selectedEntryId) : selectedEntryId;
+            if (entry.id === entryIdNum || entry.id === selectedEntryId) {
+                selectedEntry = entry;
+                selectedEntryIndex = index;
+            }
+        });
+    }
+    
+    // Show selected entry form
+    if (selectedEntry) {
+        var entry = selectedEntry;
+        var entryIndex = selectedEntryIndex;
         
-        entriesHtml += '<div class="card mb-3">';
-        entriesHtml += '<div class="card-header d-flex justify-content-between align-items-center">';
-        entriesHtml += '<h6 class="mb-0">' + (entry.name || 'Unnamed Entry') + '</h6>';
-        entriesHtml += '<small class="text-muted">Entry ' + (entryIndex + 1) + '</small>';
+        entriesHtml += '<div class="card mb-3 border-info">';
+        entriesHtml += '<div class="card-header bg-info bg-opacity-10 d-flex justify-content-between align-items-center">';
+        entriesHtml += '<h6 class="mb-0 fw-semibold"><i class="bi bi-pencil-square me-2"></i>' + (entry.name || 'Unnamed Entry') + '</h6>';
+        entriesHtml += '<small class="text-muted">Editing Entry</small>';
         entriesHtml += '</div>';
         entriesHtml += '<div class="card-body">';
         
@@ -365,11 +432,11 @@ function generateEntriesTable(point) {
         entriesHtml += '</div>';
     }
     
-    // Add new entry form if multiple entries are allowed or no entries exist
-    if (window.allowMultipleEntries || !point.entries || point.entries.length === 0) {
-        entriesHtml += '<div class="card mb-3 new-entry-form">';
-        entriesHtml += '<div class="card-header">';
-        entriesHtml += '<h6 class="mb-0">' + (window.translations?.createEntry || 'Create New Entry') + '</h6>';
+    // Show new entry form if selected
+    if (showNewEntryForm) {
+        entriesHtml += '<div class="card mb-3 new-entry-form border-success">';
+        entriesHtml += '<div class="card-header bg-success bg-opacity-10 fw-semibold">';
+        entriesHtml += '<i class="bi bi-plus-circle me-2"></i>' + (window.translations?.createEntry || 'Create New Entry');
         entriesHtml += '</div>';
         entriesHtml += '<div class="card-body">';
         
@@ -392,13 +459,10 @@ function generateEntriesTable(point) {
             var hasEnabledFields = sortedFields.some(function(field) {
                 return field.enabled;
             });
-            console.log('New entry form - Checking window.allFields:', window.allFields);
-            console.log('New entry form - Has enabled fields:', hasEnabledFields);
             
             if (hasEnabledFields) {
                 sortedFields.forEach(function(field) {
                     if (field.enabled) {
-                        console.log('New entry form - Rendering field:', field);
                         entriesHtml += '<div class="mb-3">';
                         entriesHtml += '<label for="field_' + field.field_name + '" class="form-label">';
                         entriesHtml += field.label;
@@ -435,20 +499,51 @@ function generateEntriesTable(point) {
     }
     
     // Add action buttons
-    entriesHtml += '<div class="mt-3 d-flex gap-2">';
-    if (window.allowMultipleEntries || !point.entries || point.entries.length === 0) {
+    entriesHtml += '<div class="mt-3 d-flex gap-2 flex-wrap">';
+    if (showNewEntryForm) {
         entriesHtml += '<button type="button" class="btn btn-primary" onclick="createEntry()">';
         entriesHtml += '<i class="bi bi-plus-circle"></i> ' + (window.translations?.createEntry || 'Create Entry');
         entriesHtml += '</button>';
     }
-    if (point.entries && point.entries.length > 0) {
+    if (selectedEntry) {
         entriesHtml += '<button type="button" class="btn btn-success" onclick="saveEntries()">';
         entriesHtml += '<i class="bi bi-save"></i> ' + (window.translations?.saveEntries || 'Save Changes');
         entriesHtml += '</button>';
+        entriesHtml += '<button type="button" class="btn btn-outline-secondary" id="copyEntryBtn" onclick="copyToNewEntry(' + selectedEntry.id + ', ' + selectedEntryIndex + ', this)">';
+        entriesHtml += '<i class="bi bi-files"></i> Copy to new Entry</button>';
+        entriesHtml += '<a href="/entries/' + selectedEntry.id + '/" class="btn btn-outline-info" target="_blank">';
+        entriesHtml += '<i class="bi bi-eye"></i> View Details</a>';
     }
     entriesHtml += '</div>';
     
     entriesList.innerHTML = entriesHtml;
+}
+
+// Select an entry from the dropdown
+function selectEntryFromDropdown(value) {
+    if (value === 'new') {
+        selectedEntryId = 'new'; // Use 'new' string to distinguish from null
+    } else {
+        selectedEntryId = value ? parseInt(value) : null;
+    }
+    // Regenerate the entries table to show the selected entry
+    if (currentPoint) {
+        generateEntriesTable(currentPoint);
+    }
+}
+
+// Legacy function for backward compatibility (if needed)
+function selectEntry(entryId, entryIndex) {
+    selectedEntryId = entryId ? parseInt(entryId) : null;
+    // Update the dropdown to reflect the selection
+    var selector = document.getElementById('entrySelector');
+    if (selector) {
+        selector.value = entryId || 'new';
+    }
+    // Regenerate the entries table to show the selected entry
+    if (currentPoint) {
+        generateEntriesTable(currentPoint);
+    }
 }
 
 // Create form field input based on field configuration
@@ -801,6 +896,106 @@ function createEntry() {
     .catch(error => {
         console.error('Error creating entry:', error);
         alert('Error creating entry: ' + error.message);
+    });
+}
+
+// Copy entry to new entry
+function copyToNewEntry(entryId, entryIndex, buttonElement) {
+    if (!currentPoint) {
+        alert('Please select a geometry point first.');
+        return;
+    }
+    
+    if (!window.allowMultipleEntries && currentPoint.entries && currentPoint.entries.length > 0) {
+        alert('Multiple entries are not allowed for this dataset.');
+        return;
+    }
+    
+    // Get the entry name (use current entry name with "Copy" suffix)
+    var currentEntryName = '';
+    if (currentPoint.entries && currentPoint.entries[entryIndex]) {
+        currentEntryName = currentPoint.entries[entryIndex].name || currentPoint.id_kurz || 'Entry';
+    } else {
+        currentEntryName = currentPoint.id_kurz || 'Entry';
+    }
+    var newEntryName = currentEntryName + ' (Copy)';
+    
+    var formData = new FormData();
+    formData.append('name', newEntryName);
+    formData.append('geometry_id', currentPoint.id);
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    // Copy field values from the current entry's form (excluding images)
+    if (window.allFields && window.allFields.length > 0) {
+        window.allFields.forEach(function(field) {
+            if (field.enabled) {
+                // Get field value from the current entry's form
+                var fieldElement = document.getElementById('field_' + field.field_name + '_' + entryIndex);
+                if (fieldElement) {
+                    var fieldValue = fieldElement.value;
+                    // Skip empty date fields to avoid browser validation errors
+                    if (field.field_type === 'date' && !fieldValue) {
+                        return; // Skip empty date fields
+                    }
+                    // Send field name directly (not wrapped in fields[])
+                    formData.append(field.field_name, fieldValue);
+                }
+            }
+        });
+    }
+    
+    // Show loading state
+    var copyBtn = buttonElement || document.getElementById('copyEntryBtn');
+    var originalText = copyBtn.innerHTML;
+    copyBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Copying...';
+    copyBtn.disabled = true;
+    
+    fetch(window.location.origin + '/geometries/' + currentPoint.id + '/entries/create/', {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Reload map data to show new entry
+            loadMapData();
+            
+            // After reloading, select the new entry
+            if (data.entry_id) {
+                // Wait a bit for the data to load, then select the new entry
+                setTimeout(function() {
+                    selectedEntryId = data.entry_id;
+                    // Reload geometry details to get the new entry
+                    loadGeometryDetails(currentPoint.id)
+                        .then(function(detailedPoint) {
+                            showGeometryDetails(detailedPoint);
+                            // Select the new entry in the dropdown
+                            var selector = document.getElementById('entrySelector');
+                            if (selector) {
+                                selector.value = data.entry_id;
+                            }
+                        })
+                        .catch(function() {
+                            // Fallback: just reload the current point
+                            if (currentPoint) {
+                                generateEntriesTable(currentPoint);
+                            }
+                        });
+                }, 500);
+            }
+        } else {
+            alert('Error copying entry: ' + (data.error || 'Unknown error'));
+            copyBtn.innerHTML = originalText;
+            copyBtn.disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Error copying entry:', error);
+        alert('Error copying entry: ' + error.message);
+        copyBtn.innerHTML = originalText;
+        copyBtn.disabled = false;
     });
 }
 
