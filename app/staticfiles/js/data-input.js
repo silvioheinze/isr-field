@@ -287,8 +287,8 @@ function generateEntriesTable(point) {
         return (b.year || 0) - (a.year || 0);
     });
     
-    // Entry Selection Dropdown - only show if there are entries
-    if (sortedEntries.length > 0) {
+    // Entry Selection Dropdown - only show if multiple entries are allowed and there are entries
+    if (window.allowMultipleEntries && sortedEntries.length > 0) {
         entriesHtml += '<div class="card mb-3">';
         entriesHtml += '<div class="card-header bg-light fw-semibold">';
         entriesHtml += '<i class="bi bi-list-ul me-2"></i>';
@@ -307,12 +307,10 @@ function generateEntriesTable(point) {
         }
         
         // Add option for creating new entry
-        if (window.allowMultipleEntries) {
-            var isNewSelected = selectedEntryId === 'new';
-            entriesHtml += '<option value="new"' + (isNewSelected ? ' selected' : '') + '>';
-            entriesHtml += '➕ Create New Entry';
-            entriesHtml += '</option>';
-        }
+        var isNewSelected = selectedEntryId === 'new';
+        entriesHtml += '<option value="new"' + (isNewSelected ? ' selected' : '') + '>';
+        entriesHtml += '➕ Create New Entry';
+        entriesHtml += '</option>';
         
         // Add options for existing entries
         sortedEntries.forEach(function(entry, index) {
@@ -344,9 +342,15 @@ function generateEntriesTable(point) {
     var selectedEntryIndex = -1;
     var showNewEntryForm = false;
     
+    // If multiple entries are not allowed, automatically select the first (and only) entry if it exists
+    if (!window.allowMultipleEntries && sortedEntries.length > 0) {
+        selectedEntry = sortedEntries[0];
+        selectedEntryIndex = 0;
+        selectedEntryId = sortedEntries[0].id;
+    }
     // Check if we should show new entry form
     // Show new entry form if "new" is selected, or if no entries exist
-    if (selectedEntryId === 'new' || (selectedEntryId === null && sortedEntries.length === 0)) {
+    else if (selectedEntryId === 'new' || (selectedEntryId === null && sortedEntries.length === 0)) {
         showNewEntryForm = true;
     } else {
         // Find the selected entry
@@ -509,8 +513,10 @@ function generateEntriesTable(point) {
         entriesHtml += '<button type="button" class="btn btn-success" onclick="saveEntries()">';
         entriesHtml += '<i class="bi bi-save"></i> ' + (window.translations?.saveEntries || 'Save Changes');
         entriesHtml += '</button>';
-        entriesHtml += '<button type="button" class="btn btn-outline-secondary" id="copyEntryBtn" onclick="copyToNewEntry(' + selectedEntry.id + ', ' + selectedEntryIndex + ', this)">';
-        entriesHtml += '<i class="bi bi-files"></i> Copy to new Entry</button>';
+        if (window.allowMultipleEntries) {
+            entriesHtml += '<button type="button" class="btn btn-outline-secondary" id="copyEntryBtn" onclick="copyToNewEntry(' + selectedEntry.id + ', ' + selectedEntryIndex + ', this)">';
+            entriesHtml += '<i class="bi bi-files"></i> Copy to new Entry</button>';
+        }
         entriesHtml += '<a href="/entries/' + selectedEntry.id + '/" class="btn btn-outline-info" target="_blank">';
         entriesHtml += '<i class="bi bi-eye"></i> View Details</a>';
     }
