@@ -89,14 +89,8 @@
                                     <button type="button" id="drawPolygonBtn" class="btn btn-primary btn-sm" onclick="startDrawingPolygon()">
                                         <i class="bi bi-pencil"></i> {% trans "Draw Polygon" %}
                                     </button>
-                                    <button type="button" id="finishDrawingBtn" class="btn btn-success btn-sm" onclick="finishDrawingPolygon()" disabled>
+                                    <button type="button" id="finishDrawingBtn" class="btn btn-success btn-sm" onclick="finishDrawingPolygon()" disabled style="display: none;">
                                         <i class="bi bi-check2-circle"></i> {% trans "Finish Drawing" %}
-                                    </button>
-                                    <button type="button" id="editPolygonBtn" class="btn btn-info btn-sm" onclick="startEditingPolygon()" disabled>
-                                        <i class="bi bi-pencil-square"></i> {% trans "Edit Polygon" %}
-                                    </button>
-                                    <button type="button" id="deletePolygonBtn" class="btn btn-danger btn-sm" onclick="deleteSelectedPolygon()" disabled>
-                                        <i class="bi bi-trash"></i> {% trans "Delete Polygon" %}
                                     </button>
                                 </div>
                             </div>

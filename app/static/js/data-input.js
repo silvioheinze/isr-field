@@ -1681,8 +1681,7 @@ function displayMappingAreas(areas) {
     
     var html = '';
     areas.forEach(function(area) {
-        html += '<div class="list-group-item mapping-area-item" data-area-id="' + area.id + '" onclick="selectMappingArea(' + area.id + ')">';
-        html += '<div class="d-flex justify-content-between align-items-start">';
+        html += '<div class="list-group-item mapping-area-item d-flex justify-content-between align-items-start" data-area-id="' + area.id + '" onclick="selectMappingArea(' + area.id + ')">';
         html += '<div class="flex-grow-1">';
         html += '<h6 class="mb-1 fw-semibold">' + escapeHtml(area.name) + '</h6>';
         html += '<div class="small text-muted">';
@@ -1692,10 +1691,13 @@ function displayMappingAreas(areas) {
         }
         html += '</div>';
         html += '</div>';
-        html += '<div class="ms-2">';
+        html += '<div class="ms-2 d-flex flex-column align-items-end gap-2">';
         if (selectedMappingArea === area.id) {
             html += '<span class="badge bg-primary"><i class="bi bi-check-circle"></i> Selected</span>';
         }
+        html += '<div class="btn-group btn-group-sm" role="group">';
+        html += '<button type="button" class="btn btn-outline-primary" title="Edit polygon" onclick="event.stopPropagation(); editMappingArea(' + area.id + ');"><i class="bi bi-pencil-square"></i></button>';
+        html += '<button type="button" class="btn btn-outline-danger" title="Delete polygon" onclick="event.stopPropagation(); deleteMappingArea(' + area.id + ');"><i class="bi bi-trash"></i></button>';
         html += '</div>';
         html += '</div>';
         html += '</div>';
@@ -1776,9 +1778,6 @@ function selectMappingArea(areaId) {
         }
     });
     
-    // Enable edit and delete buttons
-    document.getElementById('editPolygonBtn').disabled = false;
-    document.getElementById('deletePolygonBtn').disabled = false;
 }
 
 // Clear selected polygon
@@ -1795,8 +1794,6 @@ function clearSelectedPolygon() {
             weight: 2
         });
     });
-    document.getElementById('editPolygonBtn').disabled = true;
-    document.getElementById('deletePolygonBtn').disabled = true;
 }
 
 // Start drawing a new polygon
@@ -1857,6 +1854,7 @@ function startDrawingPolygon() {
     
     var finishBtn = document.getElementById('finishDrawingBtn');
     if (finishBtn) {
+        finishBtn.style.display = 'inline-block';
         finishBtn.disabled = false;
     }
     
@@ -1883,6 +1881,7 @@ function stopDrawingPolygon() {
     var finishBtn = document.getElementById('finishDrawingBtn');
     if (finishBtn) {
         finishBtn.disabled = true;
+        finishBtn.style.display = 'none';
     }
 }
 
@@ -1914,13 +1913,17 @@ function finishDrawingPolygon() {
     var finishBtn = document.getElementById('finishDrawingBtn');
     if (finishBtn) {
         finishBtn.disabled = true;
+        finishBtn.style.display = 'none';
     }
     
     showPolygonForm(null, coordinates);
 }
 
 // Start editing a polygon
-function startEditingPolygon() {
+function startEditingPolygon(areaId) {
+    if (typeof areaId === 'number' && selectedMappingArea !== areaId) {
+        selectMappingArea(areaId);
+    }
     if (!selectedMappingArea) return;
     
     stopDrawingPolygon();
@@ -1950,53 +1953,14 @@ function startEditingPolygon() {
         weight: 3
     });
     
-    document.getElementById('editPolygonBtn').classList.add('active');
-    document.getElementById('editPolygonBtn').innerHTML = '<i class="bi bi-check-circle"></i> Finish Editing';
-    document.getElementById('editPolygonBtn').onclick = finishEditingPolygon;
-    
     // Show save button with current coordinates
     var latlngs = polygon.getLatLngs()[0];
     var coordinates = latlngs.map(function(latlng) {
         return [latlng.lng, latlng.lat];
     });
     coordinates.push(coordinates[0]); // Close the ring
-    showPolygonForm(selectedMappingArea, coordinates);
-}
-
-// Finish editing polygon
-function finishEditingPolygon() {
-    if (!currentEditingPolygon) return;
-    
-    var polygon = currentEditingPolygon;
-    var areaId = polygon.mappingAreaId;
-    
-    // Get updated coordinates
-    var latlngs = polygon.getLatLngs()[0]; // Get first ring
-    var coordinates = latlngs.map(function(latlng) {
-        return [latlng.lng, latlng.lat]; // Convert to [lng, lat] for GeoJSON
-    });
-    // Close the ring
-    coordinates.push(coordinates[0]);
-    
-    // Store coordinates for saving
     currentEditingPolygonCoordinates = coordinates;
-    
-    // Reset polygon style
-    polygon.setStyle({
-        color: '#0d6efd',
-        fillColor: '#0d6efd',
-        fillOpacity: 0.3,
-        weight: 3
-    });
-    
-    currentEditingPolygon = null;
-    
-    // Update the form with new coordinates
-    showPolygonForm(areaId, coordinates);
-    
-    document.getElementById('editPolygonBtn').classList.remove('active');
-    document.getElementById('editPolygonBtn').innerHTML = '<i class="bi bi-pencil-square"></i> Edit Polygon';
-    document.getElementById('editPolygonBtn').onclick = startEditingPolygon;
+    showPolygonForm(selectedMappingArea, coordinates);
 }
 
 // Stop editing polygon
@@ -2020,14 +1984,14 @@ function stopEditingPolygon() {
         }
         currentEditingPolygon = null;
     }
-    
-    document.getElementById('editPolygonBtn').classList.remove('active');
-    document.getElementById('editPolygonBtn').innerHTML = '<i class="bi bi-pencil-square"></i> Edit Polygon';
-    document.getElementById('editPolygonBtn').onclick = startEditingPolygon;
+    currentEditingPolygonCoordinates = null;
 }
 
-// Delete selected polygon
-function deleteSelectedPolygon() {
+// Delete mapping area
+function deleteMappingArea(areaId) {
+    if (typeof areaId === 'number' && selectedMappingArea !== areaId) {
+        selectMappingArea(areaId);
+    }
     if (!selectedMappingArea) return;
     
     if (!confirm('Are you sure you want to delete this mapping area?')) {
@@ -2046,20 +2010,11 @@ function deleteSelectedPolygon() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Remove polygon from map
-            var polygon = mappingAreaPolygons.find(function(p) {
-                return p.mappingAreaId === selectedMappingArea;
-            });
-            if (polygon) {
-                map.removeLayer(polygon);
-                mappingAreaPolygons = mappingAreaPolygons.filter(function(p) {
-                    return p.mappingAreaId !== selectedMappingArea;
-                });
-            }
-            
             clearSelectedPolygon();
-            loadMappingAreas();
             hidePolygonForm();
+            stopEditingPolygon();
+            loadMappingAreas();
+            drawMappingAreasOnMap([]);
         } else {
             alert('Error deleting mapping area: ' + (data.error || 'Unknown error'));
         }
@@ -2068,6 +2023,10 @@ function deleteSelectedPolygon() {
         console.error('Error deleting mapping area:', error);
         alert('Error deleting mapping area: ' + error.message);
     });
+}
+
+function editMappingArea(areaId) {
+    startEditingPolygon(areaId);
 }
 
 // Show polygon form
@@ -2194,7 +2153,7 @@ function saveMappingArea() {
     };
     console.debug('Prepared mapping area payload:', data);
     
-    var url = '/datasets/' + window.datasetId + '/mapping-areas/';
+    var url = '/datasets/' + window.datasetId + '/mapping-areas/create/';
     var method = 'POST';
     
     // If editing, use update endpoint
