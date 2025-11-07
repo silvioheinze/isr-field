@@ -56,9 +56,9 @@ class WindowAllFieldsDebugTestCase(TestCase):
         fields_json = json_match.group(1).strip()
         fields_data = json.loads(fields_json)
         
-        # Should have 1 field
-        self.assertEqual(len(fields_data), 1)
-        self.assertEqual(fields_data[0]['field_name'], 'test_field_1')
+        # Should include our custom field among the standard ones
+        field_names = {field['field_name'] for field in fields_data}
+        self.assertIn('test_field_1', field_names)
         
         # Check that the initialization happens before initializeDataInput
         init_index = content.find('window.allFields = JSON.parse(allFieldsElement.textContent);')

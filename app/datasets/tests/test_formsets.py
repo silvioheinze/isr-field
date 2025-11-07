@@ -134,9 +134,9 @@ class DatasetFieldInlineFormSetTest(TestCase):
         }
         
         formset = DatasetFieldInlineFormSet(data=form_data)
-        self.assertTrue(formset.is_valid())
-        # The formset should handle choice validation at the form level
-        self.assertEqual(len(formset.errors), 0)
+        self.assertFalse(formset.is_valid())
+        # The form should report missing choices error
+        self.assertIn('Provide manual choices or select a typology for choice fields.', formset.forms[0].errors.get('choices', []))
     
     def test_formset_save_with_valid_data(self):
         """Test formset save functionality with valid data"""

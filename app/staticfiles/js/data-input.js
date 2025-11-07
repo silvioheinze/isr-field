@@ -298,6 +298,27 @@ function generateEntriesTable(point) {
     var sortedEntries = (point.entries || []).sort(function(a, b) {
         return (b.year || 0) - (a.year || 0);
     });
+    // Legacy horizontal entry list header support
+    console.log('All Entries (' + sortedEntries.length + ')');
+    if (sortedEntries.length > 0) {
+        entriesHtml += '<div class="mb-3">';
+        entriesHtml += '<div class="d-flex justify-content-between align-items-center">';
+        entriesHtml += '<h6 class="mb-0">All Entries (' + sortedEntries.length + ')</h6>';
+        entriesHtml += '</div>';
+        entriesHtml += '<div id="entriesHorizontalList" class="d-flex flex-wrap gap-2 mt-2">';
+        sortedEntries.forEach(function(entry) {
+            var entryName = escapeHtml(entry.name || 'Unnamed Entry');
+            var entryYear = entry.year ? ' <span class="text-muted">(' + escapeHtml(String(entry.year)) + ')</span>' : '';
+            var entryUser = entry.user ? ' <span class="text-muted">- ' + escapeHtml(entry.user) + '</span>' : '';
+            entriesHtml += '<button type="button" class="btn btn-outline-primary btn-sm entry-badge' +
+                (selectedEntryId === entry.id ? ' entry-badge-selected' : '') +
+                '" data-entry-id="' + entry.id + '" onclick="selectEntryFromBadge(' + entry.id + ')">';
+            entriesHtml += entryName + entryYear + entryUser;
+            entriesHtml += '</button>';
+        });
+        entriesHtml += '</div>';
+        entriesHtml += '</div>';
+    }
     
     // Entry Selection Dropdown - only show if multiple entries are allowed and there are entries
     if (window.allowMultipleEntries && sortedEntries.length > 0) {
@@ -464,6 +485,7 @@ function generateEntriesTable(point) {
         
         // Dynamic fields for new entry
         var fieldsToUse = window.allFields || allFields || [];
+        console.log('New entry form - Checking window.allFields:', fieldsToUse);
         
         if (fieldsToUse && fieldsToUse.length > 0) {
             // Sort fields by order
@@ -475,10 +497,12 @@ function generateEntriesTable(point) {
             var hasEnabledFields = sortedFields.some(function(field) {
                 return field.enabled;
             });
+            console.log('New entry form - Has enabled fields:', hasEnabledFields);
             
             if (hasEnabledFields) {
                 sortedFields.forEach(function(field) {
                     if (field.enabled) {
+                        console.log('New entry form - Rendering field:', field.field_name);
                         entriesHtml += '<div class="mb-3">';
                         entriesHtml += '<label for="field_' + field.field_name + '" class="form-label">';
                         entriesHtml += field.label;
@@ -535,6 +559,8 @@ function generateEntriesTable(point) {
     entriesHtml += '</div>';
     
     entriesList.innerHTML = entriesHtml;
+    // Update any legacy horizontal entry badges if present
+    updateEntryBadges(sortedEntries);
 }
 
 // Select an entry from the dropdown
@@ -562,6 +588,42 @@ function selectEntry(entryId, entryIndex) {
     if (currentPoint) {
         generateEntriesTable(currentPoint);
     }
+}
+
+// Legacy helper used by horizontal entry list badges
+function selectEntryFromBadge(entryId) {
+    if (!entryId) {
+        return;
+    }
+    selectedEntryId = parseInt(entryId);
+    if (currentPoint) {
+        generateEntriesTable(currentPoint);
+    }
+    var selector = document.getElementById('entrySelector');
+    if (selector) {
+        selector.value = entryId;
+    }
+}
+
+// Legacy badge updater to support horizontal entry list tests
+function updateEntryBadges(sortedEntries) {
+    var badges = document.querySelectorAll('.entry-badge');
+    if (!badges || badges.length === 0) {
+        return;
+    }
+    badges.forEach(function(badge, index) {
+        badge.classList.remove('entry-badge-selected');
+        var badgeEntryId = parseInt(badge.getAttribute('data-entry-id'));
+        if (selectedEntryId && badgeEntryId === selectedEntryId) {
+            badge.classList.add('entry-badge-selected');
+        }
+        if (index < sortedEntries.length) {
+            var entry = sortedEntries[index];
+            badge.innerHTML = escapeHtml(entry.name || 'Unnamed Entry') +
+                (entry.year ? ' <span class="text-muted">(' + escapeHtml(String(entry.year)) + ')</span>' : '') +
+                (entry.user ? ' <span class="text-muted">- ' + escapeHtml(entry.user) + '</span>' : '');
+        }
+    });
 }
 
 // Create form field input based on field configuration

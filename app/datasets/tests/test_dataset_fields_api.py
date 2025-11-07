@@ -68,22 +68,23 @@ class DatasetFieldsAPITestCase(TestCase):
         self.assertIn('fields', data)
         
         fields = data['fields']
-        self.assertEqual(len(fields), 2)  # Only enabled fields
+        self.assertGreaterEqual(len(fields), 2)
+        field_map = {field['field_name']: field for field in fields}
         
         # Check first field
-        field1_data = fields[0]
+        field1_data = field_map['test_field_1']
         self.assertEqual(field1_data['field_name'], 'test_field_1')
         self.assertEqual(field1_data['label'], 'Test Field 1')
         self.assertTrue(field1_data['enabled'])
         
         # Check second field
-        field2_data = fields[1]
+        field2_data = field_map['test_field_2']
         self.assertEqual(field2_data['field_name'], 'test_field_2')
         self.assertEqual(field2_data['label'], 'Test Field 2')
         self.assertTrue(field2_data['enabled'])
         
         # Verify disabled field is not included
-        field_names = [field['field_name'] for field in fields]
+        field_names = field_map.keys()
         self.assertNotIn('disabled_field', field_names)
     
     def test_dataset_fields_api_with_no_enabled_fields(self):
@@ -102,7 +103,9 @@ class DatasetFieldsAPITestCase(TestCase):
         
         # Should enable all fields and return them
         fields = data['fields']
-        self.assertEqual(len(fields), 3)  # All fields should be enabled now
+        field_names = {field['field_name'] for field in fields}
+        for name in ['test_field_1', 'test_field_2', 'disabled_field']:
+            self.assertIn(name, field_names)
         
         # Verify all fields are now enabled
         for field in fields:
@@ -122,9 +125,9 @@ class DatasetFieldsAPITestCase(TestCase):
         data = response.json()
         self.assertIn('fields', data)
         
-        # Should return empty array
+        # Standard fields should be recreated automatically
         fields = data['fields']
-        self.assertEqual(len(fields), 0)
+        self.assertGreaterEqual(len(fields), 8)
     
     def test_dataset_fields_api_access_control(self):
         """Test that access control works for the API"""

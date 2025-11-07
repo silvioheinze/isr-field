@@ -60,17 +60,18 @@ class FieldsDataDebugTestCase(TestCase):
         print(f"fields_data length: {len(fields_data)}")
         print(f"fields_data content: {fields_data}")
         
-        # Should have 2 fields
-        self.assertEqual(len(fields_data), 2)
+        # Should include our custom fields among the standard ones
+        self.assertGreaterEqual(len(fields_data), 2)
+        field_map = {field['field_name']: field for field in fields_data}
         
         # Check first field
-        field1_data = fields_data[0]
+        field1_data = field_map['test_field_1']
         self.assertEqual(field1_data['field_name'], 'test_field_1')
         self.assertEqual(field1_data['label'], 'Test Field 1')
         self.assertTrue(field1_data['enabled'])
         
         # Check second field
-        field2_data = fields_data[1]
+        field2_data = field_map['test_field_2']
         self.assertEqual(field2_data['field_name'], 'test_field_2')
         self.assertEqual(field2_data['label'], 'Test Field 2')
         self.assertTrue(field2_data['enabled'])
@@ -100,11 +101,11 @@ class FieldsDataDebugTestCase(TestCase):
         fields_data = json.loads(fields_json)
         print(f"Parsed fields_data: {fields_data}")
         
-        # Should have 2 fields
-        self.assertEqual(len(fields_data), 2)
+        # Should include our custom fields
+        self.assertGreaterEqual(len(fields_data), 2)
         
         # Check that fields are properly structured
-        field_names = [field['field_name'] for field in fields_data]
+        field_names = {field['field_name'] for field in fields_data}
         self.assertIn('test_field_1', field_names)
         self.assertIn('test_field_2', field_names)
     

@@ -33,39 +33,68 @@ def get_coordinate_system_name(srid):
 
 
 def detect_csv_delimiter(csv_content, sample_size=1024):
-    """Detect CSV delimiter from content"""
+    """Detect CSV delimiter from content with robust fallback scoring."""
+    candidate_delimiters = [',', ';', '\t', '|']
+    
+    def _get_sample(content):
+        if isinstance(content, bytes):
+            return content[:sample_size].decode('utf-8', errors='ignore')
+        return str(content)[:sample_size]
+    
+    sample = _get_sample(csv_content)
+    
+    # First try csv.Sniffer but only accept common delimiters
     try:
-        # Use csv.Sniffer to detect delimiter
-        if isinstance(csv_content, bytes):
-            sample = csv_content[:sample_size].decode('utf-8')
-        else:
-            sample = csv_content[:sample_size]
-        
         sniffer = csv.Sniffer()
-        delimiter = sniffer.sniff(sample).delimiter
-        return delimiter
+        sniffed = sniffer.sniff(sample)
+        if sniffed.delimiter in candidate_delimiters:
+            return sniffed.delimiter
     except Exception:
-        # Fallback to common delimiters
-        try:
-            if isinstance(csv_content, bytes):
-                sample = csv_content[:sample_size].decode('utf-8')
-            else:
-                sample = csv_content[:sample_size]
-        except:
-            sample = str(csv_content[:sample_size])
+        pass
+    
+    # Custom scoring fallback
+    lines = [line for line in sample.splitlines() if line.strip()]
+    if not lines:
+        return ','
+    
+    best_delimiter = ','
+    best_score = float('-inf')
+    
+    for delimiter in candidate_delimiters:
+        column_counts = []
+        delimiter_occurrences = 0
         
-        # Count occurrences of each delimiter in the sample
-        delimiter_counts = {}
-        for delimiter in [',', ';', '\t', '|']:
-            delimiter_counts[delimiter] = sample.count(delimiter)
+        for line in lines:
+            parts = line.split(delimiter)
+            if len(parts) > 1:
+                column_counts.append(len(parts))
+                delimiter_occurrences += line.count(delimiter)
         
-        # Return the delimiter with the highest count, or comma as default
-        if delimiter_counts:
-            best_delimiter = max(delimiter_counts, key=delimiter_counts.get)
-            if delimiter_counts[best_delimiter] > 0:
-                return best_delimiter
+        if not column_counts:
+            continue
         
-        return ','  # Default to comma
+        # Consistency metrics
+        distinct_counts = set(column_counts)
+        max_cols = max(column_counts)
+        min_cols = min(column_counts)
+        consistency_penalty = (max_cols - min_cols)
+        
+        # Score favors more rows with splits, higher occurrence and consistency
+        score = (
+            len(column_counts) * 10  # number of lines that split
+            + delimiter_occurrences  # total delimiter occurrences
+            + sum(column_counts)     # overall number of columns
+            - consistency_penalty * 5  # penalize inconsistent column counts
+            - len(distinct_counts) * 2
+        )
+        
+        if score > best_score:
+            best_score = score
+            best_delimiter = delimiter
+    
+    if best_score == float('-inf'):
+        return ','
+    return best_delimiter
 
 
 @login_required
@@ -444,7 +473,7 @@ def dataset_csv_export_view(request, dataset_id):
     geometries = DataGeometry.objects.filter(dataset=dataset).prefetch_related('entries__fields')
     
     # Create CSV response
-    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = f'attachment; filename="{dataset.name}_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv"'
     
     writer = csv.writer(response)

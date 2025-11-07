@@ -151,7 +151,9 @@ class DatasetFieldIntegrationTest(TestCase):
         # 1. View dataset detail (should show no custom fields initially)
         response = self.client.get(reverse('dataset_detail', args=[self.dataset.id]))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'No custom fields configured')
+        self.assertNotContains(response, 'No custom fields configured')
+        self.assertContains(response, 'Field Configuration')
+        self.assertContains(response, 'Entry Name')
         
         # 2. View custom fields management
         response = self.client.get(reverse('dataset_field_config', args=[self.dataset.id]))
