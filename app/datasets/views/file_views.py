@@ -16,7 +16,10 @@ def file_upload_view(request, entry_id):
     entry = get_object_or_404(DataEntry, id=entry_id)
     
     # Check if user has access to this entry's dataset
-    if not entry.geometry.dataset.can_access(request.user):
+    dataset = entry.geometry.dataset
+    if not dataset.can_access(request.user):
+        return render(request, 'datasets/403.html', status=403)
+    if not dataset.user_has_geometry_access(request.user, entry.geometry):
         return render(request, 'datasets/403.html', status=403)
     
     if request.method == 'POST':
@@ -57,7 +60,10 @@ def file_download_view(request, file_id):
     file_obj = get_object_or_404(DataEntryFile, id=file_id)
     
     # Check if user has access to this file's dataset
-    if not file_obj.entry.geometry.dataset.can_access(request.user):
+    dataset = file_obj.entry.geometry.dataset
+    if not dataset.can_access(request.user):
+        return render(request, 'datasets/403.html', status=403)
+    if not dataset.user_has_geometry_access(request.user, file_obj.entry.geometry):
         return render(request, 'datasets/403.html', status=403)
     
     if os.path.exists(file_obj.file.path):
@@ -75,7 +81,10 @@ def file_delete_view(request, file_id):
     file_obj = get_object_or_404(DataEntryFile, id=file_id)
     
     # Check if user has access to this file's dataset
-    if not file_obj.entry.geometry.dataset.can_access(request.user):
+    dataset = file_obj.entry.geometry.dataset
+    if not dataset.can_access(request.user):
+        return render(request, 'datasets/403.html', status=403)
+    if not dataset.user_has_geometry_access(request.user, file_obj.entry.geometry):
         return render(request, 'datasets/403.html', status=403)
     
     if request.method == 'POST':
@@ -107,7 +116,10 @@ def upload_files_view(request):
             return JsonResponse({'success': False, 'error': 'Geometry not found'}, status=404)
         
         # Check if user has access to this dataset
-        if not geometry.dataset.can_access(request.user):
+        dataset = geometry.dataset
+        if not dataset.can_access(request.user):
+            return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+        if not dataset.user_has_geometry_access(request.user, geometry):
             return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
         
         files = request.FILES.getlist('files')
@@ -165,7 +177,10 @@ def geometry_files_view(request, geometry_id):
         geometry = get_object_or_404(DataGeometry, pk=geometry_id)
         
         # Check if user has access to this dataset
-        if not geometry.dataset.can_access(request.user):
+        dataset = geometry.dataset
+        if not dataset.can_access(request.user):
+            return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+        if not dataset.user_has_geometry_access(request.user, geometry):
             return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
         
         files = DataEntryFile.objects.filter(entry__geometry=geometry).order_by('-upload_date')
@@ -201,7 +216,10 @@ def delete_file_view(request, file_id):
         file_obj = get_object_or_404(DataEntryFile, pk=file_id)
         
         # Check if user has access to this file's dataset
-        if not file_obj.entry.geometry.dataset.can_access(request.user):
+        dataset = file_obj.entry.geometry.dataset
+        if not dataset.can_access(request.user):
+            return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+        if not dataset.user_has_geometry_access(request.user, file_obj.entry.geometry):
             return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
         
         filename = file_obj.filename

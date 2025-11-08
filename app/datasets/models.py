@@ -1,9 +1,10 @@
 import logging
 
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, User
 from django.contrib.gis.db import models as gis_models
 from django.contrib.gis.geos import GEOSException, Point
 from django.db import models
+from django.db.models import Q
 
 class AuditLog(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
@@ -41,6 +42,67 @@ class DataSet(models.Model):
         if self.shared_with_groups.filter(user=user).exists():
             return True
         return False
+
+    def get_user_mapping_area_ids(self, user):
+        """
+        Return a list of mapping area IDs that restrict this user's access,
+        or None if there are no restrictions (full dataset access).
+        """
+        if user == self.owner:
+            return None
+
+        if not self.mapping_areas.exists():
+            return None
+
+        direct_ids = list(
+            self.user_mapping_area_limits.filter(user=user).values_list('mapping_area_id', flat=True)
+        )
+
+        group_ids = list(user.groups.values_list('id', flat=True))
+        group_area_ids = list(
+            self.group_mapping_area_limits.filter(group_id__in=group_ids).values_list('mapping_area_id', flat=True)
+        ) if group_ids else []
+
+        combined = set(direct_ids) | set(group_area_ids)
+        return list(combined) if combined else None
+
+    def filter_geometries_for_user(self, geometries_qs, user):
+        """
+        Apply mapping area restrictions to a geometry queryset for the given user.
+        """
+        allowed_ids = self.get_user_mapping_area_ids(user)
+        if allowed_ids is None:
+            return geometries_qs
+
+        if not allowed_ids:
+            return geometries_qs.none()
+
+        allowed_areas = list(self.mapping_areas.filter(id__in=allowed_ids))
+        if not allowed_areas:
+            return geometries_qs.none()
+
+        condition = Q()
+        for area in allowed_areas:
+            condition |= Q(geometry__within=area.geometry)
+
+        if condition:
+            return geometries_qs.filter(condition)
+        return geometries_qs.none()
+
+    def user_has_geometry_access(self, user, geometry_obj):
+        """
+        Check whether a user is allowed to access the given geometry, considering mapping area limits.
+        """
+        allowed_ids = self.get_user_mapping_area_ids(user)
+        if allowed_ids is None:
+            return True
+        if not allowed_ids:
+            return False
+
+        return self.mapping_areas.filter(
+            id__in=allowed_ids,
+            geometry__covers=geometry_obj.geometry
+        ).exists()
 
     class Meta:
         ordering = ['-created_at']
@@ -370,3 +432,51 @@ class MappingArea(models.Model):
     class Meta:
         ordering = ['-created_at']
         verbose_name_plural = "Mapping Areas" 
+
+
+class DatasetUserMappingArea(models.Model):
+    """Limit a user's dataset access to specific mapping areas."""
+    dataset = models.ForeignKey(
+        DataSet,
+        on_delete=models.CASCADE,
+        related_name='user_mapping_area_limits'
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='dataset_mapping_area_limits'
+    )
+    mapping_area = models.ForeignKey(
+        MappingArea,
+        on_delete=models.CASCADE,
+        related_name='user_access_limits'
+    )
+
+    class Meta:
+        unique_together = ('dataset', 'user', 'mapping_area')
+        verbose_name = "Dataset User Mapping Area"
+        verbose_name_plural = "Dataset User Mapping Areas"
+
+
+class DatasetGroupMappingArea(models.Model):
+    """Limit a group's dataset access to specific mapping areas."""
+    dataset = models.ForeignKey(
+        DataSet,
+        on_delete=models.CASCADE,
+        related_name='group_mapping_area_limits'
+    )
+    group = models.ForeignKey(
+        Group,
+        on_delete=models.CASCADE,
+        related_name='dataset_mapping_area_limits'
+    )
+    mapping_area = models.ForeignKey(
+        MappingArea,
+        on_delete=models.CASCADE,
+        related_name='group_access_limits'
+    )
+
+    class Meta:
+        unique_together = ('dataset', 'group', 'mapping_area')
+        verbose_name = "Dataset Group Mapping Area"
+        verbose_name_plural = "Dataset Group Mapping Areas"

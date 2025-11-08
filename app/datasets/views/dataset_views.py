@@ -17,6 +17,8 @@ from ..models import (
     DatasetFieldConfig,
     AuditLog,
     Typology,
+    DatasetUserMappingArea,
+    DatasetGroupMappingArea,
 )
 from ..forms import DatasetFieldConfigForm, DatasetFieldForm, TransferOwnershipForm
 def _get_typology_categories_map():
@@ -378,28 +380,30 @@ def dataset_access_view(request, dataset_id):
     if dataset.owner != request.user:
         return render(request, 'datasets/403.html', status=403)
     
+    mapping_areas = list(dataset.mapping_areas.order_by('name'))
+    
     if request.method == 'POST':
         # Handle bulk user access changes
-        selected_user_ids = request.POST.getlist('shared_users')
-        selected_group_ids = request.POST.getlist('shared_groups')
-        
-        # Convert to integers
-        selected_user_ids = [int(uid) for uid in selected_user_ids if uid.isdigit()]
-        selected_group_ids = [int(gid) for gid in selected_group_ids if gid.isdigit()]
+        selected_user_ids = [
+            int(uid) for uid in request.POST.getlist('shared_users') if uid.isdigit()
+        ]
+        selected_group_ids = [
+            int(gid) for gid in request.POST.getlist('shared_groups') if gid.isdigit()
+        ]
+        selected_user_set = set(selected_user_ids)
+        selected_group_set = set(selected_group_ids)
         
         # Update user access
         current_user_ids = set(dataset.shared_with.values_list('id', flat=True))
-        new_user_ids = set(selected_user_ids)
-        
         # Add new users
-        users_to_add = new_user_ids - current_user_ids
+        users_to_add = selected_user_set - current_user_ids
         if users_to_add:
             users_to_add_objects = User.objects.filter(id__in=users_to_add)
             dataset.shared_with.add(*users_to_add_objects)
             messages.success(request, f'Added {len(users_to_add_objects)} users to dataset access.')
         
         # Remove users
-        users_to_remove = current_user_ids - new_user_ids
+        users_to_remove = current_user_ids - selected_user_set
         if users_to_remove:
             users_to_remove_objects = User.objects.filter(id__in=users_to_remove)
             dataset.shared_with.remove(*users_to_remove_objects)
@@ -407,31 +411,95 @@ def dataset_access_view(request, dataset_id):
         
         # Update group access
         current_group_ids = set(dataset.shared_with_groups.values_list('id', flat=True))
-        new_group_ids = set(selected_group_ids)
-        
         # Add new groups
-        groups_to_add = new_group_ids - current_group_ids
+        groups_to_add = selected_group_set - current_group_ids
         if groups_to_add:
             groups_to_add_objects = Group.objects.filter(id__in=groups_to_add)
             dataset.shared_with_groups.add(*groups_to_add_objects)
             messages.success(request, f'Added {len(groups_to_add_objects)} groups to dataset access.')
         
         # Remove groups
-        groups_to_remove = current_group_ids - new_group_ids
+        groups_to_remove = current_group_ids - selected_group_set
         if groups_to_remove:
             groups_to_remove_objects = Group.objects.filter(id__in=groups_to_remove)
             dataset.shared_with_groups.remove(*groups_to_remove_objects)
             messages.success(request, f'Removed {len(groups_to_remove_objects)} groups from dataset access.')
         
         # If no changes were made
+        # Handle mapping area restrictions
+        if mapping_areas:
+            valid_area_ids = set(area.id for area in mapping_areas)
+            
+            if selected_user_set:
+                DatasetUserMappingArea.objects.filter(dataset=dataset).exclude(user_id__in=selected_user_set).delete()
+            else:
+                DatasetUserMappingArea.objects.filter(dataset=dataset).delete()
+            
+            for user_id in selected_user_ids:
+                raw_area_ids = request.POST.getlist(f'user_mapping_areas_{user_id}')
+                area_ids = [
+                    int(area_id)
+                    for area_id in raw_area_ids
+                    if area_id.isdigit() and int(area_id) in valid_area_ids
+                ]
+                DatasetUserMappingArea.objects.filter(dataset=dataset, user_id=user_id).delete()
+                if area_ids:
+                    DatasetUserMappingArea.objects.bulk_create([
+                        DatasetUserMappingArea(
+                            dataset=dataset,
+                            user_id=user_id,
+                            mapping_area_id=area_id
+                        ) for area_id in area_ids
+                    ])
+            
+            if selected_group_set:
+                DatasetGroupMappingArea.objects.filter(dataset=dataset).exclude(group_id__in=selected_group_set).delete()
+            else:
+                DatasetGroupMappingArea.objects.filter(dataset=dataset).delete()
+            
+            for group_id in selected_group_ids:
+                raw_area_ids = request.POST.getlist(f'group_mapping_areas_{group_id}')
+                area_ids = [
+                    int(area_id)
+                    for area_id in raw_area_ids
+                    if area_id.isdigit() and int(area_id) in valid_area_ids
+                ]
+                DatasetGroupMappingArea.objects.filter(dataset=dataset, group_id=group_id).delete()
+                if area_ids:
+                    DatasetGroupMappingArea.objects.bulk_create([
+                        DatasetGroupMappingArea(
+                            dataset=dataset,
+                            group_id=group_id,
+                            mapping_area_id=area_id
+                        ) for area_id in area_ids
+                    ])
+        else:
+            DatasetUserMappingArea.objects.filter(dataset=dataset).delete()
+            DatasetGroupMappingArea.objects.filter(dataset=dataset).delete()
+        
         if not (users_to_add or users_to_remove or groups_to_add or groups_to_remove):
             messages.info(request, 'No changes were made to access settings.')
         
         return redirect('dataset_access', dataset_id=dataset.id)
     
     # Get all users and groups for selection
-    all_users = User.objects.all().exclude(id=dataset.owner.id)
-    all_groups = Group.objects.all()
+    all_users = list(User.objects.exclude(id=dataset.owner.id).order_by('username'))
+    all_groups = list(Group.objects.order_by('name'))
+    
+    # Attach existing mapping area selections
+    user_area_lookup = {}
+    for relation in DatasetUserMappingArea.objects.filter(dataset=dataset):
+        user_area_lookup.setdefault(relation.user_id, []).append(relation.mapping_area_id)
+    
+    group_area_lookup = {}
+    for relation in DatasetGroupMappingArea.objects.filter(dataset=dataset):
+        group_area_lookup.setdefault(relation.group_id, []).append(relation.mapping_area_id)
+    
+    for user in all_users:
+        user.mapping_area_ids = user_area_lookup.get(user.id, [])
+    
+    for group in all_groups:
+        group.mapping_area_ids = group_area_lookup.get(group.id, [])
     
     # Get currently shared users and groups
     shared_users = list(dataset.shared_with.values_list('id', flat=True))
@@ -442,7 +510,8 @@ def dataset_access_view(request, dataset_id):
         'all_users': all_users,
         'all_groups': all_groups,
         'shared_users': shared_users,
-        'shared_groups': shared_groups
+        'shared_groups': shared_groups,
+        'mapping_areas': mapping_areas,
     })
 
 
@@ -455,8 +524,10 @@ def dataset_data_input_view(request, dataset_id):
 
     ensure_standard_dataset_fields(dataset)
     
-    # Get all geometries for this dataset with their entries
-    geometries = DataGeometry.objects.filter(dataset=dataset).prefetch_related('entries')
+    # Get all geometries for this dataset with their entries, respecting mapping area limits
+    geometries_qs = DataGeometry.objects.filter(dataset=dataset).prefetch_related('entries')
+    geometries = dataset.filter_geometries_for_user(geometries_qs, request.user)
+    geometries = list(geometries)
     
     # Prepare map data
     map_data = []
@@ -569,6 +640,14 @@ def dataset_entries_table_view(request, dataset_id):
     
     # Get all entries for this dataset
     entries = DataEntry.objects.filter(geometry__dataset=dataset).select_related('geometry', 'user').prefetch_related('fields')
+
+    mapping_area_ids = dataset.get_user_mapping_area_ids(request.user)
+    if mapping_area_ids is not None:
+        restricted_geometries = dataset.filter_geometries_for_user(
+            DataGeometry.objects.filter(dataset=dataset),
+            request.user,
+        )
+        entries = entries.filter(geometry__in=restricted_geometries)
     
     # Search functionality
     search_query = request.GET.get('search', '')
@@ -707,6 +786,8 @@ def dataset_map_data_view(request, dataset_id):
                 'id', 'id_kurz', 'address', 'geometry', 'user__username'
             )
         
+        geometries = dataset.filter_geometries_for_user(geometries, request.user)
+
         # Prepare lightweight map data
         map_data = []
         for geometry in geometries:

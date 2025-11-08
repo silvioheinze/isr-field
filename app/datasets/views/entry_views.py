@@ -17,6 +17,8 @@ def entry_detail_view(request, entry_id):
     # Check if user has access to this entry's dataset
     if not dataset.can_access(request.user):
         return render(request, 'datasets/403.html', status=403)
+    if not dataset.user_has_geometry_access(request.user, entry.geometry):
+        return render(request, 'datasets/403.html', status=403)
     
     # Get all fields for this dataset, ordered by display order
     all_fields = DatasetField.objects.filter(dataset=dataset).order_by('order', 'field_name')
@@ -34,7 +36,10 @@ def entry_edit_view(request, entry_id):
     entry = get_object_or_404(DataEntry, id=entry_id)
     
     # Check if user has access to this entry's dataset
-    if not entry.geometry.dataset.can_access(request.user):
+    dataset = entry.geometry.dataset
+    if not dataset.can_access(request.user):
+        return render(request, 'datasets/403.html', status=403)
+    if not dataset.user_has_geometry_access(request.user, entry.geometry):
         return render(request, 'datasets/403.html', status=403)
     
     if request.method == 'POST':
@@ -79,7 +84,12 @@ def entry_create_view(request, geometry_id):
     geometry = get_object_or_404(DataGeometry, id=geometry_id)
     
     # Check if user has access to this geometry's dataset
-    if not geometry.dataset.can_access(request.user):
+    dataset = geometry.dataset
+    if not dataset.can_access(request.user):
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+        return render(request, 'datasets/403.html', status=403)
+    if not dataset.user_has_geometry_access(request.user, geometry):
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
         return render(request, 'datasets/403.html', status=403)
@@ -152,7 +162,10 @@ def save_entries_view(request):
             return JsonResponse({'success': False, 'error': 'Geometry not found'}, status=404)
         
         # Check if user has access to this dataset
-        if not geometry.dataset.can_access(request.user):
+        dataset = geometry.dataset
+        if not dataset.can_access(request.user):
+            return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+        if not dataset.user_has_geometry_access(request.user, geometry):
             return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
         
         # Process entries data
