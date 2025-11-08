@@ -1,0 +1,100 @@
+{% extends 'datasets/_base.html' %}
+
+{% block title %}Field Configuration - {{ dataset.name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-1">Field Configuration</h1>
+            <p class="text-muted small mb-0">Manage the standard fields used for "{{ dataset.name }}".</p>
+        </div>
+        <div>
+            <a href="{% url 'dataset_detail' dataset.id %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Back to Dataset
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light fw-semibold">
+            <i class="bi bi-sliders me-2"></i>Standard Field Settings
+        </div>
+        <div class="card-body">
+            <form method="post" class="row g-3">
+                {% csrf_token %}
+                {% for field in form %}
+                    <div class="col-md-6">
+                        <div class="mb-2">
+                            <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.help_text %}
+                                <div class="form-text">{{ field.help_text }}</div>
+                            {% endif %}
+                            {% for error in field.errors %}
+                                <div class="text-danger small">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+                <div class="col-12 d-flex justify-content-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Save Configuration
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light fw-semibold">
+            <i class="bi bi-list-ul me-2"></i>All Fields
+        </div>
+        <div class="card-body">
+            {% if all_fields %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">Field Name</th>
+                                <th scope="col">Label</th>
+                                <th scope="col" class="text-center">Type</th>
+                                <th scope="col" class="text-center">Enabled</th>
+                                <th scope="col" class="text-center">Required</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for field in all_fields %}
+                            <tr>
+                                <td class="text-uppercase small text-muted">{{ field.field_name }}</td>
+                                <td>{{ field.label }}</td>
+                                <td class="text-center">
+                                    <span class="badge bg-info text-dark">{{ field.get_field_type_display }}</span>
+                                </td>
+                                <td class="text-center">
+                                    {% if field.enabled %}
+                                        <span class="badge bg-success">Enabled</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Disabled</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if field.required %}
+                                        <span class="badge bg-warning text-dark">Required</span>
+                                    {% else %}
+                                        <span class="badge bg-light text-muted">Optional</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-muted mb-0">No fields configured for this dataset yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+

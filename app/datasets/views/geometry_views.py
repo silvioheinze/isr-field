@@ -98,6 +98,8 @@ def geometry_details_view(request, geometry_id):
         geometry = get_object_or_404(DataGeometry, pk=geometry_id)
         if not geometry.dataset.can_access(request.user):
             return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+        if not geometry.dataset.user_has_geometry_access(request.user, geometry):
+            return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
         
         # Get enabled fields for this dataset in the correct order
         enabled_fields = DatasetField.objects.filter(

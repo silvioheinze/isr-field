@@ -16,6 +16,68 @@
     background-color: #f8f9fa;
 }
 
+/* Entry badges (legacy horizontal list support) */
+.entry-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.6rem;
+    border-radius: 999px;
+    background-color: #f1f3f5;
+    color: #212529;
+    border: 1px solid #dee2e6;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.entry-badge:hover {
+    background-color: #e7f1ff;
+    border-color: #0d6efd;
+    color: #0d6efd;
+}
+
+.entry-badge.active {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: #ffffff;
+}
+
+.entry-badge-selected {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: #ffffff;
+}
+
+/* Mapping Areas Panel */
+.mapping-areas-panel {
+    position: absolute;
+    top: 60px;
+    right: 10px;
+    width: 400px;
+    max-width: calc(100% - 20px);
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+    z-index: 1000;
+}
+
+.mapping-area-item {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.mapping-area-item:hover {
+    background-color: #f8f9fa;
+    border-color: #0d6efd;
+}
+
+.mapping-area-item.active {
+    background-color: #e7f1ff;
+    border-color: #0d6efd;
+    border-width: 2px;
+}
+
 /* Map Controls Styling */
 .map-controls {
     position: absolute;

@@ -55,6 +55,11 @@
                 
                 <!-- Map Control Buttons -->
                 <div class="map-controls">
+                    {% if dataset.owner == user %}
+                    <button id="mappingAreaBtn" class="btn btn-warning btn-sm" title="{% trans 'Mapping Areas' %}" onclick="toggleMappingAreas()">
+                        <i class="bi bi-pentagon"></i> {% trans "Mapping Areas" %}
+                    </button>
+                    {% endif %}
                     <button id="addPointBtn" class="btn btn-primary btn-sm" title="{% trans 'Add New Point' %}">
                         <i class="bi bi-plus-circle"></i> {% trans "Add Point" %}
                     </button>
@@ -65,6 +70,74 @@
                         <i class="bi bi-geo"></i> {% trans "My Location" %}
                     </button>
                 </div>
+                
+                <!-- Mapping Areas Panel -->
+                {% if dataset.owner == user %}
+                <div id="mappingAreasPanel" class="mapping-areas-panel" style="display: none;">
+                    <div class="card shadow-lg">
+                        <div class="card-header bg-warning bg-opacity-10 d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="bi bi-pentagon me-2"></i>{% trans "Mapping Areas" %}</h5>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleMappingAreas()" title="{% trans 'Close' %}">
+                                <i class="bi bi-x-circle"></i>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <!-- Tools Section -->
+                            <div class="mb-3">
+                                <h6 class="fw-semibold mb-2">{% trans "Tools" %}</h6>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <button type="button" id="drawPolygonBtn" class="btn btn-primary btn-sm" onclick="startDrawingPolygon()">
+                                        <i class="bi bi-pencil"></i> {% trans "Draw Polygon" %}
+                                    </button>
+                                    <button type="button" id="finishDrawingBtn" class="btn btn-success btn-sm" onclick="finishDrawingPolygon()" disabled style="display: none;">
+                                        <i class="bi bi-check2-circle"></i> {% trans "Finish Drawing" %}
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Mapping Areas List -->
+                            <div class="mb-3">
+                                <h6 class="fw-semibold mb-2">{% trans "Mapping Areas" %}</h6>
+                                <div id="mappingAreasList" class="list-group">
+                                    <div class="text-center text-muted py-3">
+                                        <i class="bi bi-hourglass-split"></i> {% trans "Loading..." %}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Polygon Form (hidden by default) -->
+                            <div id="polygonForm" style="display: none;">
+                                <hr>
+                                <h6 class="fw-semibold mb-2">{% trans "Polygon Details" %}</h6>
+                                <form id="mappingAreaForm">
+                                    {% csrf_token %}
+                                    <div class="mb-3">
+                                        <label for="polygonName" class="form-label">{% trans "Name" %} <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="polygonName" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="polygonUsers" class="form-label">{% trans "Allocated Users" %}</label>
+                                        <select class="form-select" id="polygonUsers" multiple>
+                                            {% for user in users_for_allocation %}
+                                            <option value="{{ user.id }}">{{ user.username }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="form-text">{% trans "Hold Ctrl/Cmd to select multiple users" %}</div>
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <button type="submit" class="btn btn-success btn-sm">
+                                            <i class="bi bi-save"></i> {% trans "Save" %}
+                                        </button>
+                                        <button type="button" class="btn btn-secondary btn-sm" onclick="cancelPolygonForm()">
+                                            {% trans "Cancel" %}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
                 
                 <!-- Zoom Control Buttons -->
                 <div class="zoom-controls">
@@ -98,6 +171,8 @@
     }
     console.log('window.allFields initialized:', window.allFields);
     window.allowMultipleEntries = {% if allow_multiple_entries %}true{% else %}false{% endif %};
+    window.datasetId = {{ dataset.id }};
+    window.isDatasetOwner = {% if dataset.owner == user %}true{% else %}false{% endif %};
     
     // Translation strings for JavaScript
     window.translations = {

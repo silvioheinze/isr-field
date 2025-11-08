@@ -8,7 +8,18 @@ from django.db import transaction
 from django.core.paginator import Paginator
 from django.db.models import Q
 
-from ..models import DataSet, DataGeometry, DataEntry, DataEntryField, DatasetField, AuditLog, Typology
+from ..models import (
+    DataSet,
+    DataGeometry,
+    DataEntry,
+    DataEntryField,
+    DatasetField,
+    DatasetFieldConfig,
+    AuditLog,
+    Typology,
+    DatasetUserMappingArea,
+    DatasetGroupMappingArea,
+)
 from ..forms import DatasetFieldConfigForm, DatasetFieldForm, TransferOwnershipForm
 def _get_typology_categories_map():
     categories = {}
@@ -22,6 +33,106 @@ def _get_typology_categories_map():
         categories[str(typology.id)] = [value for value in category_values if value]
     return categories
 from .auth_views import is_manager
+
+
+STANDARD_DATASET_FIELDS = [
+    {
+        'field_name': 'name',
+        'config_label_attr': 'name_label',
+        'config_enabled_attr': 'name_enabled',
+        'field_type': 'text',
+        'order': 0,
+        'required': True,
+        'help_text': 'Primary entry name shown in lists and reports.',
+    },
+    {
+        'field_name': 'usage_code1',
+        'config_label_attr': 'usage_code1_label',
+        'config_enabled_attr': 'usage_code1_enabled',
+        'field_type': 'integer',
+        'order': 1,
+        'help_text': 'First usage code column imported from legacy data.',
+    },
+    {
+        'field_name': 'usage_code2',
+        'config_label_attr': 'usage_code2_label',
+        'config_enabled_attr': 'usage_code2_enabled',
+        'field_type': 'integer',
+        'order': 2,
+    },
+    {
+        'field_name': 'usage_code3',
+        'config_label_attr': 'usage_code3_label',
+        'config_enabled_attr': 'usage_code3_enabled',
+        'field_type': 'integer',
+        'order': 3,
+    },
+    {
+        'field_name': 'cat_inno',
+        'config_label_attr': 'cat_inno_label',
+        'config_enabled_attr': 'cat_inno_enabled',
+        'field_type': 'integer',
+        'order': 4,
+    },
+    {
+        'field_name': 'cat_wert',
+        'config_label_attr': 'cat_wert_label',
+        'config_enabled_attr': 'cat_wert_enabled',
+        'field_type': 'integer',
+        'order': 5,
+    },
+    {
+        'field_name': 'cat_fili',
+        'config_label_attr': 'cat_fili_label',
+        'config_enabled_attr': 'cat_fili_enabled',
+        'field_type': 'integer',
+        'order': 6,
+    },
+    {
+        'field_name': 'year',
+        'config_label_attr': 'year_label',
+        'config_enabled_attr': 'year_enabled',
+        'field_type': 'integer',
+        'order': 7,
+        'help_text': 'Reference year for the entry.',
+    },
+]
+
+
+def ensure_dataset_field_config(dataset: DataSet) -> DatasetFieldConfig:
+    """Ensure a DatasetFieldConfig instance exists for the dataset."""
+    config, _ = DatasetFieldConfig.objects.get_or_create(dataset=dataset)
+    return config
+
+
+def ensure_standard_dataset_fields(dataset: DataSet) -> DatasetFieldConfig:
+    """Create or update the standard dataset fields as defined in DatasetFieldConfig."""
+    config = ensure_dataset_field_config(dataset)
+    for field_def in STANDARD_DATASET_FIELDS:
+        label = getattr(config, field_def['config_label_attr'], field_def['field_name'].replace('_', ' ').title())
+        enabled = getattr(config, field_def['config_enabled_attr'], True)
+        defaults = {
+            'label': label,
+            'field_type': field_def['field_type'],
+            'required': field_def.get('required', False),
+            'enabled': enabled,
+            'order': field_def['order'],
+            'help_text': field_def.get('help_text', ''),
+        }
+        field, created = DatasetField.objects.get_or_create(
+            dataset=dataset,
+            field_name=field_def['field_name'],
+            defaults=defaults,
+        )
+        if not created:
+            updated = False
+            for attr, value in defaults.items():
+                if getattr(field, attr) != value:
+                    setattr(field, attr, value)
+                    updated = True
+            if updated:
+                field.save()
+    return config
 
 
 @login_required
@@ -75,6 +186,9 @@ def dataset_detail_view(request, dataset_id):
     # Check if user has access to this dataset
     if not dataset.can_access(request.user):
         return render(request, 'datasets/403.html', status=403)
+
+    # Ensure standard field configuration exists
+    ensure_standard_dataset_fields(dataset)
     
     # Handle field configuration updates
     if request.method == 'POST' and request.POST.get('action') == 'update_fields':
@@ -172,6 +286,92 @@ def dataset_edit_view(request, dataset_id):
 
 
 @login_required
+def dataset_field_config_view(request, dataset_id):
+    """Manage standard dataset field configuration (labels, enabled flags)."""
+    dataset = get_object_or_404(DataSet, id=dataset_id)
+    
+    if dataset.owner != request.user:
+        return render(request, 'datasets/403.html', status=403)
+    
+    config = ensure_standard_dataset_fields(dataset)
+    form = DatasetFieldConfigForm(instance=config)
+    
+    if request.method == 'POST':
+        config_field_names = set(DatasetFieldConfigForm.Meta.fields)
+        config_fields_present = any(field_name in request.POST for field_name in config_field_names)
+        
+        form_valid = True
+        if config_fields_present:
+            form = DatasetFieldConfigForm(request.POST, instance=config)
+            if form.is_valid():
+                form.save()
+                ensure_standard_dataset_fields(dataset)
+            else:
+                form_valid = False
+        
+        dataset_fields = DatasetField.objects.filter(dataset=dataset).order_by('order', 'field_name')
+        dataset_fields_updated = False
+        for field in dataset_fields:
+            field_prefix = f'field_{field.id}'
+            label_key = f'{field_prefix}_label'
+            order_key = f'{field_prefix}_order'
+            help_text_key = f'{field_prefix}_help_text'
+            enabled_key = f'{field_prefix}_enabled'
+            required_key = f'{field_prefix}_required'
+            
+            changed = False
+            
+            if label_key in request.POST:
+                new_label = request.POST.get(label_key, '').strip()
+                if new_label and new_label != field.label:
+                    field.label = new_label
+                    changed = True
+            
+            if order_key in request.POST:
+                try:
+                    new_order = int(request.POST[order_key])
+                except (ValueError, TypeError):
+                    new_order = field.order
+                if new_order != field.order:
+                    field.order = new_order
+                    changed = True
+            
+            if help_text_key in request.POST:
+                new_help_text = request.POST.get(help_text_key, '').strip()
+                if new_help_text != (field.help_text or ''):
+                    field.help_text = new_help_text
+                    changed = True
+            
+            enabled_value = request.POST.get(enabled_key) == 'on'
+            if enabled_value != field.enabled:
+                field.enabled = enabled_value
+                changed = True
+            
+            required_value = request.POST.get(required_key) == 'on'
+            if required_value != field.required:
+                field.required = required_value
+                changed = True
+            
+            if changed:
+                field.save()
+                dataset_fields_updated = True
+        
+        if (config_fields_present and form_valid) or dataset_fields_updated:
+            messages.success(request, 'Field configuration updated successfully.')
+            return redirect('dataset_field_config', dataset_id=dataset.id)
+        if config_fields_present and not form_valid:
+            messages.error(request, 'Please correct the errors below.')
+    
+    all_fields = DatasetField.objects.filter(dataset=dataset).order_by('order', 'field_name')
+    
+    return render(request, 'datasets/dataset_field_config.html', {
+        'dataset': dataset,
+        'form': form,
+        'all_fields': all_fields,
+    })
+
+
+@login_required
 def dataset_access_view(request, dataset_id):
     """Manage dataset access permissions"""
     dataset = get_object_or_404(DataSet, id=dataset_id)
@@ -180,28 +380,30 @@ def dataset_access_view(request, dataset_id):
     if dataset.owner != request.user:
         return render(request, 'datasets/403.html', status=403)
     
+    mapping_areas = list(dataset.mapping_areas.order_by('name'))
+    
     if request.method == 'POST':
         # Handle bulk user access changes
-        selected_user_ids = request.POST.getlist('shared_users')
-        selected_group_ids = request.POST.getlist('shared_groups')
-        
-        # Convert to integers
-        selected_user_ids = [int(uid) for uid in selected_user_ids if uid.isdigit()]
-        selected_group_ids = [int(gid) for gid in selected_group_ids if gid.isdigit()]
+        selected_user_ids = [
+            int(uid) for uid in request.POST.getlist('shared_users') if uid.isdigit()
+        ]
+        selected_group_ids = [
+            int(gid) for gid in request.POST.getlist('shared_groups') if gid.isdigit()
+        ]
+        selected_user_set = set(selected_user_ids)
+        selected_group_set = set(selected_group_ids)
         
         # Update user access
         current_user_ids = set(dataset.shared_with.values_list('id', flat=True))
-        new_user_ids = set(selected_user_ids)
-        
         # Add new users
-        users_to_add = new_user_ids - current_user_ids
+        users_to_add = selected_user_set - current_user_ids
         if users_to_add:
             users_to_add_objects = User.objects.filter(id__in=users_to_add)
             dataset.shared_with.add(*users_to_add_objects)
             messages.success(request, f'Added {len(users_to_add_objects)} users to dataset access.')
         
         # Remove users
-        users_to_remove = current_user_ids - new_user_ids
+        users_to_remove = current_user_ids - selected_user_set
         if users_to_remove:
             users_to_remove_objects = User.objects.filter(id__in=users_to_remove)
             dataset.shared_with.remove(*users_to_remove_objects)
@@ -209,31 +411,95 @@ def dataset_access_view(request, dataset_id):
         
         # Update group access
         current_group_ids = set(dataset.shared_with_groups.values_list('id', flat=True))
-        new_group_ids = set(selected_group_ids)
-        
         # Add new groups
-        groups_to_add = new_group_ids - current_group_ids
+        groups_to_add = selected_group_set - current_group_ids
         if groups_to_add:
             groups_to_add_objects = Group.objects.filter(id__in=groups_to_add)
             dataset.shared_with_groups.add(*groups_to_add_objects)
             messages.success(request, f'Added {len(groups_to_add_objects)} groups to dataset access.')
         
         # Remove groups
-        groups_to_remove = current_group_ids - new_group_ids
+        groups_to_remove = current_group_ids - selected_group_set
         if groups_to_remove:
             groups_to_remove_objects = Group.objects.filter(id__in=groups_to_remove)
             dataset.shared_with_groups.remove(*groups_to_remove_objects)
             messages.success(request, f'Removed {len(groups_to_remove_objects)} groups from dataset access.')
         
         # If no changes were made
+        # Handle mapping area restrictions
+        if mapping_areas:
+            valid_area_ids = set(area.id for area in mapping_areas)
+            
+            if selected_user_set:
+                DatasetUserMappingArea.objects.filter(dataset=dataset).exclude(user_id__in=selected_user_set).delete()
+            else:
+                DatasetUserMappingArea.objects.filter(dataset=dataset).delete()
+            
+            for user_id in selected_user_ids:
+                raw_area_ids = request.POST.getlist(f'user_mapping_areas_{user_id}')
+                area_ids = [
+                    int(area_id)
+                    for area_id in raw_area_ids
+                    if area_id.isdigit() and int(area_id) in valid_area_ids
+                ]
+                DatasetUserMappingArea.objects.filter(dataset=dataset, user_id=user_id).delete()
+                if area_ids:
+                    DatasetUserMappingArea.objects.bulk_create([
+                        DatasetUserMappingArea(
+                            dataset=dataset,
+                            user_id=user_id,
+                            mapping_area_id=area_id
+                        ) for area_id in area_ids
+                    ])
+            
+            if selected_group_set:
+                DatasetGroupMappingArea.objects.filter(dataset=dataset).exclude(group_id__in=selected_group_set).delete()
+            else:
+                DatasetGroupMappingArea.objects.filter(dataset=dataset).delete()
+            
+            for group_id in selected_group_ids:
+                raw_area_ids = request.POST.getlist(f'group_mapping_areas_{group_id}')
+                area_ids = [
+                    int(area_id)
+                    for area_id in raw_area_ids
+                    if area_id.isdigit() and int(area_id) in valid_area_ids
+                ]
+                DatasetGroupMappingArea.objects.filter(dataset=dataset, group_id=group_id).delete()
+                if area_ids:
+                    DatasetGroupMappingArea.objects.bulk_create([
+                        DatasetGroupMappingArea(
+                            dataset=dataset,
+                            group_id=group_id,
+                            mapping_area_id=area_id
+                        ) for area_id in area_ids
+                    ])
+        else:
+            DatasetUserMappingArea.objects.filter(dataset=dataset).delete()
+            DatasetGroupMappingArea.objects.filter(dataset=dataset).delete()
+        
         if not (users_to_add or users_to_remove or groups_to_add or groups_to_remove):
             messages.info(request, 'No changes were made to access settings.')
         
         return redirect('dataset_access', dataset_id=dataset.id)
     
     # Get all users and groups for selection
-    all_users = User.objects.all().exclude(id=dataset.owner.id)
-    all_groups = Group.objects.all()
+    all_users = list(User.objects.exclude(id=dataset.owner.id).order_by('username'))
+    all_groups = list(Group.objects.order_by('name'))
+    
+    # Attach existing mapping area selections
+    user_area_lookup = {}
+    for relation in DatasetUserMappingArea.objects.filter(dataset=dataset):
+        user_area_lookup.setdefault(relation.user_id, []).append(relation.mapping_area_id)
+    
+    group_area_lookup = {}
+    for relation in DatasetGroupMappingArea.objects.filter(dataset=dataset):
+        group_area_lookup.setdefault(relation.group_id, []).append(relation.mapping_area_id)
+    
+    for user in all_users:
+        user.mapping_area_ids = user_area_lookup.get(user.id, [])
+    
+    for group in all_groups:
+        group.mapping_area_ids = group_area_lookup.get(group.id, [])
     
     # Get currently shared users and groups
     shared_users = list(dataset.shared_with.values_list('id', flat=True))
@@ -244,7 +510,8 @@ def dataset_access_view(request, dataset_id):
         'all_users': all_users,
         'all_groups': all_groups,
         'shared_users': shared_users,
-        'shared_groups': shared_groups
+        'shared_groups': shared_groups,
+        'mapping_areas': mapping_areas,
     })
 
 
@@ -254,9 +521,13 @@ def dataset_data_input_view(request, dataset_id):
     dataset = get_object_or_404(DataSet, pk=dataset_id)
     if not dataset.can_access(request.user):
         return render(request, 'datasets/403.html', status=403)
+
+    ensure_standard_dataset_fields(dataset)
     
-    # Get all geometries for this dataset with their entries
-    geometries = DataGeometry.objects.filter(dataset=dataset).prefetch_related('entries')
+    # Get all geometries for this dataset with their entries, respecting mapping area limits
+    geometries_qs = DataGeometry.objects.filter(dataset=dataset).prefetch_related('entries')
+    geometries = dataset.filter_geometries_for_user(geometries_qs, request.user)
+    geometries = list(geometries)
     
     # Prepare map data
     map_data = []
@@ -303,7 +574,20 @@ def dataset_data_input_view(request, dataset_id):
             all_fields_qs.update(enabled=True)
             # Re-query to get the updated fields
             all_fields = DatasetField.objects.filter(dataset=dataset, enabled=True).order_by('order', 'field_name')
-    
+    else:
+        # Ensure custom fields are enabled if none are currently active
+        standard_field_names = {field_def['field_name'] for field_def in STANDARD_DATASET_FIELDS}
+        custom_enabled_fields = DatasetField.objects.filter(
+            dataset=dataset,
+            enabled=True
+        ).exclude(field_name__in=standard_field_names)
+        disabled_custom_fields = DatasetField.objects.filter(
+            dataset=dataset,
+            enabled=False
+        ).exclude(field_name__in=standard_field_names)
+        if not custom_enabled_fields.exists() and disabled_custom_fields.exists():
+            disabled_custom_fields.update(enabled=True)
+            all_fields = DatasetField.objects.filter(dataset=dataset, enabled=True).order_by('order', 'field_name')
     # Prepare fields data for JavaScript with typology choices
     fields_data = []
     for field in all_fields:
@@ -329,13 +613,19 @@ def dataset_data_input_view(request, dataset_id):
     except AttributeError:
         allow_multiple_entries = False  # Default to False if field doesn't exist
     
+    # Get all users for allocation dropdown (only for dataset owner)
+    users_for_allocation = []
+    if dataset.owner == request.user:
+        users_for_allocation = User.objects.filter(is_active=True).order_by('username')
+    
     return render(request, 'datasets/dataset_data_input.html', {
         'dataset': dataset,
         'geometries': geometries,
         'typology_data': typology_data,
         'all_fields': all_fields,
         'fields_data': fields_data,
-        'allow_multiple_entries': allow_multiple_entries
+        'allow_multiple_entries': allow_multiple_entries,
+        'users_for_allocation': users_for_allocation
     })
 
 
@@ -350,6 +640,14 @@ def dataset_entries_table_view(request, dataset_id):
     
     # Get all entries for this dataset
     entries = DataEntry.objects.filter(geometry__dataset=dataset).select_related('geometry', 'user').prefetch_related('fields')
+
+    mapping_area_ids = dataset.get_user_mapping_area_ids(request.user)
+    if mapping_area_ids is not None:
+        restricted_geometries = dataset.filter_geometries_for_user(
+            DataGeometry.objects.filter(dataset=dataset),
+            request.user,
+        )
+        entries = entries.filter(geometry__in=restricted_geometries)
     
     # Search functionality
     search_query = request.GET.get('search', '')
@@ -397,6 +695,8 @@ def dataset_fields_view(request, dataset_id):
         dataset = get_object_or_404(DataSet, pk=dataset_id)
         if not dataset.can_access(request.user):
             return JsonResponse({'error': 'Access denied'}, status=403)
+
+        ensure_standard_dataset_fields(dataset)
         
         # Get all enabled fields for this dataset
         all_fields = DatasetField.objects.filter(dataset=dataset, enabled=True).order_by('order', 'field_name')
@@ -408,6 +708,19 @@ def dataset_fields_view(request, dataset_id):
                 # Enable all fields
                 all_fields_qs.update(enabled=True)
                 # Re-query to get the updated fields
+                all_fields = DatasetField.objects.filter(dataset=dataset, enabled=True).order_by('order', 'field_name')
+        else:
+            standard_field_names = {field_def['field_name'] for field_def in STANDARD_DATASET_FIELDS}
+            custom_enabled_fields = DatasetField.objects.filter(
+                dataset=dataset,
+                enabled=True
+            ).exclude(field_name__in=standard_field_names)
+            disabled_custom_fields = DatasetField.objects.filter(
+                dataset=dataset,
+                enabled=False
+            ).exclude(field_name__in=standard_field_names)
+            if not custom_enabled_fields.exists() and disabled_custom_fields.exists():
+                disabled_custom_fields.update(enabled=True)
                 all_fields = DatasetField.objects.filter(dataset=dataset, enabled=True).order_by('order', 'field_name')
         
         # Prepare fields data for JavaScript
@@ -473,6 +786,8 @@ def dataset_map_data_view(request, dataset_id):
                 'id', 'id_kurz', 'address', 'geometry', 'user__username'
             )
         
+        geometries = dataset.filter_geometries_for_user(geometries, request.user)
+
         # Prepare lightweight map data
         map_data = []
         for geometry in geometries:
@@ -593,7 +908,8 @@ def custom_field_delete_view(request, dataset_id, field_id):
     
     return render(request, 'datasets/custom_field_delete.html', {
         'dataset': dataset,
-        'field': field
+        'field': field,
+        'custom_field': field  # Backward compatibility for tests/templates expecting this key
     })
 
 

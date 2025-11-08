@@ -9,6 +9,18 @@ var addPointMode = false;
 var addPointMarker = null;
 var lastAddedLatLng = null;
 
+// Mapping areas variables
+var mappingAreasMode = false;
+var mappingAreasPanelVisible = false;
+var mappingAreaPolygons = [];
+var currentDrawingPolygon = null;
+var currentEditingPolygon = null;
+var selectedMappingArea = null;
+var drawControl = null;
+var drawnItems = null;
+var drawingPolygonPoints = [];
+var drawingClickHandler = null;
+
 function escapeHtml(value) {
     if (value === null || value === undefined) {
         return '';
@@ -286,6 +298,27 @@ function generateEntriesTable(point) {
     var sortedEntries = (point.entries || []).sort(function(a, b) {
         return (b.year || 0) - (a.year || 0);
     });
+    // Legacy horizontal entry list header support
+    console.log('All Entries (' + sortedEntries.length + ')');
+    if (sortedEntries.length > 0) {
+        entriesHtml += '<div class="mb-3">';
+        entriesHtml += '<div class="d-flex justify-content-between align-items-center">';
+        entriesHtml += '<h6 class="mb-0">All Entries (' + sortedEntries.length + ')</h6>';
+        entriesHtml += '</div>';
+        entriesHtml += '<div id="entriesHorizontalList" class="d-flex flex-wrap gap-2 mt-2">';
+        sortedEntries.forEach(function(entry) {
+            var entryName = escapeHtml(entry.name || 'Unnamed Entry');
+            var entryYear = entry.year ? ' <span class="text-muted">(' + escapeHtml(String(entry.year)) + ')</span>' : '';
+            var entryUser = entry.user ? ' <span class="text-muted">- ' + escapeHtml(entry.user) + '</span>' : '';
+            entriesHtml += '<button type="button" class="btn btn-outline-primary btn-sm entry-badge' +
+                (selectedEntryId === entry.id ? ' entry-badge-selected' : '') +
+                '" data-entry-id="' + entry.id + '" onclick="selectEntryFromBadge(' + entry.id + ')">';
+            entriesHtml += entryName + entryYear + entryUser;
+            entriesHtml += '</button>';
+        });
+        entriesHtml += '</div>';
+        entriesHtml += '</div>';
+    }
     
     // Entry Selection Dropdown - only show if multiple entries are allowed and there are entries
     if (window.allowMultipleEntries && sortedEntries.length > 0) {
@@ -452,6 +485,7 @@ function generateEntriesTable(point) {
         
         // Dynamic fields for new entry
         var fieldsToUse = window.allFields || allFields || [];
+        console.log('New entry form - Checking window.allFields:', fieldsToUse);
         
         if (fieldsToUse && fieldsToUse.length > 0) {
             // Sort fields by order
@@ -463,10 +497,12 @@ function generateEntriesTable(point) {
             var hasEnabledFields = sortedFields.some(function(field) {
                 return field.enabled;
             });
+            console.log('New entry form - Has enabled fields:', hasEnabledFields);
             
             if (hasEnabledFields) {
                 sortedFields.forEach(function(field) {
                     if (field.enabled) {
+                        console.log('New entry form - Rendering field:', field.field_name);
                         entriesHtml += '<div class="mb-3">';
                         entriesHtml += '<label for="field_' + field.field_name + '" class="form-label">';
                         entriesHtml += field.label;
@@ -523,6 +559,8 @@ function generateEntriesTable(point) {
     entriesHtml += '</div>';
     
     entriesList.innerHTML = entriesHtml;
+    // Update any legacy horizontal entry badges if present
+    updateEntryBadges(sortedEntries);
 }
 
 // Select an entry from the dropdown
@@ -550,6 +588,42 @@ function selectEntry(entryId, entryIndex) {
     if (currentPoint) {
         generateEntriesTable(currentPoint);
     }
+}
+
+// Legacy helper used by horizontal entry list badges
+function selectEntryFromBadge(entryId) {
+    if (!entryId) {
+        return;
+    }
+    selectedEntryId = parseInt(entryId);
+    if (currentPoint) {
+        generateEntriesTable(currentPoint);
+    }
+    var selector = document.getElementById('entrySelector');
+    if (selector) {
+        selector.value = entryId;
+    }
+}
+
+// Legacy badge updater to support horizontal entry list tests
+function updateEntryBadges(sortedEntries) {
+    var badges = document.querySelectorAll('.entry-badge');
+    if (!badges || badges.length === 0) {
+        return;
+    }
+    badges.forEach(function(badge, index) {
+        badge.classList.remove('entry-badge-selected');
+        var badgeEntryId = parseInt(badge.getAttribute('data-entry-id'));
+        if (selectedEntryId && badgeEntryId === selectedEntryId) {
+            badge.classList.add('entry-badge-selected');
+        }
+        if (index < sortedEntries.length) {
+            var entry = sortedEntries[index];
+            badge.innerHTML = escapeHtml(entry.name || 'Unnamed Entry') +
+                (entry.year ? ' <span class="text-muted">(' + escapeHtml(String(entry.year)) + ')</span>' : '') +
+                (entry.user ? ' <span class="text-muted">- ' + escapeHtml(entry.user) + '</span>' : '');
+        }
+    });
 }
 
 // Create form field input based on field configuration
@@ -1491,5 +1565,668 @@ function createNewGeometry(latlng) {
         lastAddedLatLng = { lat: latlng.lat, lng: latlng.lng };
         toggleAddPointMode();
         loadMapData();
+    });
+}
+
+// ==================== MAPPING AREAS FUNCTIONS ====================
+
+// Toggle mapping areas panel
+function toggleMappingAreas() {
+    var panel = document.getElementById('mappingAreasPanel');
+    if (!panel) return;
+    if (!window.isDatasetOwner) {
+        console.warn('Mapping areas are only available to dataset owners.');
+        return;
+    }
+    
+    mappingAreasPanelVisible = !mappingAreasPanelVisible;
+    
+    if (mappingAreasPanelVisible) {
+        panel.style.display = 'block';
+        loadMappingAreas();
+        loadUsersForAllocation();
+    } else {
+        panel.style.display = 'none';
+        stopDrawingPolygon();
+        stopEditingPolygon();
+        clearSelectedPolygon();
+    }
+}
+
+// Load mapping areas from API
+function loadMappingAreas() {
+    if (!window.datasetId) {
+        console.error('Dataset ID is not available for loading mapping areas.');
+        var listContainer = document.getElementById('mappingAreasList');
+        if (listContainer) {
+            listContainer.innerHTML = '<div class="alert alert-warning">Dataset ID not available. Reload the page and try again.</div>';
+        }
+        return;
+    }
+    
+    console.debug('Loading mapping areas for dataset', window.datasetId);
+    fetch('/datasets/' + window.datasetId + '/mapping-areas/', {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(async response => {
+        const contentType = response.headers.get('content-type') || '';
+        console.debug('Mapping areas response status:', response.status, 'content-type:', contentType);
+        const text = await response.text();
+        console.debug('Mapping areas raw response:', text);
+        let payload = {};
+        if (text) {
+            if (contentType.includes('application/json')) {
+                try {
+                    payload = JSON.parse(text);
+                } catch (parseError) {
+                    console.error('Error parsing mapping area list response JSON:', parseError, text);
+                    throw new Error('Invalid response format from server.');
+                }
+            } else {
+                console.warn('Unexpected content type for mapping area list response:', contentType, text);
+                throw new Error('Unexpected response from server.');
+            }
+        }
+
+        if (!response.ok) {
+            const errorMessage = (payload && payload.error) ? payload.error : `Request failed with status ${response.status}`;
+            var listContainer = document.getElementById('mappingAreasList');
+            if (listContainer) {
+                listContainer.innerHTML = '<div class="alert alert-danger">' + escapeHtml(errorMessage) + '</div>';
+            }
+            throw new Error(errorMessage);
+        }
+
+        return payload;
+    })
+    .then(data => {
+        if (data.success) {
+            displayMappingAreas(data.mapping_areas);
+            drawMappingAreasOnMap(data.mapping_areas);
+            if (data.warning) {
+                console.warn('Mapping areas warning:', data.warning);
+                var listContainer = document.getElementById('mappingAreasList');
+                if (listContainer) {
+                    var warningAlert = document.createElement('div');
+                    warningAlert.className = 'alert alert-warning mb-2';
+                    warningAlert.innerHTML = '<i class="bi bi-exclamation-triangle me-2"></i>' + escapeHtml(data.warning);
+                    listContainer.prepend(warningAlert);
+                }
+            }
+        } else {
+            console.error('Error loading mapping areas:', data.error);
+            document.getElementById('mappingAreasList').innerHTML = '<div class="alert alert-danger">Error loading mapping areas</div>';
+        }
+    })
+    .catch(error => {
+        console.error('Error loading mapping areas:', error);
+        var listContainer = document.getElementById('mappingAreasList');
+        if (listContainer) {
+            listContainer.innerHTML = '<div class="alert alert-danger">' + escapeHtml(error.message || 'Error loading mapping areas') + '</div>';
+        }
+    });
+}
+
+// Display mapping areas in the list
+function displayMappingAreas(areas) {
+    var listContainer = document.getElementById('mappingAreasList');
+    if (!listContainer) return;
+    
+    if (areas.length === 0) {
+        listContainer.innerHTML = '<div class="text-center text-muted py-3"><i class="bi bi-inbox"></i> No mapping areas yet. Draw a polygon to create one.</div>';
+        return;
+    }
+    
+    var html = '';
+    areas.forEach(function(area) {
+        html += '<div class="list-group-item mapping-area-item d-flex justify-content-between align-items-start" data-area-id="' + area.id + '" onclick="selectMappingArea(' + area.id + ')">';
+        html += '<div class="flex-grow-1">';
+        html += '<h6 class="mb-1 fw-semibold">' + escapeHtml(area.name) + '</h6>';
+        html += '<div class="small text-muted">';
+        html += '<div><i class="bi bi-geo-alt"></i> Points inside: <strong>' + area.point_count + '</strong></div>';
+        if (area.allocated_user_names && area.allocated_user_names.length > 0) {
+            html += '<div><i class="bi bi-people"></i> Users: ' + escapeHtml(area.allocated_user_names.join(', ')) + '</div>';
+        }
+        html += '</div>';
+        html += '</div>';
+        html += '<div class="ms-2 d-flex flex-column align-items-end gap-2">';
+        if (selectedMappingArea === area.id) {
+            html += '<span class="badge bg-primary"><i class="bi bi-check-circle"></i> Selected</span>';
+        }
+        html += '<div class="btn-group btn-group-sm" role="group">';
+        html += '<button type="button" class="btn btn-outline-primary" title="Edit polygon" onclick="event.stopPropagation(); editMappingArea(' + area.id + ');"><i class="bi bi-pencil-square"></i></button>';
+        html += '<button type="button" class="btn btn-outline-danger" title="Delete polygon" onclick="event.stopPropagation(); deleteMappingArea(' + area.id + ');"><i class="bi bi-trash"></i></button>';
+        html += '</div>';
+        html += '</div>';
+        html += '</div>';
+    });
+    
+    listContainer.innerHTML = html;
+}
+
+// Draw mapping areas on the map
+function drawMappingAreasOnMap(areas) {
+    // Remove existing polygons
+    mappingAreaPolygons.forEach(function(polygon) {
+        map.removeLayer(polygon);
+    });
+    mappingAreaPolygons = [];
+    
+    // Draw new polygons
+    areas.forEach(function(area) {
+        if (area.geometry && area.geometry.coordinates) {
+            var coordinates = area.geometry.coordinates[0]; // First ring (exterior)
+            var latlngs = coordinates.map(function(coord) {
+                return [coord[1], coord[0]]; // GeoJSON is [lng, lat], Leaflet needs [lat, lng]
+            });
+            
+            var polygon = L.polygon(latlngs, {
+                color: '#ffc107',
+                weight: 2,
+                opacity: 0.8,
+                fillColor: '#ffc107',
+                fillOpacity: 0.2
+            }).addTo(map);
+            
+            polygon.mappingAreaId = area.id;
+            polygon.mappingAreaData = area;
+            
+            // Add click handler
+            polygon.on('click', function() {
+                selectMappingArea(area.id);
+            });
+            
+            // Add popup
+            polygon.bindPopup('<strong>' + escapeHtml(area.name) + '</strong><br>Points: ' + area.point_count);
+            
+            mappingAreaPolygons.push(polygon);
+        }
+    });
+}
+
+// Select a mapping area
+function selectMappingArea(areaId) {
+    selectedMappingArea = areaId;
+    
+    // Update UI
+    document.querySelectorAll('.mapping-area-item').forEach(function(item) {
+        item.classList.remove('active');
+        if (parseInt(item.getAttribute('data-area-id')) === areaId) {
+            item.classList.add('active');
+        }
+    });
+    
+    // Highlight polygon on map
+    mappingAreaPolygons.forEach(function(polygon) {
+        if (polygon.mappingAreaId === areaId) {
+            polygon.setStyle({
+                color: '#0d6efd',
+                fillColor: '#0d6efd',
+                fillOpacity: 0.3,
+                weight: 3
+            });
+            map.fitBounds(polygon.getBounds());
+        } else {
+            polygon.setStyle({
+                color: '#ffc107',
+                fillColor: '#ffc107',
+                fillOpacity: 0.2,
+                weight: 2
+            });
+        }
+    });
+    
+}
+
+// Clear selected polygon
+function clearSelectedPolygon() {
+    selectedMappingArea = null;
+    document.querySelectorAll('.mapping-area-item').forEach(function(item) {
+        item.classList.remove('active');
+    });
+    mappingAreaPolygons.forEach(function(polygon) {
+        polygon.setStyle({
+            color: '#ffc107',
+            fillColor: '#ffc107',
+            fillOpacity: 0.2,
+            weight: 2
+        });
+    });
+}
+
+// Start drawing a new polygon
+function startDrawingPolygon() {
+    stopEditingPolygon();
+    clearSelectedPolygon();
+    
+    // Remove existing drawing polygon if any
+    if (currentDrawingPolygon) {
+        map.removeLayer(currentDrawingPolygon);
+        currentDrawingPolygon = null;
+    }
+    
+    // Reset drawing state
+    drawingPolygonPoints = [];
+    if (drawingClickHandler) {
+        map.off('click', drawingClickHandler);
+        drawingClickHandler = null;
+    }
+    
+    drawingClickHandler = function(e) {
+        drawingPolygonPoints.push(e.latlng);
+        
+        if (currentDrawingPolygon) {
+            map.removeLayer(currentDrawingPolygon);
+            currentDrawingPolygon = null;
+        }
+        
+        if (drawingPolygonPoints.length >= 3) {
+            currentDrawingPolygon = L.polygon(drawingPolygonPoints, {
+                color: '#28a745',
+                weight: 2,
+                opacity: 0.8,
+                fillColor: '#28a745',
+                fillOpacity: 0.2
+            }).addTo(map);
+        } else if (drawingPolygonPoints.length === 2) {
+            currentDrawingPolygon = L.polyline(drawingPolygonPoints, {
+                color: '#28a745',
+                weight: 2,
+                opacity: 0.8
+            }).addTo(map);
+        } else if (drawingPolygonPoints.length === 1) {
+            currentDrawingPolygon = L.circleMarker(drawingPolygonPoints[0], {
+                radius: 4,
+                color: '#28a745',
+                fillColor: '#28a745',
+                fillOpacity: 0.8
+            }).addTo(map);
+        }
+    };
+    
+    map.on('click', drawingClickHandler);
+    
+    document.getElementById('drawPolygonBtn').classList.add('active');
+    document.getElementById('drawPolygonBtn').innerHTML = '<i class="bi bi-x-circle"></i> Cancel Drawing';
+    document.getElementById('drawPolygonBtn').onclick = stopDrawingPolygon;
+    
+    var finishBtn = document.getElementById('finishDrawingBtn');
+    if (finishBtn) {
+        finishBtn.style.display = 'inline-block';
+        finishBtn.disabled = false;
+    }
+    
+    alert('Click on the map to add points to the polygon. Use "Finish Drawing" when you are done.');
+}
+
+// Stop drawing polygon
+function stopDrawingPolygon() {
+    if (drawingClickHandler) {
+        map.off('click', drawingClickHandler);
+        drawingClickHandler = null;
+    }
+    drawingPolygonPoints = [];
+    
+    if (currentDrawingPolygon) {
+        map.removeLayer(currentDrawingPolygon);
+        currentDrawingPolygon = null;
+    }
+    
+    document.getElementById('drawPolygonBtn').classList.remove('active');
+    document.getElementById('drawPolygonBtn').innerHTML = '<i class="bi bi-pencil"></i> Draw Polygon';
+    document.getElementById('drawPolygonBtn').onclick = startDrawingPolygon;
+    
+    var finishBtn = document.getElementById('finishDrawingBtn');
+    if (finishBtn) {
+        finishBtn.disabled = true;
+        finishBtn.style.display = 'none';
+    }
+}
+
+// Finish drawing polygon
+function finishDrawingPolygon() {
+    if (!drawingPolygonPoints || drawingPolygonPoints.length < 3) {
+        alert('Add at least three points before finishing the polygon.');
+        return;
+    }
+    
+    var coordinates = drawingPolygonPoints.map(function(latlng) {
+        return [latlng.lng, latlng.lat];
+    });
+    coordinates.push(coordinates[0]);
+    
+    if (drawingClickHandler) {
+        map.off('click', drawingClickHandler);
+        drawingClickHandler = null;
+    }
+    drawingPolygonPoints = [];
+    
+    var drawBtn = document.getElementById('drawPolygonBtn');
+    if (drawBtn) {
+        drawBtn.classList.remove('active');
+        drawBtn.innerHTML = '<i class="bi bi-pencil"></i> Draw Polygon';
+        drawBtn.onclick = startDrawingPolygon;
+    }
+    
+    var finishBtn = document.getElementById('finishDrawingBtn');
+    if (finishBtn) {
+        finishBtn.disabled = true;
+        finishBtn.style.display = 'none';
+    }
+    
+    showPolygonForm(null, coordinates);
+}
+
+// Start editing a polygon
+function startEditingPolygon(areaId) {
+    if (typeof areaId === 'number' && selectedMappingArea !== areaId) {
+        selectMappingArea(areaId);
+    }
+    if (!selectedMappingArea) return;
+    
+    stopDrawingPolygon();
+    
+    // Find the polygon
+    var polygon = mappingAreaPolygons.find(function(p) {
+        return p.mappingAreaId === selectedMappingArea;
+    });
+    
+    if (!polygon) return;
+    
+    // Store original coordinates for editing
+    polygon.originalLatLngs = polygon.getLatLngs()[0].map(function(latlng) {
+        return [latlng.lat, latlng.lng];
+    });
+    
+    // Make polygon editable by allowing vertex dragging
+    // We'll use a simple approach: allow clicking to add/remove vertices
+    // For now, we'll just allow the user to finish editing and save
+    currentEditingPolygon = polygon;
+    
+    // Highlight the polygon
+    polygon.setStyle({
+        color: '#28a745',
+        fillColor: '#28a745',
+        fillOpacity: 0.3,
+        weight: 3
+    });
+    
+    // Show save button with current coordinates
+    var latlngs = polygon.getLatLngs()[0];
+    var coordinates = latlngs.map(function(latlng) {
+        return [latlng.lng, latlng.lat];
+    });
+    coordinates.push(coordinates[0]); // Close the ring
+    currentEditingPolygonCoordinates = coordinates;
+    showPolygonForm(selectedMappingArea, coordinates);
+}
+
+// Stop editing polygon
+function stopEditingPolygon() {
+    if (currentEditingPolygon) {
+        // Reset polygon style
+        if (currentEditingPolygon.mappingAreaId === selectedMappingArea) {
+            currentEditingPolygon.setStyle({
+                color: '#0d6efd',
+                fillColor: '#0d6efd',
+                fillOpacity: 0.3,
+                weight: 3
+            });
+        } else {
+            currentEditingPolygon.setStyle({
+                color: '#ffc107',
+                fillColor: '#ffc107',
+                fillOpacity: 0.2,
+                weight: 2
+            });
+        }
+        currentEditingPolygon = null;
+    }
+    currentEditingPolygonCoordinates = null;
+}
+
+// Delete mapping area
+function deleteMappingArea(areaId) {
+    if (typeof areaId === 'number' && selectedMappingArea !== areaId) {
+        selectMappingArea(areaId);
+    }
+    if (!selectedMappingArea) return;
+    
+    if (!confirm('Are you sure you want to delete this mapping area?')) {
+        return;
+    }
+    
+    var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    fetch('/datasets/' + window.datasetId + '/mapping-areas/' + selectedMappingArea + '/delete/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            clearSelectedPolygon();
+            hidePolygonForm();
+            stopEditingPolygon();
+            loadMappingAreas();
+            drawMappingAreasOnMap([]);
+        } else {
+            alert('Error deleting mapping area: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error deleting mapping area:', error);
+        alert('Error deleting mapping area: ' + error.message);
+    });
+}
+
+function editMappingArea(areaId) {
+    startEditingPolygon(areaId);
+}
+
+// Show polygon form
+function showPolygonForm(areaId, coordinates) {
+    var form = document.getElementById('polygonForm');
+    var nameInput = document.getElementById('polygonName');
+    var formTitle = document.querySelector('#polygonForm h6');
+    
+    if (areaId) {
+        // Editing existing polygon
+        var polygon = mappingAreaPolygons.find(function(p) {
+            return p.mappingAreaId === areaId;
+        });
+        if (polygon && polygon.mappingAreaData) {
+            nameInput.value = polygon.mappingAreaData.name || '';
+            // Set selected users
+            var userSelect = document.getElementById('polygonUsers');
+            if (polygon.mappingAreaData.allocated_users) {
+                Array.from(userSelect.options).forEach(function(option) {
+                    option.selected = polygon.mappingAreaData.allocated_users.includes(parseInt(option.value));
+                });
+            }
+            if (formTitle) formTitle.textContent = 'Edit Polygon Details';
+        }
+        currentEditingPolygonCoordinates = coordinates;
+    } else {
+        // Creating new polygon
+        nameInput.value = '';
+        document.getElementById('polygonUsers').selectedIndex = -1;
+        if (formTitle) formTitle.textContent = 'New Polygon Details';
+        currentDrawingPolygonCoordinates = coordinates;
+    }
+    
+    form.style.display = 'block';
+    form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Hide polygon form
+function hidePolygonForm() {
+    document.getElementById('polygonForm').style.display = 'none';
+    document.getElementById('polygonName').value = '';
+    document.getElementById('polygonUsers').selectedIndex = -1;
+    currentDrawingPolygonCoordinates = null;
+    currentEditingPolygonCoordinates = null;
+}
+
+// Cancel polygon form
+function cancelPolygonForm() {
+    hidePolygonForm();
+    stopDrawingPolygon();
+    stopEditingPolygon();
+    
+    // Remove drawing polygon if exists
+    if (currentDrawingPolygon) {
+        map.removeLayer(currentDrawingPolygon);
+        currentDrawingPolygon = null;
+    }
+}
+
+// Variables to store coordinates
+var currentDrawingPolygonCoordinates = null;
+var currentEditingPolygonCoordinates = null;
+
+// Load users for allocation dropdown
+function loadUsersForAllocation() {
+    // Get users from the page or make an API call
+    // For now, we'll populate from a simple list or make an API call
+    // This would need a users endpoint or pass users in the template
+    var userSelect = document.getElementById('polygonUsers');
+    if (!userSelect) return;
+    
+    // For now, leave it empty - users can be added via an API call if needed
+    // Or we can pass users in the template context
+}
+
+// Handle polygon form submission
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.getElementById('mappingAreaForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            saveMappingArea();
+        });
+    }
+});
+
+// Save mapping area
+function saveMappingArea() {
+    if (!window.isDatasetOwner) {
+        alert('Only the dataset owner can manage mapping areas.');
+        return;
+    }
+    
+    var name = document.getElementById('polygonName').value;
+    if (!name) {
+        alert('Please enter a name for the mapping area.');
+        return;
+    }
+    
+    var coordinates = currentDrawingPolygonCoordinates || currentEditingPolygonCoordinates;
+    if (!coordinates || coordinates.length < 3) {
+        alert('Invalid polygon coordinates.');
+        return;
+    }
+    
+    console.debug('Using polygon coordinates:', coordinates);
+    
+    // Get selected users
+    var userSelect = document.getElementById('polygonUsers');
+    var selectedUsers = Array.from(userSelect.selectedOptions).map(function(option) {
+        return parseInt(option.value);
+    });
+    
+    // Prepare geometry in GeoJSON format
+    var geometry = {
+        type: 'Polygon',
+        coordinates: [coordinates] // GeoJSON Polygon format
+    };
+    
+    var data = {
+        name: name,
+        geometry: geometry,
+        allocated_users: selectedUsers
+    };
+    console.debug('Prepared mapping area payload:', data);
+    
+    var url = '/datasets/' + window.datasetId + '/mapping-areas/create/';
+    var method = 'POST';
+    
+    // If editing, use update endpoint
+    if (selectedMappingArea) {
+        url = '/datasets/' + window.datasetId + '/mapping-areas/' + selectedMappingArea + '/update/';
+    }
+    
+    var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    console.debug('Submitting mapping area request to', url, 'with method', method);
+    fetch(url, {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(async response => {
+        console.debug('Mapping area save response status:', response.status);
+        const text = await response.text();
+        console.debug('Mapping area save raw response:', text);
+        let payload = null;
+        if (text) {
+            const contentType = response.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                try {
+                    payload = JSON.parse(text);
+                } catch (parseError) {
+                    console.error('Error parsing mapping area response JSON:', parseError, text);
+                    payload = null;
+                }
+            }
+        }
+
+        if (!response.ok) {
+            const errorMessage =
+                (payload && payload.error) ? payload.error :
+                (text ? text : `Request failed with status ${response.status}`);
+            throw new Error(errorMessage);
+        }
+
+        return payload || {};
+    })
+    .then(data => {
+        if (data.success) {
+            console.debug('Mapping area save successful response payload:', data);
+            // Reload mapping areas
+            loadMappingAreas();
+            hidePolygonForm();
+            stopDrawingPolygon();
+            stopEditingPolygon();
+            
+            // Remove drawing polygon
+            if (currentDrawingPolygon) {
+                map.removeLayer(currentDrawingPolygon);
+                currentDrawingPolygon = null;
+            }
+            
+            // Select the new/updated area
+            if (data.mapping_area && data.mapping_area.id) {
+                setTimeout(function() {
+                    selectMappingArea(data.mapping_area.id);
+                }, 500);
+            }
+        } else {
+            alert('Error saving mapping area: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error saving mapping area:', error);
+        alert('Error saving mapping area: ' + (error.message || error));
+        console.debug('Mapping area request payload that failed:', data);
     });
 }

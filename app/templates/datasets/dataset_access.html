@@ -27,21 +27,36 @@
                     </div>
                     <div class="card-body">
                         {% if all_users %}
-                            <div class="d-flex flex-column gap-2">
+                            <div class="d-flex flex-column gap-3">
                                 {% for user in all_users %}
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="shared_users" value="{{ user.id }}" id="user{{ user.id }}" {% if user.id in shared_users %}checked{% endif %}>
-                                    <label class="form-check-label" for="user{{ user.id }}">
-                                        {{ user.username }}
-                                        {% if user.first_name or user.last_name %}
-                                            <span class="text-muted small">({{ user.first_name }} {{ user.last_name }})</span>
-                                        {% endif %}
-                                    </label>
+                                <div class="border rounded p-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="shared_users" value="{{ user.id }}" id="user{{ user.id }}"
+                                               data-access-checkbox="user" data-target="#userMappingAreas{{ user.id }}"
+                                               {% if user.id in shared_users %}checked{% endif %}>
+                                        <label class="form-check-label fw-semibold" for="user{{ user.id }}">
+                                            {{ user.username }}
+                                            {% if user.first_name or user.last_name %}
+                                                <span class="text-muted small">({{ user.first_name }} {{ user.last_name }})</span>
+                                            {% endif %}
+                                        </label>
+                                    </div>
+                                    {% if mapping_areas %}
+                                    <div class="mapping-area-limit mt-2">
+                                        <label class="form-label small mb-1" for="userMappingAreas{{ user.id }}">Limit to mapping areas</label>
+                                        <select class="form-select form-select-sm" name="user_mapping_areas_{{ user.id }}" id="userMappingAreas{{ user.id }}" multiple {% if user.id not in shared_users %}disabled{% endif %}>
+                                            {% for area in mapping_areas %}
+                                            <option value="{{ area.id }}" {% if area.id in user.mapping_area_ids %}selected{% endif %}>{{ area.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="form-text small">Leave empty to grant access to the entire dataset.</div>
+                                    </div>
+                                    {% endif %}
                                 </div>
+                                {% empty %}
+                                <p class="text-muted small mb-0">No additional users are available at the moment.</p>
                                 {% endfor %}
                             </div>
-                        {% else %}
-                            <p class="text-muted small">No additional users are available at the moment.</p>
                         {% endif %}
                     </div>
                 </div>
@@ -54,19 +69,34 @@
                     </div>
                     <div class="card-body">
                         {% if all_groups %}
-                            <div class="d-flex flex-column gap-2">
+                            <div class="d-flex flex-column gap-3">
                                 {% for group in all_groups %}
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="shared_groups" value="{{ group.id }}" id="group{{ group.id }}" {% if group.id in shared_groups %}checked{% endif %}>
-                                    <label class="form-check-label" for="group{{ group.id }}">
-                                        {{ group.name }}
-                                        <span class="text-muted small">({{ group.user_set.count }} user{{ group.user_set.count|pluralize }})</span>
-                                    </label>
+                                <div class="border rounded p-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="shared_groups" value="{{ group.id }}" id="group{{ group.id }}"
+                                               data-access-checkbox="group" data-target="#groupMappingAreas{{ group.id }}"
+                                               {% if group.id in shared_groups %}checked{% endif %}>
+                                        <label class="form-check-label fw-semibold" for="group{{ group.id }}">
+                                            {{ group.name }}
+                                            <span class="text-muted small">({{ group.user_set.count }} user{{ group.user_set.count|pluralize }})</span>
+                                        </label>
+                                    </div>
+                                    {% if mapping_areas %}
+                                    <div class="mapping-area-limit mt-2">
+                                        <label class="form-label small mb-1" for="groupMappingAreas{{ group.id }}">Limit to mapping areas</label>
+                                        <select class="form-select form-select-sm" name="group_mapping_areas_{{ group.id }}" id="groupMappingAreas{{ group.id }}" multiple {% if group.id not in shared_groups %}disabled{% endif %}>
+                                            {% for area in mapping_areas %}
+                                            <option value="{{ area.id }}" {% if area.id in group.mapping_area_ids %}selected{% endif %}>{{ area.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="form-text small">Leave empty to grant this group access to the entire dataset.</div>
+                                    </div>
+                                    {% endif %}
                                 </div>
+                                {% empty %}
+                                <p class="text-muted small mb-0">No groups available yet.</p>
                                 {% endfor %}
                             </div>
-                        {% else %}
-                            <p class="text-muted small">No groups available yet.</p>
                         {% endif %}
                     </div>
                 </div>
@@ -98,3 +128,32 @@
     </div>
 </div>
 {% endblock %} 
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-access-checkbox]').forEach(function (checkbox) {
+        var targetSelector = checkbox.getAttribute('data-target');
+        if (!targetSelector) {
+            return;
+        }
+        var select = document.querySelector(targetSelector);
+        if (!select) {
+            return;
+        }
+        var container = select.closest('.mapping-area-limit');
+
+        var syncState = function () {
+            var enabled = checkbox.checked;
+            select.disabled = !enabled;
+            if (container) {
+                container.classList.toggle('opacity-50', !enabled);
+            }
+        };
+
+        checkbox.addEventListener('change', syncState);
+        syncState();
+    });
+});
+</script>
+{% endblock %}

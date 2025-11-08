@@ -115,10 +115,10 @@ class DataInputJavaScriptTestCase(TestCase):
         
         # Verify the structure
         self.assertIsInstance(fields_data, list)
-        self.assertEqual(len(fields_data), 2)
+        self.assertGreaterEqual(len(fields_data), 2)
         
         # Check first field
-        field1_data = fields_data[0]
+        field1_data = next(f for f in fields_data if f['field_name'] == 'test_field_1')
         self.assertEqual(field1_data['field_name'], 'test_field_1')
         self.assertEqual(field1_data['label'], 'Test Field 1')
         self.assertEqual(field1_data['field_type'], 'text')
@@ -127,7 +127,7 @@ class DataInputJavaScriptTestCase(TestCase):
         self.assertEqual(field1_data['order'], 1)
         
         # Check second field
-        field2_data = fields_data[1]
+        field2_data = next(f for f in fields_data if f['field_name'] == 'test_field_2')
         self.assertEqual(field2_data['field_name'], 'test_field_2')
         self.assertEqual(field2_data['label'], 'Test Field 2')
         self.assertEqual(field2_data['field_type'], 'choice')
@@ -278,7 +278,7 @@ class DataInputJavaScriptTestCase(TestCase):
         
         fields_json = json_match.group(1).strip()
         fields_data = json.loads(fields_json)
-        self.assertEqual(len(fields_data), 0)
+        self.assertGreaterEqual(len(fields_data), 8)
     
     def test_javascript_file_loading(self):
         """Test that the external JavaScript file is loaded correctly"""
@@ -393,5 +393,8 @@ class DataInputJavaScriptTestCase(TestCase):
         # Verify the context values
         self.assertEqual(response.context['dataset'], self.dataset)
         self.assertIsInstance(response.context['fields_data'], list)
-        self.assertEqual(len(response.context['fields_data']), 2)
+        self.assertGreaterEqual(len(response.context['fields_data']), 2)
+        context_field_names = {field['field_name'] for field in response.context['fields_data']}
+        self.assertIn('test_field_1', context_field_names)
+        self.assertIn('test_field_2', context_field_names)
         self.assertIsInstance(response.context['allow_multiple_entries'], bool)
