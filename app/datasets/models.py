@@ -329,6 +329,7 @@ class DatasetField(models.Model):
     field_type = models.CharField(max_length=20, choices=FIELD_TYPE_CHOICES, default='text')
     required = models.BooleanField(default=False)
     enabled = models.BooleanField(default=True)
+    non_editable = models.BooleanField(default=False, help_text="If enabled, this field cannot be edited in data entry forms")
     help_text = models.TextField(blank=True, null=True, help_text="Help text to display to users")
     choices = models.TextField(blank=True, null=True, help_text="Comma-separated choices for choice fields")
     order = models.PositiveIntegerField(default=0, help_text="Display order (0 = first)")

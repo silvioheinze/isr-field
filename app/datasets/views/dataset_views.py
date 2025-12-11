@@ -215,6 +215,9 @@ def dataset_detail_view(request, dataset_id):
                     # Update required status
                     field.required = f'field_{field_id}_required' in request.POST
                     
+                    # Update non_editable status
+                    field.non_editable = f'field_{field_id}_non_editable' in request.POST
+                    
                     field.save()
                 
                 messages.success(request, 'Field configuration updated successfully.')
@@ -350,6 +353,12 @@ def dataset_field_config_view(request, dataset_id):
             required_value = request.POST.get(required_key) == 'on'
             if required_value != field.required:
                 field.required = required_value
+                changed = True
+            
+            non_editable_key = f'{field_prefix}_non_editable'
+            non_editable_value = request.POST.get(non_editable_key) == 'on'
+            if non_editable_value != field.non_editable:
+                field.non_editable = non_editable_value
                 changed = True
             
             if changed:

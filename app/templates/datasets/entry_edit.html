@@ -36,29 +36,38 @@
                     {% if field.field_type == 'text' %}
                         <input type="text" class="form-control" id="{{ field.field_name }}" name="{{ field.field_name }}" 
                                value="{{ entry|get_field_value:field.field_name }}" 
-                               {% if field.required %}required{% endif %}>
+                               {% if field.required %}required{% endif %}
+                               {% if field.non_editable %}readonly{% endif %}>
                     {% elif field.field_type == 'integer' %}
                         <input type="number" class="form-control" id="{{ field.field_name }}" name="{{ field.field_name }}" 
                                value="{{ entry|get_field_value:field.field_name }}" 
-                               {% if field.required %}required{% endif %}>
+                               {% if field.required %}required{% endif %}
+                               {% if field.non_editable %}readonly{% endif %}>
                     {% elif field.field_type == 'decimal' %}
                         <input type="number" step="0.01" class="form-control" id="{{ field.field_name }}" name="{{ field.field_name }}" 
                                value="{{ entry|get_field_value:field.field_name }}" 
-                               {% if field.required %}required{% endif %}>
+                               {% if field.required %}required{% endif %}
+                               {% if field.non_editable %}readonly{% endif %}>
                     {% elif field.field_type == 'boolean' %}
                         <select class="form-control" id="{{ field.field_name }}" name="{{ field.field_name }}" 
-                                {% if field.required %}required{% endif %}>
+                                {% if field.required %}required{% endif %}
+                                {% if field.non_editable %}disabled{% endif %}>
                             <option value="">Select option</option>
                             <option value="true" {% if entry|get_field_value:field.field_name == 'true' %}selected{% endif %}>Yes</option>
                             <option value="false" {% if entry|get_field_value:field.field_name == 'false' %}selected{% endif %}>No</option>
                         </select>
+                        {% if field.non_editable %}
+                            <input type="hidden" name="{{ field.field_name }}" value="{{ entry|get_field_value:field.field_name }}">
+                        {% endif %}
                     {% elif field.field_type == 'date' %}
                         <input type="date" class="form-control" id="{{ field.field_name }}" name="{{ field.field_name }}" 
                                value="{{ entry|get_field_value:field.field_name }}" 
-                               {% if field.required %}required{% endif %}>
+                               {% if field.required %}required{% endif %}
+                               {% if field.non_editable %}readonly{% endif %}>
                     {% elif field.field_type == 'choice' %}
                         <select class="form-control" id="{{ field.field_name }}" name="{{ field.field_name }}" 
-                                {% if field.required %}required{% endif %}>
+                                {% if field.required %}required{% endif %}
+                                {% if field.non_editable %}disabled{% endif %}>
                             <option value="">Select option</option>
                             {% for choice in field|get_choices_list %}
                                 {% if choice.value %}
@@ -68,10 +77,14 @@
                                 {% endif %}
                             {% endfor %}
                         </select>
+                        {% if field.non_editable %}
+                            <input type="hidden" name="{{ field.field_name }}" value="{{ entry|get_field_value:field.field_name }}">
+                        {% endif %}
                     {% else %}
                         <input type="text" class="form-control" id="{{ field.field_name }}" name="{{ field.field_name }}" 
                                value="{{ entry|get_field_value:field.field_name }}" 
-                               {% if field.required %}required{% endif %}>
+                               {% if field.required %}required{% endif %}
+                               {% if field.non_editable %}readonly{% endif %}>
                     {% endif %}
                     {% if field.help_text %}
                         <div class="form-text">{{ field.help_text }}</div>
