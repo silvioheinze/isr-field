@@ -298,9 +298,9 @@ function generateEntriesTable(point) {
     var sortedEntries = (point.entries || []).sort(function(a, b) {
         return (b.year || 0) - (a.year || 0);
     });
-    // Legacy horizontal entry list header support
-    console.log('All Entries (' + sortedEntries.length + ')');
-    if (sortedEntries.length > 0) {
+    // Legacy horizontal entry list header support - only show if multiple entries are allowed
+    if (window.allowMultipleEntries && sortedEntries.length > 0) {
+        console.log('All Entries (' + sortedEntries.length + ')');
         entriesHtml += '<div class="mb-3">';
         entriesHtml += '<div class="d-flex justify-content-between align-items-center">';
         entriesHtml += '<h6 class="mb-0">All Entries (' + sortedEntries.length + ')</h6>';
