@@ -398,3 +398,125 @@ class DataInputJavaScriptTestCase(TestCase):
         self.assertIn('test_field_1', context_field_names)
         self.assertIn('test_field_2', context_field_names)
         self.assertIsInstance(response.context['allow_multiple_entries'], bool)
+    
+    def test_javascript_handles_non_editable_fields(self):
+        """Test that JavaScript code properly handles non_editable fields by checking readonly/disabled attributes"""
+        # Read the JavaScript file directly from the filesystem
+        import os
+        from django.conf import settings
+        
+        js_file_path = os.path.join(settings.STATIC_ROOT, 'js', 'data-input.js')
+        if not os.path.exists(js_file_path):
+            js_file_path = os.path.join(settings.STATICFILES_DIRS[0], 'js', 'data-input.js')
+        
+        self.assertTrue(os.path.exists(js_file_path), f"JavaScript file not found at {js_file_path}")
+        
+        with open(js_file_path, 'r', encoding='utf-8') as f:
+            js_content = f.read()
+        
+        # Check that createFormFieldInput function handles non_editable for text fields
+        self.assertIn('if (field.non_editable) inputHtml += \' readonly\';', js_content,
+                     "createFormFieldInput should add readonly for non_editable text fields")
+        
+        # Check that createFormFieldInput function handles non_editable for select/choice fields
+        self.assertIn('if (field.non_editable) inputHtml += \' disabled\';', js_content,
+                     "createFormFieldInput should add disabled for non_editable select fields")
+        
+        # Check that createFormFieldInput function adds hidden input for disabled selects
+        self.assertIn('if (field.non_editable) {', js_content,
+                     "createFormFieldInput should check for non_editable")
+        self.assertIn('<input type="hidden" name="', js_content,
+                     "createFormFieldInput should add hidden input for disabled selects")
+        
+        # Check that createEditableFieldInput function handles non_editable
+        # This function is used for editing existing entries
+        editable_function_start = js_content.find('function createEditableFieldInput')
+        self.assertNotEqual(editable_function_start, -1, "createEditableFieldInput function not found")
+        
+        # Extract the createEditableFieldInput function
+        editable_function_end = js_content.find('function createEntry', editable_function_start)
+        if editable_function_end == -1:
+            editable_function_end = len(js_content)
+        
+        editable_function = js_content[editable_function_start:editable_function_end]
+        
+        # Check that it handles non_editable for text fields
+        self.assertIn('if (field.non_editable) inputHtml += \' readonly\';', editable_function,
+                     "createEditableFieldInput should add readonly for non_editable text fields")
+        
+        # Check that it handles non_editable for select fields
+        self.assertIn('if (field.non_editable) inputHtml += \' disabled\';', editable_function,
+                     "createEditableFieldInput should add disabled for non_editable select fields")
+        
+        # Check that createCustomFieldInput function handles non_editable
+        custom_function_start = js_content.find('function createCustomFieldInput')
+        self.assertNotEqual(custom_function_start, -1, "createCustomFieldInput function not found")
+        
+        custom_function_end = js_content.find('function createEditableFieldInput', custom_function_start)
+        if custom_function_end == -1:
+            custom_function_end = len(js_content)
+        
+        custom_function = js_content[custom_function_start:custom_function_end]
+        
+        # Check that it handles non_editable
+        self.assertIn('if (field.non_editable)', custom_function,
+                     "createCustomFieldInput should check for non_editable")
+    
+    def test_javascript_non_editable_fields_in_json_data(self):
+        """Test that non_editable fields are properly included in JSON data for JavaScript"""
+        # Create a non-editable field
+        non_editable_field = DatasetField.objects.create(
+            dataset=self.dataset,
+            field_name='non_editable_field',
+            label='Non-Editable Field',
+            field_type='text',
+            enabled=True,
+            non_editable=True,
+            order=3
+        )
+        
+        # Create an editable field for comparison
+        editable_field = DatasetField.objects.create(
+            dataset=self.dataset,
+            field_name='editable_field',
+            label='Editable Field',
+            field_type='text',
+            enabled=True,
+            non_editable=False,
+            order=4
+        )
+        
+        client = Client()
+        client.force_login(self.user)
+        
+        response = client.get(reverse('dataset_data_input', kwargs={'dataset_id': self.dataset.id}))
+        self.assertEqual(response.status_code, 200)
+        
+        # Extract the JSON data from the response
+        content = response.content.decode()
+        json_match = re.search(r'<script[^>]*id="allFields"[^>]*>(.*?)</script>', content, re.DOTALL)
+        self.assertIsNotNone(json_match, "allFields script tag not found")
+        
+        fields_json = json_match.group(1).strip()
+        fields_data = json.loads(fields_json)
+        
+        # Find the non-editable field
+        non_editable_data = next(
+            (f for f in fields_data if f['field_name'] == 'non_editable_field'),
+            None
+        )
+        self.assertIsNotNone(non_editable_data, "Non-editable field not found in JSON")
+        self.assertTrue(non_editable_data['non_editable'], "non_editable should be True")
+        
+        # Find the editable field
+        editable_data = next(
+            (f for f in fields_data if f['field_name'] == 'editable_field'),
+            None
+        )
+        self.assertIsNotNone(editable_data, "Editable field not found in JSON")
+        self.assertFalse(editable_data.get('non_editable', False), "non_editable should be False for editable field")
+        
+        # Verify that JavaScript can access the non_editable property
+        # This ensures the property name matches what JavaScript expects
+        self.assertIn('non_editable', non_editable_data, "non_editable property should be in JSON")
+        self.assertEqual(non_editable_data['non_editable'], True, "non_editable should be True in JSON")

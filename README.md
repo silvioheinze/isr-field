@@ -63,6 +63,9 @@ docker compose up -d
 # Apply migrations
 docker compose exec app python manage.py migrate
 
+# Collect static files
+docker compose exec app python manage.py collectstatic --noinput
+
 # Create superuser
 docker compose exec app python manage.py createsuperuser
 ```
@@ -119,6 +122,7 @@ Images are automatically built and pushed to GitHub Container Registry on:
 4. **Manual deployment**:
    ```bash
    docker-compose -f docker-compose.prod.yml up -d
+   docker-compose -f docker-compose.prod.yml exec app python manage.py collectstatic --noinput
    ```
 
 ### Environment Variables

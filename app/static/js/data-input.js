@@ -653,6 +653,7 @@ function createFormFieldInput(field, value, entryIndex) {
             if (field.required) inputHtml += ' required';
             if (field.max_length) inputHtml += ' maxlength="' + field.max_length + '"';
             if (field.rows) inputHtml += ' rows="' + field.rows + '"';
+            if (field.non_editable) inputHtml += ' readonly';
             inputHtml += '>' + fieldValue + '</textarea>';
             break;
             
@@ -740,30 +741,35 @@ function createFormFieldInput(field, value, entryIndex) {
             if (field.required) inputHtml += ' required';
             if (field.min_date) inputHtml += ' min="' + field.min_date + '"';
             if (field.max_date) inputHtml += ' max="' + field.max_date + '"';
+            if (field.non_editable) inputHtml += ' readonly';
             inputHtml += '>';
             break;
             
         case 'time':
             inputHtml = '<input type="time" class="form-control" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '"';
             if (field.required) inputHtml += ' required';
+            if (field.non_editable) inputHtml += ' readonly';
             inputHtml += '>';
             break;
             
         case 'email':
             inputHtml = '<input type="email" class="form-control" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (field.placeholder || 'Enter email address') + '"';
             if (field.required) inputHtml += ' required';
+            if (field.non_editable) inputHtml += ' readonly';
             inputHtml += '>';
             break;
             
         case 'url':
             inputHtml = '<input type="url" class="form-control" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (field.placeholder || 'Enter URL') + '"';
             if (field.required) inputHtml += ' required';
+            if (field.non_editable) inputHtml += ' readonly';
             inputHtml += '>';
             break;
             
         case 'phone':
             inputHtml = '<input type="tel" class="form-control" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (field.placeholder || 'Enter phone number') + '"';
             if (field.required) inputHtml += ' required';
+            if (field.non_editable) inputHtml += ' readonly';
             inputHtml += '>';
             break;
             
@@ -851,10 +857,14 @@ function createCustomFieldInput(field) {
                     dateValue = '';
                 }
             }
-            inputHtml = '<input type="date" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + dateValue + '">';
+            inputHtml = '<input type="date" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + dateValue + '"';
+            if (field.non_editable) inputHtml += ' readonly';
+            inputHtml += '>';
             break;
         default:
-            inputHtml = '<input type="text" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '">';
+            inputHtml = '<input type="text" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '"';
+            if (field.non_editable) inputHtml += ' readonly';
+            inputHtml += '>';
     }
     
     return inputHtml;
