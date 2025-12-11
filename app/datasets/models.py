@@ -332,7 +332,7 @@ class DatasetField(models.Model):
     non_editable = models.BooleanField(default=False, help_text="If enabled, this field cannot be edited in data entry forms")
     help_text = models.TextField(blank=True, null=True, help_text="Help text to display to users")
     choices = models.TextField(blank=True, null=True, help_text="Comma-separated choices for choice fields")
-    order = models.PositiveIntegerField(default=0, help_text="Display order (0 = first)")
+    order = models.IntegerField(default=0, help_text="Display order (0 = first, -1 = last)")
     is_coordinate_field = models.BooleanField(default=False, help_text="Whether this field represents coordinates")
     is_id_field = models.BooleanField(default=False, help_text="Whether this field is the unique identifier")
     is_address_field = models.BooleanField(default=False, help_text="Whether this field represents the address")
@@ -366,6 +366,18 @@ class DatasetField(models.Model):
         verbose_name = "Dataset Field"
         verbose_name_plural = "Dataset Fields"
         unique_together = ['dataset', 'field_name']  # Field names must be unique per dataset
+    
+    @staticmethod
+    def order_fields(queryset):
+        """Order queryset treating negative order values as last (appear after all positive values)"""
+        from django.db.models import Case, When, Value, IntegerField
+        return queryset.annotate(
+            sort_order=Case(
+                When(order__lt=0, then=Value(999999)),  # Treat negative as very large number
+                default='order',
+                output_field=IntegerField()
+            )
+        ).order_by('sort_order', 'field_name')
 
 
 class ExportTask(models.Model):

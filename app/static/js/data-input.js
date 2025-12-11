@@ -415,9 +415,14 @@ function generateEntriesTable(point) {
         var fieldsToUse = window.allFields || allFields || [];
         
         if (fieldsToUse && fieldsToUse.length > 0) {
-            // Sort fields by order
+            // Sort fields by order (treat negative values as last)
             var sortedFields = fieldsToUse.sort(function(a, b) {
-                return (a.order || 0) - (b.order || 0);
+                var orderA = a.order || 0;
+                var orderB = b.order || 0;
+                // Treat negative numbers as very large numbers (appear last)
+                if (orderA < 0) orderA = 999999;
+                if (orderB < 0) orderB = 999999;
+                return orderA - orderB;
             });
             
             // Check if there are any enabled fields
@@ -488,9 +493,14 @@ function generateEntriesTable(point) {
         console.log('New entry form - Checking window.allFields:', fieldsToUse);
         
         if (fieldsToUse && fieldsToUse.length > 0) {
-            // Sort fields by order
+            // Sort fields by order (treat negative values as last)
             var sortedFields = fieldsToUse.sort(function(a, b) {
-                return (a.order || 0) - (b.order || 0);
+                var orderA = a.order || 0;
+                var orderB = b.order || 0;
+                // Treat negative numbers as very large numbers (appear last)
+                if (orderA < 0) orderA = 999999;
+                if (orderB < 0) orderB = 999999;
+                return orderA - orderB;
             });
             
             // Check if there are any enabled fields

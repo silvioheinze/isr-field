@@ -420,7 +420,7 @@ def dataset_export_options_view(request, dataset_id):
     years = [str(year) for year in years if year is not None]
     
     # Get enabled fields for this dataset
-    enabled_fields = DatasetField.objects.filter(dataset=dataset, enabled=True).order_by('order', 'field_name')
+    enabled_fields = DatasetField.order_fields(DatasetField.objects.filter(dataset=dataset, enabled=True))
     
     # Get field statistics
     field_stats = {}

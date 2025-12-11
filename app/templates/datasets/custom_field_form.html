@@ -84,7 +84,7 @@
                         {% if form.order.help_text %}
                             <div class="form-text">{{ form.order.help_text }}</div>
                         {% else %}
-                            <div class="form-text">Lower numbers appear earlier in data entry forms.</div>
+                            <div class="form-text">Lower numbers appear earlier in data entry forms. Use -1 for last position.</div>
                         {% endif %}
                         {% if form.order.errors %}
                             <div class="text-danger small mt-1">
@@ -225,6 +225,12 @@
         var typologySelect = document.getElementById('id_typology');
         var categorySelect = document.getElementById('id_typology_category');
         var choicesField = document.getElementById('id_choices');
+        var fieldNameInput = document.getElementById('id_field_name');
+        var labelInput = document.getElementById('id_label');
+        var orderInput = document.getElementById('id_order');
+        var nextOrder = {{ next_order|default:0 }};
+        var orderInput = document.getElementById('id_order');
+        var nextOrder = {{ next_order|default:0 }};
 
         // Typology categories data
         var categoriesElement = document.getElementById('typologyCategoriesData');
@@ -342,6 +348,44 @@
                     choiceSourceTypology.checked = true;
                     choiceSourceManual.checked = false;
                     toggleChoiceSource();
+                }
+            });
+        }
+
+        // Auto-fill field_name and label when typology_category is selected
+        if (categorySelect) {
+            categorySelect.addEventListener('change', function() {
+                var selectedCategory = categorySelect.value;
+                if (selectedCategory && fieldNameInput && labelInput) {
+                    // Only auto-fill if fields are empty (to avoid overwriting user input)
+                    if (!fieldNameInput.value || fieldNameInput.value.trim() === '') {
+                        // Convert category name to field_name format (lowercase, replace spaces with underscores)
+                        var fieldName = selectedCategory.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+                        // Ensure it starts with a letter
+                        if (fieldName && !fieldName[0].match(/[a-z]/)) {
+                            fieldName = 'field_' + fieldName;
+                        }
+                        fieldNameInput.value = fieldName;
+                    }
+                    if (!labelInput.value || labelInput.value.trim() === '') {
+                        labelInput.value = selectedCategory;
+                    }
+                }
+            });
+        }
+
+        // Auto-calculate next order when -1 is entered
+        if (orderInput) {
+            orderInput.addEventListener('change', function() {
+                var orderValue = parseInt(orderInput.value);
+                if (orderValue === -1) {
+                    orderInput.value = nextOrder;
+                }
+            });
+            orderInput.addEventListener('blur', function() {
+                var orderValue = parseInt(orderInput.value);
+                if (orderValue === -1) {
+                    orderInput.value = nextOrder;
                 }
             });
         }

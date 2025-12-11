@@ -162,7 +162,17 @@ def typology_detail_view(request, typology_id):
     """View typology details"""
     typology = get_object_or_404(Typology, id=typology_id)
     entries = TypologyEntry.objects.filter(typology=typology).order_by('code')
-    linked_fields_qs = DatasetField.objects.filter(typology=typology).select_related('dataset').order_by('dataset__name', 'order', 'label')
+    linked_fields_qs = DatasetField.objects.filter(typology=typology).select_related('dataset')
+    # Note: We can't use order_fields here because we need to order by dataset__name first
+    # So we'll manually handle the ordering
+    from django.db.models import Case, When, Value, IntegerField
+    linked_fields_qs = linked_fields_qs.annotate(
+        sort_order=Case(
+            When(order__lt=0, then=Value(999999)),
+            default='order',
+            output_field=IntegerField()
+        )
+    ).order_by('dataset__name', 'sort_order', 'label')
 
     linked_fields = list(linked_fields_qs)
     fields_by_dataset = []

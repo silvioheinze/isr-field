@@ -21,7 +21,7 @@ def entry_detail_view(request, entry_id):
         return render(request, 'datasets/403.html', status=403)
     
     # Get all fields for this dataset, ordered by display order
-    all_fields = DatasetField.objects.filter(dataset=dataset).order_by('order', 'field_name')
+    all_fields = DatasetField.order_fields(DatasetField.objects.filter(dataset=dataset))
     
     return render(request, 'datasets/entry_detail.html', {
         'entry': entry,
