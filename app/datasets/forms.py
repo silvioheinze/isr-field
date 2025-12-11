@@ -1,6 +1,8 @@
 from django import forms
+from django.contrib.auth import authenticate
+from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth.models import Group, User
-from django.contrib.auth.forms import UserCreationForm
+from django.utils.translation import gettext_lazy as _
 from .models import DatasetFieldConfig, DatasetField, Typology
 
 
@@ -158,6 +160,61 @@ class GroupForm(forms.ModelForm):
         }
 
 
+class EmailAuthenticationForm(AuthenticationForm):
+    """Authentication form that uses email + password credentials."""
+
+    username = forms.EmailField(
+        label=_("Email"),
+        widget=forms.EmailInput(attrs={
+            'autofocus': True,
+            'class': 'form-control',
+            'placeholder': 'user@example.com'
+        })
+    )
+
+    error_messages = {
+        **AuthenticationForm.error_messages,
+        "invalid_login": _("Please enter a correct email address and password. Both fields may be case-sensitive."),
+        "multiple_accounts": _("Multiple accounts are associated with this email address. Contact an administrator."),
+    }
+
+    def clean(self):
+        email = self.cleaned_data.get('username')
+        password = self.cleaned_data.get('password')
+
+        if email and password:
+            users = User.objects.filter(email__iexact=email)
+
+            if not users.exists():
+                raise forms.ValidationError(
+                    self.error_messages["invalid_login"],
+                    code="invalid_login",
+                )
+
+            if users.count() > 1:
+                raise forms.ValidationError(
+                    self.error_messages["multiple_accounts"],
+                    code="multiple_accounts",
+                )
+
+            user = users.first()
+            self.user_cache = authenticate(
+                self.request,
+                username=user.get_username(),
+                password=password,
+            )
+
+            if self.user_cache is None:
+                raise forms.ValidationError(
+                    self.error_messages["invalid_login"],
+                    code="invalid_login",
+                )
+
+            self.confirm_login_allowed(self.user_cache)
+
+        return self.cleaned_data
+
+
 class CustomUserCreationForm(UserCreationForm):
     email = forms.EmailField(
         required=True,
@@ -174,9 +231,15 @@ class CustomUserCreationForm(UserCreationForm):
         self.fields['password1'].widget.attrs.update({'class': 'form-control'})
         self.fields['password2'].widget.attrs.update({'class': 'form-control'})
 
+    def clean_email(self):
+        email = self.cleaned_data['email'].strip()
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError(_('A user with that email address already exists.'))
+        return email
+
     def save(self, commit=True):
         user = super().save(commit=False)
-        user.email = self.cleaned_data['email']
+        user.email = self.cleaned_data['email'].lower()
         if commit:
             user.save()
         return user

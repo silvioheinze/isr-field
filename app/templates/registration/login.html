@@ -22,19 +22,35 @@
                     {% if form.errors %}
                         <div class="alert alert-danger">
                             <i class="bi bi-exclamation-triangle"></i>
-                            Invalid username or password.
+                            Invalid email or password.
                         </div>
+                        {% if form.non_field_errors %}
+                            <ul class="mb-0 mt-2 small">
+                                {% for error in form.non_field_errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                            </ul>
+                        {% endif %}
                     {% endif %}
                     
                     <form method="post" action="">
                         {% csrf_token %}
                         
-                        <!-- Username Field -->
+                        <!-- Email Field -->
                         <div class="mb-3">
                             <label for="id_username" class="form-label fw-semibold">
-                                <i class="bi bi-person"></i> Username
+                                <i class="bi bi-envelope"></i> Email address
                             </label>
-                            <input type="text" name="username" autofocus required class="form-control" id="id_username">
+                            <input
+                                type="email"
+                                name="username"
+                                id="id_username"
+                                class="form-control"
+                                placeholder="user@example.com"
+                                value="{{ form.username.value|default_if_none:'' }}"
+                                required
+                                autofocus
+                            >
                         </div>
 
                         <!-- Password Field -->

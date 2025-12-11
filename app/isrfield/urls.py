@@ -23,6 +23,7 @@ from datasets.views import export_views, mapping_area_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('accounts/login/', datasets_views.EmailLoginView.as_view(), name='login'),
     path('accounts/', include('django.contrib.auth.urls')),
     path('logout/', datasets_views.logout_view, name='logout'),
     path('password-reset/', datasets_views.password_reset_view, name='password_reset_form'),
