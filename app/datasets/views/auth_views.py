@@ -1,13 +1,12 @@
-from django.contrib.auth.forms import PasswordResetForm, SetPasswordForm
-from django.contrib.auth import login as auth_login, logout
+from django.contrib.auth.forms import PasswordResetForm, SetPasswordForm, UserChangeForm, PasswordChangeForm
+from django.contrib.auth.views import LoginView
+from django.contrib.auth import login as auth_login, logout, update_session_auth_hash
 from django.shortcuts import redirect, render, get_object_or_404
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.models import User, Group
-from django.contrib.auth.forms import UserChangeForm, PasswordChangeForm
 from django.contrib import messages
 from django.urls import reverse
 from django import forms
-from django.contrib.auth import update_session_auth_hash
 from django.http import HttpResponse, JsonResponse
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
@@ -19,7 +18,18 @@ from django.core.mail import send_mail
 from datetime import datetime
 
 from ..models import AuditLog, DataSet
-from ..forms import CustomUserCreationForm, GroupForm
+from ..forms import CustomUserCreationForm, EmailAuthenticationForm, GroupForm
+
+
+class EmailLoginView(LoginView):
+    """Login view that authenticates using email + password."""
+
+    authentication_form = EmailAuthenticationForm
+    template_name = 'registration/login.html'
+    redirect_authenticated_user = True
+
+    def get_success_url(self):
+        return self.get_redirect_url() or reverse('dashboard')
 
 
 def health_check_view(request):
