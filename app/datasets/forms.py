@@ -65,6 +65,9 @@ class DatasetFieldForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Set default field_type to 'choice' for new fields
+        if not self.instance.pk:
+            self.fields['field_type'].initial = 'choice'
         # Populate typology choices
         self.fields['typology'].queryset = Typology.objects.all().order_by('name')
         self.fields['typology'].empty_label = "No typology selected"
