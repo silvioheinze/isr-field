@@ -102,10 +102,10 @@ def geometry_details_view(request, geometry_id):
             return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
         
         # Get enabled fields for this dataset in the correct order
-        enabled_fields = DatasetField.objects.filter(
+        enabled_fields = DatasetField.order_fields(DatasetField.objects.filter(
             dataset=geometry.dataset, 
             enabled=True
-        ).order_by('order', 'field_name')
+        ))
         
         # Prepare detailed geometry data
         geometry_data = {

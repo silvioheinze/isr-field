@@ -280,3 +280,124 @@ class DataInputFieldsTestCase(TestCase):
         self.assertIn('test_field_1', field_names)
         self.assertIn('test_field_2', field_names)
         self.assertNotIn('disabled_field', field_names)
+    
+    def test_non_editable_field_in_fields_data(self):
+        """Test that non_editable property is included in fields_data"""
+        # Create a non-editable field
+        non_editable_field = DatasetField.objects.create(
+            dataset=self.dataset,
+            field_name='non_editable_field',
+            label='Non-Editable Field',
+            field_type='text',
+            enabled=True,
+            non_editable=True,
+            order=4
+        )
+        
+        url = reverse('dataset_data_input', kwargs={'dataset_id': self.dataset.id})
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, 200)
+        
+        # Check that fields_data is passed to the template
+        self.assertIn('fields_data', response.context)
+        fields_data = response.context['fields_data']
+        
+        # Find the non-editable field in the data
+        non_editable_data = next(
+            (f for f in fields_data if f['field_name'] == 'non_editable_field'),
+            None
+        )
+        self.assertIsNotNone(non_editable_data, "Non-editable field not found in fields_data")
+        self.assertTrue(non_editable_data['non_editable'], "non_editable property should be True")
+        
+        # Check that editable field has non_editable=False
+        editable_data = next(
+            (f for f in fields_data if f['field_name'] == 'test_field_1'),
+            None
+        )
+        self.assertIsNotNone(editable_data, "Editable field not found in fields_data")
+        self.assertFalse(editable_data.get('non_editable', False), "non_editable property should be False for editable field")
+    
+    def test_non_editable_field_in_json_output(self):
+        """Test that non_editable property is included in the JSON output for JavaScript"""
+        # Create a non-editable field
+        non_editable_field = DatasetField.objects.create(
+            dataset=self.dataset,
+            field_name='non_editable_field',
+            label='Non-Editable Field',
+            field_type='text',
+            enabled=True,
+            non_editable=True,
+            order=4
+        )
+        
+        url = reverse('dataset_data_input', kwargs={'dataset_id': self.dataset.id})
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, 200)
+        
+        # Extract the JSON data from the response
+        content = response.content.decode('utf-8')
+        import re
+        json_match = re.search(r'<script[^>]*id="allFields"[^>]*>(.*?)</script>', content, re.DOTALL)
+        self.assertIsNotNone(json_match, "Could not find allFields JSON script tag")
+        
+        json_data = json_match.group(1).strip()
+        fields_data = json.loads(json_data)
+        
+        # Find the non-editable field in the JSON
+        non_editable_data = next(
+            (f for f in fields_data if f['field_name'] == 'non_editable_field'),
+            None
+        )
+        self.assertIsNotNone(non_editable_data, "Non-editable field not found in JSON")
+        self.assertTrue(non_editable_data['non_editable'], "non_editable property should be True in JSON")
+        
+        # Verify that editable fields have non_editable=False or missing
+        editable_data = next(
+            (f for f in fields_data if f['field_name'] == 'test_field_1'),
+            None
+        )
+        self.assertIsNotNone(editable_data, "Editable field not found in JSON")
+        self.assertFalse(editable_data.get('non_editable', False), "non_editable property should be False for editable field in JSON")
+    
+    def test_dataset_fields_api_includes_non_editable(self):
+        """Test that the dataset_fields API endpoint includes non_editable property"""
+        # Create a non-editable field
+        non_editable_field = DatasetField.objects.create(
+            dataset=self.dataset,
+            field_name='non_editable_field',
+            label='Non-Editable Field',
+            field_type='text',
+            enabled=True,
+            non_editable=True,
+            order=4
+        )
+        
+        url = reverse('dataset_fields', kwargs={'dataset_id': self.dataset.id})
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, 200)
+        
+        # Parse JSON response
+        data = json.loads(response.content)
+        self.assertIn('fields', data)
+        
+        fields_data = data['fields']
+        
+        # Find the non-editable field
+        non_editable_data = next(
+            (f for f in fields_data if f['field_name'] == 'non_editable_field'),
+            None
+        )
+        self.assertIsNotNone(non_editable_data, "Non-editable field not found in API response")
+        self.assertTrue(non_editable_data['non_editable'], "non_editable property should be True in API response")
+        
+        # Verify that editable fields have non_editable=False
+        editable_data = next(
+            (f for f in fields_data if f['field_name'] == 'test_field_1'),
+            None
+        )
+        self.assertIsNotNone(editable_data, "Editable field not found in API response")
+        self.assertFalse(editable_data.get('non_editable', False), "non_editable property should be False for editable field in API response")

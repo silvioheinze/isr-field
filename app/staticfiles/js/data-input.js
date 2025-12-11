@@ -298,9 +298,9 @@ function generateEntriesTable(point) {
     var sortedEntries = (point.entries || []).sort(function(a, b) {
         return (b.year || 0) - (a.year || 0);
     });
-    // Legacy horizontal entry list header support
-    console.log('All Entries (' + sortedEntries.length + ')');
-    if (sortedEntries.length > 0) {
+    // Legacy horizontal entry list header support - only show if multiple entries are allowed
+    if (window.allowMultipleEntries && sortedEntries.length > 0) {
+        console.log('All Entries (' + sortedEntries.length + ')');
         entriesHtml += '<div class="mb-3">';
         entriesHtml += '<div class="d-flex justify-content-between align-items-center">';
         entriesHtml += '<h6 class="mb-0">All Entries (' + sortedEntries.length + ')</h6>';
@@ -644,6 +644,7 @@ function createFormFieldInput(field, value, entryIndex) {
             inputHtml = '<input type="text" class="form-control" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (field.placeholder || 'Enter ' + field.label) + '"';
             if (field.required) inputHtml += ' required';
             if (field.max_length) inputHtml += ' maxlength="' + field.max_length + '"';
+            if (field.non_editable) inputHtml += ' readonly';
             inputHtml += '>';
             break;
             
@@ -652,6 +653,7 @@ function createFormFieldInput(field, value, entryIndex) {
             if (field.required) inputHtml += ' required';
             if (field.max_length) inputHtml += ' maxlength="' + field.max_length + '"';
             if (field.rows) inputHtml += ' rows="' + field.rows + '"';
+            if (field.non_editable) inputHtml += ' readonly';
             inputHtml += '>' + fieldValue + '</textarea>';
             break;
             
@@ -660,6 +662,7 @@ function createFormFieldInput(field, value, entryIndex) {
             if (field.required) inputHtml += ' required';
             if (field.min_value !== undefined) inputHtml += ' min="' + field.min_value + '"';
             if (field.max_value !== undefined) inputHtml += ' max="' + field.max_value + '"';
+            if (field.non_editable) inputHtml += ' readonly';
             inputHtml += '>';
             break;
             
@@ -668,17 +671,22 @@ function createFormFieldInput(field, value, entryIndex) {
             if (field.required) inputHtml += ' required';
             if (field.min_value !== undefined) inputHtml += ' min="' + field.min_value + '"';
             if (field.max_value !== undefined) inputHtml += ' max="' + field.max_value + '"';
+            if (field.non_editable) inputHtml += ' readonly';
             inputHtml += '>';
             break;
             
         case 'boolean':
             inputHtml = '<select class="form-select" id="' + fieldId + '" name="' + fieldName + '"';
             if (field.required) inputHtml += ' required';
+            if (field.non_editable) inputHtml += ' disabled';
             inputHtml += '>';
             inputHtml += '<option value="">' + (field.placeholder || 'Select option') + '</option>';
             inputHtml += '<option value="true"' + (fieldValue === 'true' || fieldValue === true ? ' selected' : '') + '>' + (field.true_label || 'Yes') + '</option>';
             inputHtml += '<option value="false"' + (fieldValue === 'false' || fieldValue === false ? ' selected' : '') + '>' + (field.false_label || 'No') + '</option>';
             inputHtml += '</select>';
+            if (field.non_editable) {
+                inputHtml += '<input type="hidden" name="' + fieldName + '" value="' + fieldValue + '">';
+            }
             break;
             
         case 'choice':
@@ -686,6 +694,7 @@ function createFormFieldInput(field, value, entryIndex) {
             var fieldValueStr = fieldValue !== undefined && fieldValue !== null ? String(fieldValue) : '';
             inputHtml = '<select class="form-select" id="' + fieldId + '" name="' + fieldName + '"';
             if (field.required) inputHtml += ' required';
+            if (field.non_editable) inputHtml += ' disabled';
             inputHtml += '>';
             inputHtml += '<option value="">' + escapeHtml(field.placeholder || 'Select option') + '</option>';
 
@@ -697,6 +706,9 @@ function createFormFieldInput(field, value, entryIndex) {
             });
 
             inputHtml += '</select>';
+            if (field.non_editable) {
+                inputHtml += '<input type="hidden" name="' + fieldName + '" value="' + fieldValue + '">';
+            }
             break;
             
         case 'date':
@@ -720,6 +732,7 @@ function createFormFieldInput(field, value, entryIndex) {
             if (field.required) inputHtml += ' required';
             if (field.min_date) inputHtml += ' min="' + field.min_date + '"';
             if (field.max_date) inputHtml += ' max="' + field.max_date + '"';
+            if (field.non_editable) inputHtml += ' readonly';
             inputHtml += '>';
             break;
             
@@ -728,36 +741,42 @@ function createFormFieldInput(field, value, entryIndex) {
             if (field.required) inputHtml += ' required';
             if (field.min_date) inputHtml += ' min="' + field.min_date + '"';
             if (field.max_date) inputHtml += ' max="' + field.max_date + '"';
+            if (field.non_editable) inputHtml += ' readonly';
             inputHtml += '>';
             break;
             
         case 'time':
             inputHtml = '<input type="time" class="form-control" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '"';
             if (field.required) inputHtml += ' required';
+            if (field.non_editable) inputHtml += ' readonly';
             inputHtml += '>';
             break;
             
         case 'email':
             inputHtml = '<input type="email" class="form-control" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (field.placeholder || 'Enter email address') + '"';
             if (field.required) inputHtml += ' required';
+            if (field.non_editable) inputHtml += ' readonly';
             inputHtml += '>';
             break;
             
         case 'url':
             inputHtml = '<input type="url" class="form-control" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (field.placeholder || 'Enter URL') + '"';
             if (field.required) inputHtml += ' required';
+            if (field.non_editable) inputHtml += ' readonly';
             inputHtml += '>';
             break;
             
         case 'phone':
             inputHtml = '<input type="tel" class="form-control" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (field.placeholder || 'Enter phone number') + '"';
             if (field.required) inputHtml += ' required';
+            if (field.non_editable) inputHtml += ' readonly';
             inputHtml += '>';
             break;
             
         default:
             inputHtml = '<input type="text" class="form-control" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (field.placeholder || 'Enter ' + field.label) + '"';
             if (field.required) inputHtml += ' required';
+            if (field.non_editable) inputHtml += ' readonly';
             inputHtml += '>';
     }
     
@@ -773,25 +792,38 @@ function createCustomFieldInput(field) {
     
     switch (field.field_type) {
         case 'text':
-            inputHtml = '<input type="text" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '">';
+            inputHtml = '<input type="text" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '"';
+            if (field.non_editable) inputHtml += ' readonly';
+            inputHtml += '>';
             break;
         case 'integer':
-            inputHtml = '<input type="number" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '">';
+            inputHtml = '<input type="number" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '"';
+            if (field.non_editable) inputHtml += ' readonly';
+            inputHtml += '>';
             break;
         case 'float':
-            inputHtml = '<input type="number" step="0.01" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '">';
+            inputHtml = '<input type="number" step="0.01" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '"';
+            if (field.non_editable) inputHtml += ' readonly';
+            inputHtml += '>';
             break;
         case 'boolean':
-            inputHtml = '<select class="form-select form-select-sm" id="' + fieldId + '" name="' + fieldName + '">';
+            inputHtml = '<select class="form-select form-select-sm" id="' + fieldId + '" name="' + fieldName + '"';
+            if (field.non_editable) inputHtml += ' disabled';
+            inputHtml += '>';
             inputHtml += '<option value="">' + (window.translations?.selectOption || 'Select option') + '</option>';
             inputHtml += '<option value="true">' + (window.translations?.yes || 'Yes') + '</option>';
             inputHtml += '<option value="false">' + (window.translations?.no || 'No') + '</option>';
             inputHtml += '</select>';
+            if (field.non_editable) {
+                inputHtml += '<input type="hidden" name="' + fieldName + '" value="' + fieldValue + '">';
+            }
             break;
         case 'choice':
             var customOptions = normalizeFieldChoices(field);
             if (customOptions.length > 0) {
-                inputHtml = '<select class="form-select form-select-sm" id="' + fieldId + '" name="' + fieldName + '">';
+                inputHtml = '<select class="form-select form-select-sm" id="' + fieldId + '" name="' + fieldName + '"';
+                if (field.non_editable) inputHtml += ' disabled';
+                inputHtml += '>';
                 inputHtml += '<option value="">' + escapeHtml(window.translations?.selectOption || 'Select option') + '</option>';
                 customOptions.forEach(function(option) {
                     var optionValue = option.value !== undefined ? option.value : '';
@@ -799,8 +831,13 @@ function createCustomFieldInput(field) {
                     inputHtml += '<option value="' + escapeHtml(optionValue) + '">' + escapeHtml(optionLabel) + '</option>';
                 });
                 inputHtml += '</select>';
+                if (field.non_editable) {
+                    inputHtml += '<input type="hidden" name="' + fieldName + '" value="' + fieldValue + '">';
+                }
             } else {
-                inputHtml = '<input type="text" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '">';
+                inputHtml = '<input type="text" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '"';
+                if (field.non_editable) inputHtml += ' readonly';
+                inputHtml += '>';
             }
             break;
         case 'date':
@@ -820,10 +857,14 @@ function createCustomFieldInput(field) {
                     dateValue = '';
                 }
             }
-            inputHtml = '<input type="date" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + dateValue + '">';
+            inputHtml = '<input type="date" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + dateValue + '"';
+            if (field.non_editable) inputHtml += ' readonly';
+            inputHtml += '>';
             break;
         default:
-            inputHtml = '<input type="text" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '">';
+            inputHtml = '<input type="text" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '"';
+            if (field.non_editable) inputHtml += ' readonly';
+            inputHtml += '>';
     }
     
     return inputHtml;
@@ -838,26 +879,39 @@ function createEditableFieldInput(field, value, entryIndex) {
     
     switch (field.field_type) {
         case 'text':
-            inputHtml = '<input type="text" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '">';
+            inputHtml = '<input type="text" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '"';
+            if (field.non_editable) inputHtml += ' readonly';
+            inputHtml += '>';
             break;
         case 'integer':
-            inputHtml = '<input type="number" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '">';
+            inputHtml = '<input type="number" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '"';
+            if (field.non_editable) inputHtml += ' readonly';
+            inputHtml += '>';
             break;
         case 'float':
-            inputHtml = '<input type="number" step="0.01" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '">';
+            inputHtml = '<input type="number" step="0.01" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '"';
+            if (field.non_editable) inputHtml += ' readonly';
+            inputHtml += '>';
             break;
         case 'boolean':
-            inputHtml = '<select class="form-select form-select-sm" id="' + fieldId + '" name="' + fieldName + '">';
+            inputHtml = '<select class="form-select form-select-sm" id="' + fieldId + '" name="' + fieldName + '"';
+            if (field.non_editable) inputHtml += ' disabled';
+            inputHtml += '>';
             inputHtml += '<option value="">' + (window.translations?.selectOption || 'Select option') + '</option>';
             inputHtml += '<option value="true"' + (fieldValue === 'true' || fieldValue === true ? ' selected' : '') + '>' + (window.translations?.yes || 'Yes') + '</option>';
             inputHtml += '<option value="false"' + (fieldValue === 'false' || fieldValue === false ? ' selected' : '') + '>' + (window.translations?.no || 'No') + '</option>';
             inputHtml += '</select>';
+            if (field.non_editable) {
+                inputHtml += '<input type="hidden" name="' + fieldName + '" value="' + fieldValue + '">';
+            }
             break;
         case 'choice':
             var editableOptions = normalizeFieldChoices(field);
             var editableValue = fieldValue !== undefined && fieldValue !== null ? String(fieldValue) : '';
             if (editableOptions.length > 0) {
-                inputHtml = '<select class="form-select form-select-sm" id="' + fieldId + '" name="' + fieldName + '">';
+                inputHtml = '<select class="form-select form-select-sm" id="' + fieldId + '" name="' + fieldName + '"';
+                if (field.non_editable) inputHtml += ' disabled';
+                inputHtml += '>';
                 inputHtml += '<option value="">' + escapeHtml(window.translations?.selectOption || 'Select option') + '</option>';
                 editableOptions.forEach(function(option) {
                     var optionValue = option.value !== undefined ? option.value : '';
@@ -866,8 +920,13 @@ function createEditableFieldInput(field, value, entryIndex) {
                     inputHtml += '<option value="' + escapeHtml(optionValue) + '"' + selected + '>' + escapeHtml(optionLabel) + '</option>';
                 });
                 inputHtml += '</select>';
+                if (field.non_editable) {
+                    inputHtml += '<input type="hidden" name="' + fieldName + '" value="' + fieldValue + '">';
+                }
             } else {
-                inputHtml = '<input type="text" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '">';
+                inputHtml = '<input type="text" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '"';
+                if (field.non_editable) inputHtml += ' readonly';
+                inputHtml += '>';
             }
             break;
         case 'date':
@@ -887,10 +946,14 @@ function createEditableFieldInput(field, value, entryIndex) {
                     dateValue = '';
                 }
             }
-            inputHtml = '<input type="date" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + dateValue + '">';
+            inputHtml = '<input type="date" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + dateValue + '"';
+            if (field.non_editable) inputHtml += ' readonly';
+            inputHtml += '>';
             break;
         default:
-            inputHtml = '<input type="text" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '">';
+            inputHtml = '<input type="text" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '"';
+            if (field.non_editable) inputHtml += ' readonly';
+            inputHtml += '>';
     }
     
     return inputHtml;

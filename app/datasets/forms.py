@@ -55,7 +55,7 @@ class DatasetFieldForm(forms.ModelForm):
             'enabled': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'help_text': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'choices': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Option 1, Option 2, Option 3'}),
-            'order': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
+            'order': forms.NumberInput(attrs={'class': 'form-control', 'min': '-1'}),
             'is_coordinate_field': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'is_id_field': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'is_address_field': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
@@ -68,6 +68,12 @@ class DatasetFieldForm(forms.ModelForm):
         # Set default field_type to 'choice' for new fields
         if not self.instance.pk:
             self.fields['field_type'].initial = 'choice'
+            # Set default order to -1 (last)
+            self.fields['order'].initial = -1
+            # Set default typology if available (first typology)
+            typologies = Typology.objects.all().order_by('name')
+            if typologies.exists():
+                self.fields['typology'].initial = typologies.first().id
         # Populate typology choices
         self.fields['typology'].queryset = Typology.objects.all().order_by('name')
         self.fields['typology'].empty_label = "No typology selected"

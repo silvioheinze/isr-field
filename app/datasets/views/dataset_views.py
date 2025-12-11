@@ -6,7 +6,7 @@ from django.urls import reverse
 from django.http import JsonResponse
 from django.db import transaction
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Q, Max
 
 from ..models import (
     DataSet,
@@ -215,6 +215,9 @@ def dataset_detail_view(request, dataset_id):
                     # Update required status
                     field.required = f'field_{field_id}_required' in request.POST
                     
+                    # Update non_editable status
+                    field.non_editable = f'field_{field_id}_non_editable' in request.POST
+                    
                     field.save()
                 
                 messages.success(request, 'Field configuration updated successfully.')
@@ -228,7 +231,7 @@ def dataset_detail_view(request, dataset_id):
     data_entries_count = DataEntry.objects.filter(geometry__dataset=dataset).count()
     
     # Get all fields for this dataset
-    all_fields = DatasetField.objects.filter(dataset=dataset).order_by('order', 'field_name')
+    all_fields = DatasetField.order_fields(DatasetField.objects.filter(dataset=dataset))
     
     return render(request, 'datasets/dataset_detail.html', {
         'dataset': dataset,
@@ -309,7 +312,7 @@ def dataset_field_config_view(request, dataset_id):
             else:
                 form_valid = False
         
-        dataset_fields = DatasetField.objects.filter(dataset=dataset).order_by('order', 'field_name')
+        dataset_fields = DatasetField.order_fields(DatasetField.objects.filter(dataset=dataset))
         dataset_fields_updated = False
         for field in dataset_fields:
             field_prefix = f'field_{field.id}'
@@ -352,6 +355,12 @@ def dataset_field_config_view(request, dataset_id):
                 field.required = required_value
                 changed = True
             
+            non_editable_key = f'{field_prefix}_non_editable'
+            non_editable_value = request.POST.get(non_editable_key) == 'on'
+            if non_editable_value != field.non_editable:
+                field.non_editable = non_editable_value
+                changed = True
+            
             if changed:
                 field.save()
                 dataset_fields_updated = True
@@ -362,7 +371,7 @@ def dataset_field_config_view(request, dataset_id):
         if config_fields_present and not form_valid:
             messages.error(request, 'Please correct the errors below.')
     
-    all_fields = DatasetField.objects.filter(dataset=dataset).order_by('order', 'field_name')
+    all_fields = DatasetField.order_fields(DatasetField.objects.filter(dataset=dataset))
     
     return render(request, 'datasets/dataset_field_config.html', {
         'dataset': dataset,
@@ -564,7 +573,7 @@ def dataset_data_input_view(request, dataset_id):
     typology_data = None
     
     # Get all enabled fields for this dataset (both standard and custom)
-    all_fields = DatasetField.objects.filter(dataset=dataset, enabled=True).order_by('order', 'field_name')
+    all_fields = DatasetField.order_fields(DatasetField.objects.filter(dataset=dataset, enabled=True))
     
     # If no enabled fields found, get all fields and enable them
     if not all_fields.exists():
@@ -573,7 +582,7 @@ def dataset_data_input_view(request, dataset_id):
             # Enable all fields
             all_fields_qs.update(enabled=True)
             # Re-query to get the updated fields
-            all_fields = DatasetField.objects.filter(dataset=dataset, enabled=True).order_by('order', 'field_name')
+            all_fields = DatasetField.order_fields(DatasetField.objects.filter(dataset=dataset, enabled=True))
     else:
         # Ensure custom fields are enabled if none are currently active
         standard_field_names = {field_def['field_name'] for field_def in STANDARD_DATASET_FIELDS}
@@ -587,7 +596,7 @@ def dataset_data_input_view(request, dataset_id):
         ).exclude(field_name__in=standard_field_names)
         if not custom_enabled_fields.exists() and disabled_custom_fields.exists():
             disabled_custom_fields.update(enabled=True)
-            all_fields = DatasetField.objects.filter(dataset=dataset, enabled=True).order_by('order', 'field_name')
+            all_fields = DatasetField.order_fields(DatasetField.objects.filter(dataset=dataset, enabled=True))
     # Prepare fields data for JavaScript with typology choices
     fields_data = []
     for field in all_fields:
@@ -599,6 +608,7 @@ def dataset_data_input_view(request, dataset_id):
             'field_name': field.field_name,
             'required': field.required,
             'enabled': field.enabled,
+            'non_editable': field.non_editable,
             'help_text': field.help_text or '',
             'choices': field.choices or '',
             'order': field.order,
@@ -699,7 +709,7 @@ def dataset_fields_view(request, dataset_id):
         ensure_standard_dataset_fields(dataset)
         
         # Get all enabled fields for this dataset
-        all_fields = DatasetField.objects.filter(dataset=dataset, enabled=True).order_by('order', 'field_name')
+        all_fields = DatasetField.order_fields(DatasetField.objects.filter(dataset=dataset, enabled=True))
         
         # If no enabled fields found, get all fields and enable them
         if not all_fields.exists():
@@ -708,7 +718,7 @@ def dataset_fields_view(request, dataset_id):
                 # Enable all fields
                 all_fields_qs.update(enabled=True)
                 # Re-query to get the updated fields
-                all_fields = DatasetField.objects.filter(dataset=dataset, enabled=True).order_by('order', 'field_name')
+                all_fields = DatasetField.order_fields(DatasetField.objects.filter(dataset=dataset, enabled=True))
         else:
             standard_field_names = {field_def['field_name'] for field_def in STANDARD_DATASET_FIELDS}
             custom_enabled_fields = DatasetField.objects.filter(
@@ -721,7 +731,7 @@ def dataset_fields_view(request, dataset_id):
             ).exclude(field_name__in=standard_field_names)
             if not custom_enabled_fields.exists() and disabled_custom_fields.exists():
                 disabled_custom_fields.update(enabled=True)
-                all_fields = DatasetField.objects.filter(dataset=dataset, enabled=True).order_by('order', 'field_name')
+                all_fields = DatasetField.order_fields(DatasetField.objects.filter(dataset=dataset, enabled=True))
         
         # Prepare fields data for JavaScript
         fields_data = []
@@ -734,6 +744,7 @@ def dataset_fields_view(request, dataset_id):
                 'field_name': field.field_name,
                 'required': field.required,
                 'enabled': field.enabled,
+                'non_editable': field.non_editable,
                 'help_text': field.help_text or '',
                 'choices': field.choices or '',
                 'order': field.order,
@@ -853,11 +864,18 @@ def custom_field_create_view(request, dataset_id):
     else:
         form = DatasetFieldForm()
     
+    # Calculate the next available order number (max order + 1, or 0 if no fields exist)
+    max_order = DatasetField.objects.filter(dataset=dataset).aggregate(
+        max_order=Max('order')
+    )['max_order']
+    next_order = (max_order + 1) if max_order is not None else 0
+    
     return render(request, 'datasets/custom_field_form.html', {
         'dataset': dataset,
         'form': form,
         'title': 'Create Custom Field',
-        'typology_categories': _get_typology_categories_map()
+        'typology_categories': _get_typology_categories_map(),
+        'next_order': next_order
     })
 
 
@@ -881,12 +899,19 @@ def custom_field_edit_view(request, dataset_id, field_id):
     else:
         form = DatasetFieldForm(instance=field)
     
+    # Calculate the next available order number (max order + 1, or 0 if no fields exist)
+    max_order = DatasetField.objects.filter(dataset=dataset).aggregate(
+        max_order=Max('order')
+    )['max_order']
+    next_order = (max_order + 1) if max_order is not None else 0
+    
     return render(request, 'datasets/custom_field_form.html', {
         'dataset': dataset,
         'field': field,
         'form': form,
         'title': 'Edit Custom Field',
-        'typology_categories': _get_typology_categories_map()
+        'typology_categories': _get_typology_categories_map(),
+        'next_order': next_order
     })
 
 
