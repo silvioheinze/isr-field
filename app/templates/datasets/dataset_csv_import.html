@@ -58,9 +58,10 @@
 
                     <div class="alert alert-info mb-0">
                         <ul class="mb-0 small">
-                            <li><strong>Data creation:</strong> Each year-specific column creates a separate entry; generic columns create a single entry when no year columns exist.</li>
+                            <li><strong>Data creation:</strong> Each year-specific column (e.g., <code>2016_FIELDNAME</code>) creates a separate entry; generic columns create a single entry when no year columns exist.</li>
                             <li><strong>Existing IDs:</strong> Rows with geometry IDs that already exist are skipped to avoid duplicates.</li>
-                            <li><strong>Entry names:</strong> Use <code>{YEAR}_NUTZUNG_NAME</code> or <code>NUTZUNG_NAME</code> to label entries. Otherwise, names remain blank.</li>
+                            <li><strong>Entry names:</strong> Use columns like <code>{YEAR}_ENTRY_NAME</code> or <code>ENTRY_NAME</code> to label entries. Otherwise, names remain blank.</li>
+                            <li><strong>Field creation:</strong> All column names (except ID and coordinate columns) automatically become dataset fields that you can configure later.</li>
                             <li><strong>Coordinate transforms:</strong> Multiple Austrian projections are transformed to WGS84 automatically.</li>
                         </ul>
                     </div>
@@ -129,16 +130,17 @@
                 </div>
                 <div class="card-body">
                     <small class="text-muted">
-<pre class="mb-3">ID,ADRESSE,2016_NUTZUNG,2016_CAT_INNO,2016_CAT_WERT,2016_CAT_FILI,2016_NUTZUNG_NAME,GEB_X,GEB_Y,2022_NUTZUNG,2022_CAT_INNO,2022_CAT_WERT,2022_CAT_FILI,2022_NUTZUNG_NAME
+                        <p class="mb-2"><strong>Note:</strong> The field names in these examples are just examples. You can use any field names that make sense for your data.</p>
+<pre class="mb-3">ID,ADRESSE,2016_NUTZUNG,2016_CATEGORY,2016_VALUE,2016_TYPE,2016_ENTRY_NAME,GEB_X,GEB_Y,2022_NUTZUNG,2022_CATEGORY,2022_VALUE,2022_TYPE,2022_ENTRY_NAME
 ss16_kg01_001_1,Apollogasse 19,870,999,999,999,Residential Building,656.61,339913.14,870,999,999,999,Office Building
 ss16_kg01_001_2,Apollogasse 28,640,0,0,0,Commercial Space,636.41,339972.43,640,0,0,0,Retail Store
 
 Alternative coordinates:
-ID,ADRESSE,LONGITUDE,LATITUDE,2016_NUTZUNG,2016_CAT_INNO,2016_NUTZUNG_NAME
+ID,ADRESSE,LONGITUDE,LATITUDE,2016_NUTZUNG,2016_CATEGORY,2016_ENTRY_NAME
 point_001,Test Address,16.3738,48.2082,870,999,Residential Building
 
 Generic format:
-ID,ADRESSE,X,Y,NUTZUNG,CAT_INNO,CAT_WERT,NUTZUNG_NAME,YEAR
+ID,ADRESSE,X,Y,NUTZUNG,CATEGORY,VALUE,ENTRY_NAME,YEAR
 point_002,Another Address,656610,3399131,870,999,999,Office Building,2022</pre>
                     </small>
                 </div>

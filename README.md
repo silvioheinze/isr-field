@@ -211,32 +211,34 @@ When a dataset has an assigned typology:
 - **Error Handling**: Comprehensive error reporting and validation
 
 ### CSV Import Format
-The application supports various CSV formats:
+The application supports various CSV formats with flexible field names:
 
-**Standard Format**:
+**Standard Format** (example with year-prefixed columns):
 ```csv
-ID,ADRESSE,GEB_X,GEB_Y,2016_NUTZUNG,2016_CAT_INNO,2022_NUTZUNG,2022_CAT_INNO
+ID,ADRESSE,GEB_X,GEB_Y,2016_NUTZUNG,2016_CATEGORY,2022_NUTZUNG,2022_CATEGORY
 test_001,Test Address 1,656610,3399131,870,999,870,999
 test_002,Test Address 2,636410,3399724,640,0,640,0
 ```
 
 **Alternative Coordinate Formats**:
 ```csv
-ID,ADRESSE,X,Y,2016_NUTZUNG,2016_CAT_INNO
+ID,ADRESSE,X,Y,2016_NUTZUNG,2016_CATEGORY
 test_001,Test Address 1,16.3738,48.2082,870,999
 ```
 
 **Semicolon-delimited (EU)**:
 ```csv
-ID;ADRESSE;X;Y;2016_NUTZUNG;2016_CAT_INNO
+ID;ADRESSE;X;Y;2016_NUTZUNG;2016_CATEGORY
 test_001;Test Address 1;16.3738;48.2082;870;999
 ```
 
 **With Entry Names**:
 ```csv
-ID,ADRESSE,GEB_X,GEB_Y,2016_NUTZUNG,2016_CAT_INNO,NUTZUNG_NAME
+ID,ADRESSE,GEB_X,GEB_Y,2016_NUTZUNG,2016_CATEGORY,ENTRY_NAME
 test_001,Test Address 1,656610,3399131,870,999,Residential Building
 ```
+
+**Important**: Field names in your CSV are completely flexible. The system automatically creates dataset fields for any column names you use (except ID and coordinate columns). The field names in these examples (`NUTZUNG`, `CATEGORY`, `ENTRY_NAME`) are just examples - you can use any field names that make sense for your data.
 
 ### Import Features
 - **Coordinate System Detection**: Automatically detects coordinate system based on value ranges
@@ -254,7 +256,8 @@ test_001,Test Address 1,656610,3399131,870,999,Residential Building
 The application supports exporting datasets as CSV files with the following features:
 
 - **Geometry-based rows**: Each geometry point becomes a row in the CSV
-- **Year-prefixed columns**: Data entries are organized by year (e.g., `2016_USAGE_CODE1`, `2022_CAT_INNO`)
+- **Flexible field columns**: All custom fields defined in the dataset are exported as columns
+- **Year-prefixed columns**: Data entries can be organized by year (e.g., `2016_NUTZUNG`, `2022_CATEGORY`)
 - **Configurable options**: Choose whether to include coordinates and empty years
 - **Automatic formatting**: Proper CSV formatting with headers and data validation
 
@@ -263,18 +266,23 @@ The application supports exporting datasets as CSV files with the following feat
 The exported CSV contains:
 - `ID`: Unique identifier for each geometry
 - `ADRESSE`: Address of the geometry
-- `GEB_X`, `GEB_Y`: Coordinates (optional)
-- Year-prefixed columns for each data field:
-  - `USAGE_CODE1`, `USAGE_CODE2`, `USAGE_CODE3`
-  - `CAT_INNO`, `CAT_WERT`, `CAT_FILI`
+- `GEB_X`, `GEB_Y`: Coordinates (optional, if enabled)
+- `User`: Username of the user who created the geometry
+- `Entry_Name`: Name of the data entry
+- `Year`: Year associated with the entry (if available)
+- **All custom fields**: All fields defined in the dataset's field configuration are exported as columns
+
+**Note**: Field names are completely flexible. The system does not require any specific field names like `USAGE_CODE1` or `CAT_INNO` - these are just examples. You can define any field names you need for your dataset.
 
 ### Example Export
 
 ```csv
-ID,ADRESSE,GEB_X,GEB_Y,2016_USAGE_CODE1,2016_CAT_INNO,2022_USAGE_CODE1,2022_CAT_INNO
-test_001,Test Address 1,16.3738,48.2082,100,1,100,1
-test_002,Test Address 2,16.3748,48.2092,101,2,101,2
+ID,ADRESSE,GEB_X,GEB_Y,User,Entry_Name,Year,2016_NUTZUNG,2016_CATEGORY,2022_NUTZUNG,2022_CATEGORY
+test_001,Test Address 1,16.3738,48.2082,admin,Residential Building,2016,870,999,870,999
+test_002,Test Address 2,16.3748,48.2092,admin,Office Building,2022,640,0,640,0
 ```
+
+**Note**: The field names in the example (`NUTZUNG`, `CATEGORY`) are just examples. Your exported CSV will contain whatever field names you have configured in your dataset.
 
 ## Interactive Mapping
 
