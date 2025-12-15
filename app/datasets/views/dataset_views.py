@@ -35,103 +35,15 @@ def _get_typology_categories_map():
 from .auth_views import is_manager
 
 
-STANDARD_DATASET_FIELDS = [
-    {
-        'field_name': 'name',
-        'config_label_attr': 'name_label',
-        'config_enabled_attr': 'name_enabled',
-        'field_type': 'text',
-        'order': 0,
-        'required': True,
-        'help_text': 'Primary entry name shown in lists and reports.',
-    },
-    {
-        'field_name': 'usage_code1',
-        'config_label_attr': 'usage_code1_label',
-        'config_enabled_attr': 'usage_code1_enabled',
-        'field_type': 'integer',
-        'order': 1,
-        'help_text': 'First usage code column imported from legacy data.',
-    },
-    {
-        'field_name': 'usage_code2',
-        'config_label_attr': 'usage_code2_label',
-        'config_enabled_attr': 'usage_code2_enabled',
-        'field_type': 'integer',
-        'order': 2,
-    },
-    {
-        'field_name': 'usage_code3',
-        'config_label_attr': 'usage_code3_label',
-        'config_enabled_attr': 'usage_code3_enabled',
-        'field_type': 'integer',
-        'order': 3,
-    },
-    {
-        'field_name': 'cat_inno',
-        'config_label_attr': 'cat_inno_label',
-        'config_enabled_attr': 'cat_inno_enabled',
-        'field_type': 'integer',
-        'order': 4,
-    },
-    {
-        'field_name': 'cat_wert',
-        'config_label_attr': 'cat_wert_label',
-        'config_enabled_attr': 'cat_wert_enabled',
-        'field_type': 'integer',
-        'order': 5,
-    },
-    {
-        'field_name': 'cat_fili',
-        'config_label_attr': 'cat_fili_label',
-        'config_enabled_attr': 'cat_fili_enabled',
-        'field_type': 'integer',
-        'order': 6,
-    },
-    {
-        'field_name': 'year',
-        'config_label_attr': 'year_label',
-        'config_enabled_attr': 'year_enabled',
-        'field_type': 'integer',
-        'order': 7,
-        'help_text': 'Reference year for the entry.',
-    },
-]
-
-
 def ensure_dataset_field_config(dataset: DataSet) -> DatasetFieldConfig:
-    """Ensure a DatasetFieldConfig instance exists for the dataset."""
+    """
+    Ensure a DatasetFieldConfig instance exists for the dataset.
+
+    The legacy behaviour of auto-creating fixed standard fields
+    (name, usage_code1-3, cat_*, year) has been removed so that
+    all fields behave like normal custom fields.
+    """
     config, _ = DatasetFieldConfig.objects.get_or_create(dataset=dataset)
-    return config
-
-
-def ensure_standard_dataset_fields(dataset: DataSet) -> DatasetFieldConfig:
-    """Create or update the standard dataset fields as defined in DatasetFieldConfig."""
-    config = ensure_dataset_field_config(dataset)
-    for field_def in STANDARD_DATASET_FIELDS:
-        label = getattr(config, field_def['config_label_attr'], field_def['field_name'].replace('_', ' ').title())
-        enabled = getattr(config, field_def['config_enabled_attr'], True)
-        defaults = {
-            'label': label,
-            'field_type': field_def['field_type'],
-            'required': field_def.get('required', False),
-            'enabled': enabled,
-            'order': field_def['order'],
-            'help_text': field_def.get('help_text', ''),
-        }
-        field, created = DatasetField.objects.get_or_create(
-            dataset=dataset,
-            field_name=field_def['field_name'],
-            defaults=defaults,
-        )
-        if not created:
-            updated = False
-            for attr, value in defaults.items():
-                if getattr(field, attr) != value:
-                    setattr(field, attr, value)
-                    updated = True
-            if updated:
-                field.save()
     return config
 
 
@@ -187,9 +99,6 @@ def dataset_detail_view(request, dataset_id):
     if not dataset.can_access(request.user):
         return render(request, 'datasets/403.html', status=403)
 
-    # Ensure standard field configuration exists
-    ensure_standard_dataset_fields(dataset)
-    
     # Handle field configuration updates
     if request.method == 'POST' and request.POST.get('action') == 'update_fields':
         if dataset.owner == request.user:
@@ -290,13 +199,20 @@ def dataset_edit_view(request, dataset_id):
 
 @login_required
 def dataset_field_config_view(request, dataset_id):
-    """Manage standard dataset field configuration (labels, enabled flags)."""
+    """
+    Manage dataset field configuration (labels, enabled flags).
+
+    Note: The legacy fixed standard fields have been removed.
+    This view now only manages the separate DatasetFieldConfig
+    object (labels, enabled flags metadata) and the existing
+    DatasetField instances for the dataset.
+    """
     dataset = get_object_or_404(DataSet, id=dataset_id)
     
     if dataset.owner != request.user:
         return render(request, 'datasets/403.html', status=403)
     
-    config = ensure_standard_dataset_fields(dataset)
+    config = ensure_dataset_field_config(dataset)
     form = DatasetFieldConfigForm(instance=config)
     
     if request.method == 'POST':
@@ -308,7 +224,6 @@ def dataset_field_config_view(request, dataset_id):
             form = DatasetFieldConfigForm(request.POST, instance=config)
             if form.is_valid():
                 form.save()
-                ensure_standard_dataset_fields(dataset)
             else:
                 form_valid = False
         
@@ -531,8 +446,6 @@ def dataset_data_input_view(request, dataset_id):
     if not dataset.can_access(request.user):
         return render(request, 'datasets/403.html', status=403)
 
-    ensure_standard_dataset_fields(dataset)
-    
     # Get all geometries for this dataset with their entries, respecting mapping area limits
     geometries_qs = DataGeometry.objects.filter(dataset=dataset).prefetch_related('entries')
     geometries = dataset.filter_geometries_for_user(geometries_qs, request.user)
@@ -572,7 +485,7 @@ def dataset_data_input_view(request, dataset_id):
     # Typology data is now handled at the field level, not dataset level
     typology_data = None
     
-    # Get all enabled fields for this dataset (both standard and custom)
+    # Get all enabled fields for this dataset
     all_fields = DatasetField.order_fields(DatasetField.objects.filter(dataset=dataset, enabled=True))
     
     # If no enabled fields found, get all fields and enable them
@@ -583,20 +496,7 @@ def dataset_data_input_view(request, dataset_id):
             all_fields_qs.update(enabled=True)
             # Re-query to get the updated fields
             all_fields = DatasetField.order_fields(DatasetField.objects.filter(dataset=dataset, enabled=True))
-    else:
-        # Ensure custom fields are enabled if none are currently active
-        standard_field_names = {field_def['field_name'] for field_def in STANDARD_DATASET_FIELDS}
-        custom_enabled_fields = DatasetField.objects.filter(
-            dataset=dataset,
-            enabled=True
-        ).exclude(field_name__in=standard_field_names)
-        disabled_custom_fields = DatasetField.objects.filter(
-            dataset=dataset,
-            enabled=False
-        ).exclude(field_name__in=standard_field_names)
-        if not custom_enabled_fields.exists() and disabled_custom_fields.exists():
-            disabled_custom_fields.update(enabled=True)
-            all_fields = DatasetField.order_fields(DatasetField.objects.filter(dataset=dataset, enabled=True))
+    # If some enabled fields exist, respect that configuration as-is
     # Prepare fields data for JavaScript with typology choices
     fields_data = []
     for field in all_fields:
@@ -706,8 +606,6 @@ def dataset_fields_view(request, dataset_id):
         if not dataset.can_access(request.user):
             return JsonResponse({'error': 'Access denied'}, status=403)
 
-        ensure_standard_dataset_fields(dataset)
-        
         # Get all enabled fields for this dataset
         all_fields = DatasetField.order_fields(DatasetField.objects.filter(dataset=dataset, enabled=True))
         
@@ -719,19 +617,7 @@ def dataset_fields_view(request, dataset_id):
                 all_fields_qs.update(enabled=True)
                 # Re-query to get the updated fields
                 all_fields = DatasetField.order_fields(DatasetField.objects.filter(dataset=dataset, enabled=True))
-        else:
-            standard_field_names = {field_def['field_name'] for field_def in STANDARD_DATASET_FIELDS}
-            custom_enabled_fields = DatasetField.objects.filter(
-                dataset=dataset,
-                enabled=True
-            ).exclude(field_name__in=standard_field_names)
-            disabled_custom_fields = DatasetField.objects.filter(
-                dataset=dataset,
-                enabled=False
-            ).exclude(field_name__in=standard_field_names)
-            if not custom_enabled_fields.exists() and disabled_custom_fields.exists():
-                disabled_custom_fields.update(enabled=True)
-                all_fields = DatasetField.order_fields(DatasetField.objects.filter(dataset=dataset, enabled=True))
+        # If some enabled fields exist, respect that configuration as-is
         
         # Prepare fields data for JavaScript
         fields_data = []
