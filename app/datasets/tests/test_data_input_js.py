@@ -278,7 +278,8 @@ class DataInputJavaScriptTestCase(TestCase):
         
         fields_json = json_match.group(1).strip()
         fields_data = json.loads(fields_json)
-        self.assertGreaterEqual(len(fields_data), 8)
+        # No fields should exist if none are configured (no automatic creation)
+        self.assertEqual(len(fields_data), 0)
     
     def test_javascript_file_loading(self):
         """Test that the external JavaScript file is loaded correctly"""

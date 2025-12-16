@@ -26,56 +26,73 @@ class DatasetFieldConfigIntegrationTest(TestCase):
         )
     
     def test_automatic_field_config_creation(self):
-        """Test that standard fields are automatically created when viewing dataset"""
+        """Test that NO fields are automatically created when viewing dataset (fields must be created manually)"""
         from datasets.models import DatasetField
         
-        # Initially no standard fields should exist
+        # Initially no fields should exist
         self.assertFalse(DatasetField.objects.filter(dataset=self.dataset).exists())
         
         self.client.login(username='testuser', password='testpass123')
         response = self.client.get(reverse('dataset_detail', args=[self.dataset.id]))
         
-        # After viewing dataset detail, standard fields should be created
-        self.assertTrue(DatasetField.objects.filter(dataset=self.dataset).exists())
-        standard_fields = DatasetField.objects.filter(dataset=self.dataset)
+        # After viewing dataset detail, NO fields should be automatically created
+        # Fields must be created manually by the user
+        self.assertFalse(DatasetField.objects.filter(dataset=self.dataset).exists())
         
-        # Check that we have the expected standard fields
-        field_names = [field.field_name for field in standard_fields]
-        expected_fields = ['name', 'usage_code1', 'usage_code2', 'usage_code3', 'cat_inno', 'cat_wert', 'cat_fili', 'year']
-        for expected_field in expected_fields:
-            self.assertIn(expected_field, field_names)
+        # Verify the page shows "No custom fields configured yet"
+        self.assertContains(response, 'No custom fields configured yet')
     
     def test_field_configuration_workflow(self):
         """Test complete workflow of configuring dataset fields"""
         self.client.login(username='testuser', password='testpass123')
         
-        # 1. View dataset detail (should create standard fields)
+        # 1. Create some custom fields manually (no automatic creation)
+        field1 = DatasetField.objects.create(
+            dataset=self.dataset,
+            field_name='test_field_1',
+            label='Test Field 1',
+            field_type='text',
+            enabled=True,
+            required=False,
+            order=1
+        )
+        field2 = DatasetField.objects.create(
+            dataset=self.dataset,
+            field_name='test_field_2',
+            label='Test Field 2',
+            field_type='integer',
+            enabled=True,
+            required=True,
+            order=2
+        )
+        
+        # 2. View dataset detail (should show created fields)
         response = self.client.get(reverse('dataset_detail', args=[self.dataset.id]))
         self.assertEqual(response.status_code, 200)
         self.assertTrue(DatasetField.objects.filter(dataset=self.dataset).exists())
         
-        # 2. View field configuration page
+        # 3. View field configuration page
         response = self.client.get(reverse('dataset_field_config', args=[self.dataset.id]))
         self.assertEqual(response.status_code, 200)
         self.assertIn('all_fields', response.context)
         
-        # 3. Update field configuration
+        # 4. Update field configuration
         all_fields = DatasetField.objects.filter(dataset=self.dataset)
         form_data = {}
         for field in all_fields:
             form_data[f'field_{field.id}_enabled'] = 'on'
-            form_data[f'field_{field.id}_required'] = 'on' if field.field_name == 'year' else ''
+            form_data[f'field_{field.id}_required'] = 'on' if field.field_name == 'test_field_2' else ''
             form_data[f'field_{field.id}_help_text'] = f'Help for {field.label}'
             form_data[f'field_{field.id}_order'] = field.order
         
         response = self.client.post(reverse('dataset_field_config', args=[self.dataset.id]), form_data)
         self.assertEqual(response.status_code, 302)  # Redirect after successful update
         
-        # 4. Verify fields were updated
+        # 5. Verify fields were updated
         for field in all_fields:
             field.refresh_from_db()
             self.assertTrue(field.enabled)
-            if field.field_name == 'year':
+            if field.field_name == 'test_field_2':
                 self.assertTrue(field.required)
             else:
                 self.assertFalse(field.required)
@@ -148,12 +165,11 @@ class DatasetFieldIntegrationTest(TestCase):
         """Test complete workflow of managing custom fields"""
         self.client.login(username='testuser', password='testpass123')
         
-        # 1. View dataset detail (should show no custom fields initially)
+        # 1. View dataset detail (should show no custom fields initially - no automatic creation)
         response = self.client.get(reverse('dataset_detail', args=[self.dataset.id]))
         self.assertEqual(response.status_code, 200)
-        self.assertNotContains(response, 'No custom fields configured')
+        self.assertContains(response, 'No custom fields configured yet')
         self.assertContains(response, 'Field Configuration')
-        self.assertContains(response, 'Entry Name')
         
         # 2. View custom fields management
         response = self.client.get(reverse('dataset_field_config', args=[self.dataset.id]))

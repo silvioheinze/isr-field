@@ -8,9 +8,13 @@ This directory contains the test files for the datasets app, organized into logi
 - **DatasetFieldConfigModelTest**: Tests for the DatasetFieldConfig model
 - **DatasetFieldModelTest**: Tests for the DatasetField model
 
-### `test_forms.py`
+### `test_dataset_field_config_form.py`
 - **DatasetFieldConfigFormTest**: Tests for the DatasetFieldConfigForm
+
+### `test_dataset_field_form.py`
 - **DatasetFieldFormTest**: Tests for the DatasetFieldForm
+
+### `test_group_form.py`
 - **GroupFormTest**: Tests for the GroupForm
 
 ### `test_views.py`
@@ -43,7 +47,9 @@ docker-compose exec app python manage.py test datasets.tests
 To run specific test files:
 ```bash
 docker-compose exec app python manage.py test datasets.tests.test_models
-docker-compose exec app python manage.py test datasets.tests.test_forms
+docker-compose exec app python manage.py test datasets.tests.test_dataset_field_config_form
+docker-compose exec app python manage.py test datasets.tests.test_dataset_field_form
+docker-compose exec app python manage.py test datasets.tests.test_group_form
 ```
 
 To run specific test classes:

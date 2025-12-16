@@ -216,9 +216,9 @@ class HorizontalEntryListTestCase(TestCase):
             js_content = f.read()
         
         # Check that the code checks for entries before displaying the list
-        # Should check sortedEntries.length > 0
+        # Should check sortedEntries.length > 0 and allowMultipleEntries
         self.assertIn('sortedEntries.length > 0', js_content)
-        self.assertIn('if (sortedEntries.length > 0)', js_content)
+        self.assertIn('window.allowMultipleEntries && sortedEntries.length > 0', js_content)
     
     def test_horizontal_list_not_displayed_when_no_entries(self):
         """Test that the horizontal entry list is not displayed when no entries exist"""
@@ -246,8 +246,9 @@ class HorizontalEntryListTestCase(TestCase):
         with open(js_file_path, 'r', encoding='utf-8') as f:
             js_content = f.read()
         
-        # Should have conditional check
-        self.assertIn('if (sortedEntries.length > 0)', js_content)
+        # Should have conditional check with allowMultipleEntries
+        self.assertIn('sortedEntries.length > 0', js_content)
+        self.assertIn('window.allowMultipleEntries && sortedEntries.length > 0', js_content)
     
     def test_entry_badge_click_functionality(self):
         """Test that clicking on an entry badge calls the correct function"""
