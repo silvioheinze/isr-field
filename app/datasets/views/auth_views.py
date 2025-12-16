@@ -194,17 +194,43 @@ def edit_user_view(request, user_id):
     user = get_object_or_404(User, id=user_id)
     
     if request.method == 'POST':
-        form = UserChangeForm(request.POST, instance=user)
-        if form.is_valid():
-            form.save()
+        # Get email from POST
+        new_email = request.POST.get('email', '').strip()
+        
+        # Validate email
+        if not new_email:
+            # Create form with error
+            form = UserChangeForm({'email': ''}, instance=user)
+            form.errors['email'] = form.error_class(['This field is required.'])
+        elif '@' not in new_email:
+            # Create form with error
+            form = UserChangeForm({'email': new_email}, instance=user)
+            form.errors['email'] = form.error_class(['Enter a valid email address.'])
+        else:
+            # Email is valid, update user
+            user.email = new_email
+            user.is_staff = request.POST.get('is_staff') == 'on'
+            user.is_superuser = request.POST.get('is_superuser') == 'on'
+            user.save()
             messages.success(request, f'User {user.username} updated successfully!')
             return redirect('user_management')
+        
+        # If we get here, form has errors - update checkbox state for display
+        user.is_staff = request.POST.get('is_staff') == 'on'
+        user.is_superuser = request.POST.get('is_superuser') == 'on'
     else:
         form = UserChangeForm(instance=user)
     
+    # Get all groups for the template
+    all_groups = Group.objects.all()
+    user_groups = list(user.groups.values_list('id', flat=True))
+    
     return render(request, 'datasets/edit_user.html', {
         'form': form,
-        'user': user
+        'user': user,
+        'user_obj': user,  # Template uses user_obj
+        'all_groups': all_groups,
+        'user_groups': user_groups,
     })
 
 
