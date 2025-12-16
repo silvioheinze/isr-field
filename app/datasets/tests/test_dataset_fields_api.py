@@ -125,9 +125,9 @@ class DatasetFieldsAPITestCase(TestCase):
         data = response.json()
         self.assertIn('fields', data)
         
-        # Standard fields should be recreated automatically
+        # No fields should exist if none are configured (no automatic creation)
         fields = data['fields']
-        self.assertGreaterEqual(len(fields), 8)
+        self.assertEqual(len(fields), 0)
     
     def test_dataset_fields_api_access_control(self):
         """Test that access control works for the API"""
