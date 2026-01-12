@@ -63,6 +63,11 @@
                                 <label class="form-check-label fw-semibold" for="allow_multiple_entries">Allow multiple entries per geometry</label>
                                 <div class="form-text">When enabled, contributors can attach more than one data entry to the same geometry point.</div>
                             </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="enable_mapping_areas" name="enable_mapping_areas" {% if dataset.enable_mapping_areas %}checked{% endif %}>
+                                <label class="form-check-label fw-semibold" for="enable_mapping_areas">Enable mapping areas</label>
+                                <div class="form-text">When enabled, the Mapping Areas button will be available in the data input view for organizing and restricting access to specific geographic regions.</div>
+                            </div>
                         </div>
                     </div>
                 </div>

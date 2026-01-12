@@ -172,6 +172,7 @@ def dataset_edit_view(request, dataset_id):
         description = request.POST.get('description')
         is_public = request.POST.get('is_public') == 'on'
         allow_multiple_entries = request.POST.get('allow_multiple_entries') == 'on'
+        enable_mapping_areas = request.POST.get('enable_mapping_areas') == 'on'
         
         if name:
             dataset.name = name
@@ -180,6 +181,11 @@ def dataset_edit_view(request, dataset_id):
             # Handle allow_multiple_entries field (graceful handling for migration)
             try:
                 dataset.allow_multiple_entries = allow_multiple_entries
+            except AttributeError:
+                pass  # Field doesn't exist yet, skip
+            # Handle enable_mapping_areas field (graceful handling for migration)
+            try:
+                dataset.enable_mapping_areas = enable_mapping_areas
             except AttributeError:
                 pass  # Field doesn't exist yet, skip
             dataset.save()
@@ -523,6 +529,12 @@ def dataset_data_input_view(request, dataset_id):
     except AttributeError:
         allow_multiple_entries = False  # Default to False if field doesn't exist
     
+    # Handle case where enable_mapping_areas field might not exist yet (migration not applied)
+    try:
+        enable_mapping_areas = dataset.enable_mapping_areas
+    except AttributeError:
+        enable_mapping_areas = False  # Default to False if field doesn't exist
+    
     # Get all users for allocation dropdown (only for dataset owner or superuser)
     users_for_allocation = []
     if dataset.owner == request.user or request.user.is_superuser:
@@ -534,6 +546,7 @@ def dataset_data_input_view(request, dataset_id):
         'typology_data': typology_data,
         'all_fields': all_fields,
         'fields_data': fields_data,
+        'enable_mapping_areas': enable_mapping_areas,
         'allow_multiple_entries': allow_multiple_entries,
         'users_for_allocation': users_for_allocation
     })

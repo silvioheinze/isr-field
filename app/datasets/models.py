@@ -26,6 +26,7 @@ class DataSet(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     is_public = models.BooleanField(default=False)
     allow_multiple_entries = models.BooleanField(default=False, help_text="Allow multiple data entries per geometry point")
+    enable_mapping_areas = models.BooleanField(default=False, help_text="Enable mapping areas functionality for this dataset")
 
     def __str__(self):
         return self.name
