@@ -189,7 +189,7 @@ def dataset_edit_view(request, dataset_id):
         else:
             messages.error(request, 'Dataset name is required.')
     
-    return render(request, 'datasets/dataset_edit.html', {
+    return render(request, 'datasets/dataset_settings.html', {
         'dataset': dataset,
         'geometries_count': DataGeometry.objects.filter(dataset=dataset).count(),
         'entries_count': DataEntry.objects.filter(geometry__dataset=dataset).count(),

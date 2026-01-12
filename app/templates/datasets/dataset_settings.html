@@ -1,12 +1,12 @@
 {% extends 'datasets/_base.html' %}
 
-{% block title %}Edit Dataset - {{ dataset.name }}{% endblock %}
+{% block title %}Settings - {{ dataset.name }}{% endblock %}
 
 {% block content %}
 <div class="container py-4">
     <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-4">
         <div>
-            <h1 class="h3 mb-1">Edit Dataset: {{ dataset.name }}</h1>
+            <h1 class="h3 mb-1">Settings: {{ dataset.name }}</h1>
             <div class="text-muted small">
                 Created on {{ dataset.created_at|date:"F d, Y" }} by {{ dataset.owner.username }}
                 {% if dataset.is_public %}
@@ -144,4 +144,4 @@
         </div>
     </div>
 </div>
-{% endblock %} 
+{% endblock %}
