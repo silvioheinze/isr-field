@@ -23,7 +23,7 @@
             <a href="{% url 'dataset_list' %}" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-arrow-left"></i> Back to Datasets
             </a>
-            {% if dataset.owner == user %}
+            {% if dataset.owner == user or user.is_superuser %}
             <a href="{% url 'dataset_edit' dataset.id %}" class="btn btn-primary btn-sm">
                 <i class="bi bi-pencil"></i> Edit Dataset
             </a>
@@ -74,7 +74,7 @@
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-light fw-semibold d-flex align-items-center justify-content-between">
                     <span><i class="bi bi-columns-gap me-2"></i>Field Configuration</span>
-                    {% if dataset.owner == user %}
+                    {% if dataset.owner == user or user.is_superuser %}
                         <a href="{% url 'custom_field_create' dataset.id %}" class="btn btn-success btn-sm">
                             <i class="bi bi-plus-circle"></i> Add Field
                         </a>
@@ -83,7 +83,7 @@
                 <div class="card-body">
                     <p class="text-muted small mb-3">Arrange, enable, or update the fields available for data input.</p>
 
-                    {% if dataset.owner == user %}
+                    {% if dataset.owner == user or user.is_superuser %}
                     <form method="post" class="field-config-form">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="update_fields">
@@ -265,7 +265,7 @@
                             {% endwith %}
                         </dd>
                     </dl>
-                    {% if dataset.owner == user %}
+                    {% if dataset.owner == user or user.is_superuser %}
                         <a href="{% url 'dataset_access' dataset.id %}" class="btn btn-outline-primary btn-sm mt-3 w-100">
                             <i class="bi bi-people"></i> Manage Access
                         </a>
@@ -273,7 +273,7 @@
                 </div>
             </div>
 
-            {% if dataset.owner == user %}
+            {% if dataset.owner == user or user.is_superuser %}
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-light fw-semibold">
                     <i class="bi bi-gear me-2"></i>Owner Actions
@@ -332,7 +332,7 @@
     </div>
 </div>
 
-{% if dataset.owner == user %}
+{% if dataset.owner == user or user.is_superuser %}
 <style>
     .field-config-drag-handle {
         cursor: move;

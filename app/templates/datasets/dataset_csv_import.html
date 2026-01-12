@@ -116,7 +116,7 @@
                     <a href="{% url 'dataset_data_input' dataset.id %}" class="btn btn-outline-primary btn-sm">
                         <i class="bi bi-pencil-square"></i> Data Input
                     </a>
-                    {% if dataset.owner == user %}
+                    {% if dataset.owner == user or user.is_superuser %}
                     <a href="{% url 'dataset_edit' dataset.id %}" class="btn btn-outline-warning btn-sm">
                         <i class="bi bi-gear"></i> Edit Dataset
                     </a>
