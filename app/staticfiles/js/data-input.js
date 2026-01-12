@@ -8,6 +8,8 @@ var markers = [];
 var addPointMode = false;
 var addPointMarker = null;
 var lastAddedLatLng = null;
+var gotoLocationMode = false;
+var gotoLocationClickHandler = null;
 
 // Mapping areas variables
 var mappingAreasMode = false;
@@ -101,14 +103,18 @@ function initializeMap() {
     }).addTo(map);
 
     map.on('click', function(e) {
-        if (addPointMode) addNewPoint(e.latlng);
+        if (addPointMode) {
+            addNewPoint(e.latlng);
+        } else if (gotoLocationMode && gotoLocationClickHandler) {
+            gotoLocationClickHandler(e);
+        }
     });
 
     loadMapData();
 }
 
 // Load map data via AJAX
-function loadMapData() {
+function loadMapData(preserveView) {
     var url = window.location.origin + '/datasets/' + getDatasetId() + '/map-data/';
     fetch(url, {
         method: 'GET',
@@ -117,7 +123,7 @@ function loadMapData() {
     })
     .then(response => response.json())
     .then(data => {
-        if (data.map_data) addMarkersToMap(data.map_data);
+        if (data.map_data) addMarkersToMap(data.map_data, preserveView);
     })
     .catch(() => {});
 }
@@ -183,7 +189,16 @@ function loadGeometryDetails(geometryId) {
 }
 
 // Add markers to the map
-function addMarkersToMap(mapData) {
+function addMarkersToMap(mapData, preserveView) {
+    // Save current map view if preserveView is true
+    var savedView = null;
+    if (preserveView && map) {
+        savedView = {
+            center: map.getCenter(),
+            zoom: map.getZoom()
+        };
+    }
+    
     markers.forEach(marker => map.removeLayer(marker));
     markers = [];
     if (!Array.isArray(mapData) || mapData.length === 0) return;
@@ -203,7 +218,13 @@ function addMarkersToMap(mapData) {
         markers.push(marker);
     });
 
-    focusOnAllPoints();
+    // Only focus on all points if we're not preserving the view
+    if (!preserveView) {
+        focusOnAllPoints();
+    } else if (savedView) {
+        // Restore the saved view
+        map.setView(savedView.center, savedView.zoom);
+    }
 
     // Auto-select newly added marker if we have a cached location
     if (lastAddedLatLng && markers.length > 0) {
@@ -415,9 +436,14 @@ function generateEntriesTable(point) {
         var fieldsToUse = window.allFields || allFields || [];
         
         if (fieldsToUse && fieldsToUse.length > 0) {
-            // Sort fields by order
+            // Sort fields by order (treat negative values as last)
             var sortedFields = fieldsToUse.sort(function(a, b) {
-                return (a.order || 0) - (b.order || 0);
+                var orderA = a.order || 0;
+                var orderB = b.order || 0;
+                // Treat negative numbers as very large numbers (appear last)
+                if (orderA < 0) orderA = 999999;
+                if (orderB < 0) orderB = 999999;
+                return orderA - orderB;
             });
             
             // Check if there are any enabled fields
@@ -488,9 +514,14 @@ function generateEntriesTable(point) {
         console.log('New entry form - Checking window.allFields:', fieldsToUse);
         
         if (fieldsToUse && fieldsToUse.length > 0) {
-            // Sort fields by order
+            // Sort fields by order (treat negative values as last)
             var sortedFields = fieldsToUse.sort(function(a, b) {
-                return (a.order || 0) - (b.order || 0);
+                var orderA = a.order || 0;
+                var orderB = b.order || 0;
+                // Treat negative numbers as very large numbers (appear last)
+                if (orderA < 0) orderA = 999999;
+                if (orderB < 0) orderB = 999999;
+                return orderA - orderB;
             });
             
             // Check if there are any enabled fields
@@ -1030,8 +1061,8 @@ function createEntry() {
             button.textContent = 'No files selected';
             button.className = 'btn btn-outline-secondary';
             
-            // Reload map data to show new entry
-            loadMapData();
+            // Reload map data to show new entry, but preserve current view
+            loadMapData(true);
         } else {
             alert('Error creating entry: ' + (data.error || 'Unknown error'));
         }
@@ -1102,8 +1133,8 @@ function copyToNewEntry(entryId, entryIndex, buttonElement) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Reload map data to show new entry
-            loadMapData();
+            // Reload map data to show new entry, but preserve current view
+            loadMapData(true);
             
             // After reloading, select the new entry
             if (data.entry_id) {
@@ -1190,9 +1221,8 @@ function saveEntries() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('Entries saved successfully!');
-            // Reload map data to show updated entries
-            loadMapData();
+            // Reload map data to show updated entries, but preserve current view
+            loadMapData(true);
         } else {
             alert('Error saving entries: ' + (data.error || 'Unknown error'));
         }
@@ -1237,6 +1267,8 @@ function setupEventListeners() {
 
         var focusAllBtn = document.getElementById('focusAllBtn');
         if (focusAllBtn) focusAllBtn.addEventListener('click', focusOnAllPoints);
+        var gotoLocationBtn = document.getElementById('gotoLocationBtn');
+        if (gotoLocationBtn) gotoLocationBtn.addEventListener('click', toggleGotoLocationMode);
         var myLocationBtn = document.getElementById('myLocationBtn');
         if (myLocationBtn) myLocationBtn.addEventListener('click', zoomToMyLocation);
         var zoomInBtn = document.getElementById('zoomInBtn');
@@ -1251,6 +1283,51 @@ function focusOnAllPoints() {
     if (!map || markers.length === 0) return;
     var group = new L.featureGroup(markers);
     map.fitBounds(group.getBounds().pad(0.1));
+}
+
+// Toggle goto location mode
+function toggleGotoLocationMode() {
+    // Disable add point mode if active
+    if (addPointMode) {
+        toggleAddPointMode();
+    }
+    
+    gotoLocationMode = !gotoLocationMode;
+    var button = document.getElementById('gotoLocationBtn');
+    if (!button) return;
+
+    if (gotoLocationMode) {
+        // Enable goto location mode
+        button.classList.remove('btn-light');
+        button.classList.add('btn-success');
+        button.innerHTML = '<i class="bi bi-check-circle"></i> Click on Map';
+        button.title = 'Click on the map to zoom to that location, or click this button to cancel';
+        
+        // Set up click handler
+        gotoLocationClickHandler = function(e) {
+            // Get maximum zoom level for the map
+            var maxZoom = map.getMaxZoom();
+            // Zoom to the clicked location at maximum zoom
+            map.setView(e.latlng, maxZoom);
+            // Exit mode after clicking
+            toggleGotoLocationMode();
+        };
+        
+        // Change cursor to indicate mode
+        if (map && map.getContainer()) map.getContainer().style.cursor = 'crosshair';
+    } else {
+        // Disable goto location mode
+        button.classList.remove('btn-success');
+        button.classList.add('btn-light');
+        button.innerHTML = '<i class="bi bi-crosshair"></i> Goto location';
+        button.title = 'Goto Location';
+        
+        // Remove click handler
+        gotoLocationClickHandler = null;
+        
+        // Reset cursor
+        if (map && map.getContainer()) map.getContainer().style.cursor = '';
+    }
 }
 
 // Zoom to my location
@@ -1548,6 +1625,11 @@ function deleteFile(fileId) {
 
 // Toggle add point mode
 function toggleAddPointMode() {
+    // Disable goto location mode if active
+    if (gotoLocationMode) {
+        toggleGotoLocationMode();
+    }
+    
     addPointMode = !addPointMode;
     var button = document.getElementById('addPointBtn');
     if (!button) return;
@@ -1621,13 +1703,13 @@ function createNewGeometry(latlng) {
         } else {
             lastAddedLatLng = { lat: latlng.lat, lng: latlng.lng };
             toggleAddPointMode();
-            loadMapData();
+            loadMapData(true);
         }
     })
     .catch(() => {
         lastAddedLatLng = { lat: latlng.lat, lng: latlng.lng };
         toggleAddPointMode();
-        loadMapData();
+        loadMapData(true);
     });
 }
 
