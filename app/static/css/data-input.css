@@ -89,6 +89,17 @@
     gap: 5px;
 }
 
+/* Goto location button - hidden on mobile, visible on larger screens */
+.goto-location-btn {
+    display: none;
+}
+
+@media (min-width: 768px) {
+    .goto-location-btn {
+        display: block;
+    }
+}
+
 .map-controls .btn {
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     border: none;
