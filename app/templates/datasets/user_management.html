@@ -124,6 +124,35 @@
         <div class="col-lg-4">
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-light fw-semibold">
+                    <i class="bi bi-info-circle me-2"></i>User Types
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-warning text-dark me-2">Superuser</span>
+                            <strong class="small">Full System Access</strong>
+                        </div>
+                        <p class="small text-muted mb-0">Can access all datasets, manage users and groups, create datasets, and perform all administrative tasks. Highest level of access.</p>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-primary me-2">Staff</span>
+                            <strong class="small">Manager Access</strong>
+                        </div>
+                        <p class="small text-muted mb-0">Can create datasets, manage users and groups, and perform administrative tasks. Cannot access all datasets unless explicitly shared.</p>
+                    </div>
+                    <div>
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-secondary me-2">Standard</span>
+                            <strong class="small">Regular User</strong>
+                        </div>
+                        <p class="small text-muted mb-0">Can access datasets that are shared with them (directly or through groups) or datasets they own. Cannot create datasets or manage users.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light fw-semibold">
                     <i class="bi bi-lightbulb me-2"></i>Managing Access
                 </div>
                 <div class="card-body small text-muted">

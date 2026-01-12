@@ -32,7 +32,7 @@ services:
   nginx:
     build: ./nginx
     volumes:
-      - ./app/staticfiles:/home/app/web/staticfiles
+      - ./app/static:/home/app/web/staticfiles
       - ./app/media:/home/app/web/media
 #      - static_volume:/home/app/web/staticfiles
     ports:
@@ -40,19 +40,19 @@ services:
     depends_on:
       app:
         condition: service_healthy      
-  admin:
-    image: dpage/pgadmin4:latest
-    environment:
-      - PGADMIN_DEFAULT_EMAIL=admin@example.com
-      - PGADMIN_DEFAULT_PASSWORD=admin
-    env_file:
-      - .env
-    depends_on:
-      - db
-    volumes:
-      - pgadmin-data:/var/lib/pgadmin/
-    ports:
-      - "8080:80"
+  # admin:
+  #   image: dpage/pgadmin4:latest
+  #   environment:
+  #     - PGADMIN_DEFAULT_EMAIL=admin@example.com
+  #     - PGADMIN_DEFAULT_PASSWORD=admin
+  #   env_file:
+  #     - .env
+  #   depends_on:
+  #     - db
+  #   volumes:
+  #     - pgadmin-data:/var/lib/pgadmin/
+  #   ports:
+  #     - "8080:80"
 volumes:
   postgres_data:
   pgadmin-data:
