@@ -319,27 +319,6 @@ function generateEntriesTable(point) {
     var sortedEntries = (point.entries || []).sort(function(a, b) {
         return (b.year || 0) - (a.year || 0);
     });
-    // Legacy horizontal entry list header support - only show if multiple entries are allowed
-    if (window.allowMultipleEntries && sortedEntries.length > 0) {
-        console.log('All Entries (' + sortedEntries.length + ')');
-        entriesHtml += '<div class="mb-3">';
-        entriesHtml += '<div class="d-flex justify-content-between align-items-center">';
-        entriesHtml += '<h6 class="mb-0">All Entries (' + sortedEntries.length + ')</h6>';
-        entriesHtml += '</div>';
-        entriesHtml += '<div id="entriesHorizontalList" class="d-flex flex-wrap gap-2 mt-2">';
-        sortedEntries.forEach(function(entry) {
-            var entryName = escapeHtml(entry.name || 'Unnamed Entry');
-            var entryYear = entry.year ? ' <span class="text-muted">(' + escapeHtml(String(entry.year)) + ')</span>' : '';
-            var entryUser = entry.user ? ' <span class="text-muted">- ' + escapeHtml(entry.user) + '</span>' : '';
-            entriesHtml += '<button type="button" class="btn btn-outline-primary btn-sm entry-badge' +
-                (selectedEntryId === entry.id ? ' entry-badge-selected' : '') +
-                '" data-entry-id="' + entry.id + '" onclick="selectEntryFromBadge(' + entry.id + ')">';
-            entriesHtml += entryName + entryYear + entryUser;
-            entriesHtml += '</button>';
-        });
-        entriesHtml += '</div>';
-        entriesHtml += '</div>';
-    }
     
     // Entry Selection Dropdown - only show if multiple entries are allowed and there are entries
     if (window.allowMultipleEntries && sortedEntries.length > 0) {
@@ -595,8 +574,6 @@ function generateEntriesTable(point) {
     entriesHtml += '</div>';
     
     entriesList.innerHTML = entriesHtml;
-    // Update any legacy horizontal entry badges if present
-    updateEntryBadges(sortedEntries);
 }
 
 // Select an entry from the dropdown
@@ -997,52 +974,102 @@ function createEditableFieldInput(field, value, entryIndex) {
 
 // Create entry
 function createEntry() {
+    console.log('[createEntry] Function called');
+    console.log('[createEntry] currentPoint:', currentPoint);
+    
     if (!currentPoint) {
+        console.error('[createEntry] No currentPoint selected');
         alert('Please select a geometry point first.');
         return;
     }
     
+    console.log('[createEntry] allowMultipleEntries:', window.allowMultipleEntries);
+    console.log('[createEntry] currentPoint.entries:', currentPoint.entries);
+    
     if (!window.allowMultipleEntries && currentPoint.entries && currentPoint.entries.length > 0) {
+        console.warn('[createEntry] Multiple entries not allowed and entries already exist');
         alert('Multiple entries are not allowed for this dataset. Please edit the existing entry instead.');
         return;
     }
     
-    var entryName = document.getElementById('new-entry-name').value;
+    var entryNameInput = document.getElementById('new-entry-name');
+    console.log('[createEntry] entryNameInput element:', entryNameInput);
+    
+    if (!entryNameInput) {
+        console.error('[createEntry] new-entry-name input not found');
+        alert('Entry name input field not found.');
+        return;
+    }
+    
+    var entryName = entryNameInput.value;
+    console.log('[createEntry] entryName value:', entryName);
+    
     if (!entryName) {
+        console.warn('[createEntry] Entry name is empty');
         alert('Please enter an entry name.');
+        return;
+    }
+    
+    var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    console.log('[createEntry] CSRF token element:', csrfToken);
+    
+    if (!csrfToken) {
+        console.error('[createEntry] CSRF token not found');
+        alert('CSRF token not found. Please refresh the page.');
         return;
     }
     
     var formData = new FormData();
     formData.append('name', entryName);
     formData.append('geometry_id', currentPoint.id);
-    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    formData.append('csrfmiddlewaretoken', csrfToken.value);
+    
+    console.log('[createEntry] FormData created with name:', entryName, 'geometry_id:', currentPoint.id);
     
     // Add field values
+    console.log('[createEntry] window.allFields:', window.allFields);
     if (window.allFields && window.allFields.length > 0) {
+        var fieldsAdded = 0;
         window.allFields.forEach(function(field) {
             if (field.enabled) {
                 var fieldElement = document.getElementById('field_' + field.field_name);
                 if (fieldElement) {
                     // Skip empty date fields to avoid browser validation errors
                     if (field.field_type === 'date' && !fieldElement.value) {
+                        console.log('[createEntry] Skipping empty date field:', field.field_name);
                         return; // Skip empty date fields
                     }
                     // Send field name directly (not wrapped in fields[])
                     formData.append(field.field_name, fieldElement.value);
+                    fieldsAdded++;
+                    console.log('[createEntry] Added field:', field.field_name, '=', fieldElement.value);
+                } else {
+                    console.warn('[createEntry] Field element not found:', 'field_' + field.field_name);
                 }
             }
         });
+        console.log('[createEntry] Total fields added to FormData:', fieldsAdded);
+    } else {
+        console.log('[createEntry] No fields to add (window.allFields is empty or undefined)');
     }
     
-    fetch(window.location.origin + '/geometries/' + currentPoint.id + '/entries/create/', {
+    var url = window.location.origin + '/geometries/' + currentPoint.id + '/entries/create/';
+    console.log('[createEntry] Fetching URL:', url);
+    console.log('[createEntry] FormData entries:', Array.from(formData.entries()));
+    
+    fetch(url, {
         method: 'POST',
         body: formData,
         credentials: 'same-origin',
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('[createEntry] Response received, status:', response.status, 'statusText:', response.statusText);
+        console.log('[createEntry] Response headers:', response.headers);
+        return response.json();
+    })
     .then(data => {
+        console.log('[createEntry] Response data:', data);
         if (data.success) {
             // Clear form
             document.getElementById('new-entry-name').value = '';
@@ -1061,19 +1088,58 @@ function createEntry() {
                 });
             }
             
-            // Reset file upload button
-            var button = document.querySelector('#photo-upload-new').nextElementSibling;
-            button.textContent = 'No files selected';
-            button.className = 'btn btn-outline-secondary';
+            // Reset file upload button (if it exists)
+            var photoUploadInput = document.querySelector('#photo-upload-new');
+            if (photoUploadInput && photoUploadInput.nextElementSibling) {
+                var button = photoUploadInput.nextElementSibling;
+                button.textContent = 'No files selected';
+                button.className = 'btn btn-outline-secondary';
+            }
             
             // Reload map data to show new entry, but preserve current view
+            console.log('[createEntry] Success! Reloading map data...');
             loadMapData(true);
+            
+            // Reload geometry details to show the new entry in the dropdown
+            if (currentPoint && currentPoint.id) {
+                console.log('[createEntry] Reloading geometry details for point:', currentPoint.id);
+                // Set the selected entry to the newly created entry before reloading
+                if (data.entry_id) {
+                    selectedEntryId = data.entry_id;
+                    console.log('[createEntry] Set selectedEntryId to:', selectedEntryId);
+                }
+                loadGeometryDetails(currentPoint.id)
+                    .then(function(detailedPoint) {
+                        console.log('[createEntry] Geometry details loaded, showing details with new entry selected');
+                        showGeometryDetails(detailedPoint);
+                        // Ensure dropdown is set to the new entry after table is generated
+                        setTimeout(function() {
+                            var selector = document.getElementById('entrySelector');
+                            if (selector && data.entry_id) {
+                                selector.value = data.entry_id;
+                                console.log('[createEntry] Updated dropdown selector to entry_id:', data.entry_id);
+                            }
+                        }, 100);
+                    })
+                    .catch(function(error) {
+                        console.error('[createEntry] Error reloading geometry details:', error);
+                        // Fallback: just reload the current point data
+                        if (currentPoint) {
+                            showGeometryDetails(currentPoint);
+                        }
+                    });
+            }
         } else {
+            console.error('[createEntry] Server returned error:', data.error || 'Unknown error');
+            console.error('[createEntry] Full response data:', data);
             alert('Error creating entry: ' + (data.error || 'Unknown error'));
         }
     })
     .catch(error => {
-        console.error('Error creating entry:', error);
+        console.error('[createEntry] Fetch error:', error);
+        console.error('[createEntry] Error name:', error.name);
+        console.error('[createEntry] Error message:', error.message);
+        console.error('[createEntry] Error stack:', error.stack);
         alert('Error creating entry: ' + error.message);
     });
 }
@@ -1724,6 +1790,10 @@ function createNewGeometry(latlng) {
 function toggleMappingAreas() {
     var panel = document.getElementById('mappingAreasPanel');
     if (!panel) return;
+    if (!window.enableMappingAreas) {
+        console.warn('Mapping areas are not enabled for this dataset.');
+        return;
+    }
     if (!window.isDatasetOwner) {
         console.warn('Mapping areas are only available to dataset owners.');
         return;
