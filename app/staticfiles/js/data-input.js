@@ -582,7 +582,12 @@ function generateEntriesTable(point) {
         entriesHtml += '</button>';
         if (window.allowMultipleEntries) {
             entriesHtml += '<button type="button" class="btn btn-outline-secondary" id="copyEntryBtn" onclick="copyToNewEntry(' + selectedEntry.id + ', ' + selectedEntryIndex + ', this)">';
-            entriesHtml += '<i class="bi bi-files"></i> Copy to new Entry</button>';
+            entriesHtml += '<i class="bi bi-files"></i> Copy</button>';
+        }
+        if (currentPoint && currentPoint.lat && currentPoint.lng) {
+            var googleStreetViewUrl = 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' + currentPoint.lat + ',' + currentPoint.lng;
+            entriesHtml += '<a href="' + googleStreetViewUrl + '" class="btn btn-outline-primary" target="_blank" rel="noopener noreferrer">';
+            entriesHtml += '<i class="bi bi-geo-alt"></i> Street View</a>';
         }
         entriesHtml += '<a href="/entries/' + selectedEntry.id + '/" class="btn btn-outline-info" target="_blank">';
         entriesHtml += '<i class="bi bi-eye"></i> View Details</a>';
