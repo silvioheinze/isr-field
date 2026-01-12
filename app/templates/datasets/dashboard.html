@@ -66,8 +66,8 @@
                                             <i class="bi bi-eye"></i>
                                         </a>
                                         {% if dataset.owner == user %}
-                                        <a href="{% url 'dataset_edit' dataset.id %}" class="btn btn-outline-primary" title="Edit dataset">
-                                            <i class="bi bi-pencil"></i>
+                                        <a href="{% url 'dataset_settings' dataset.id %}" class="btn btn-outline-primary" title="Settings">
+                                            <i class="bi bi-gear"></i>
                                         </a>
                                         {% endif %}
                                     </div>

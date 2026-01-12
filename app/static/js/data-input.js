@@ -1724,6 +1724,10 @@ function createNewGeometry(latlng) {
 function toggleMappingAreas() {
     var panel = document.getElementById('mappingAreasPanel');
     if (!panel) return;
+    if (!window.enableMappingAreas) {
+        console.warn('Mapping areas are not enabled for this dataset.');
+        return;
+    }
     if (!window.isDatasetOwner) {
         console.warn('Mapping areas are only available to dataset owners.');
         return;
