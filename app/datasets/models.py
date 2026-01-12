@@ -32,6 +32,9 @@ class DataSet(models.Model):
 
     def can_access(self, user):
         """Check if a user can access this dataset"""
+        # Superusers have access to all datasets
+        if user.is_superuser:
+            return True
         if self.is_public:
             return True
         if user == self.owner:
@@ -48,7 +51,8 @@ class DataSet(models.Model):
         Return a list of mapping area IDs that restrict this user's access,
         or None if there are no restrictions (full dataset access).
         """
-        if user == self.owner:
+        # Superusers and owners have full access (no restrictions)
+        if user.is_superuser or user == self.owner:
             return None
 
         if not self.mapping_areas.exists():

@@ -18,8 +18,8 @@ def mapping_area_list_view(request, dataset_id):
     """Get list of all mapping areas for a dataset"""
     dataset = get_object_or_404(DataSet, id=dataset_id)
     
-    # Only dataset owner can access mapping areas
-    if dataset.owner != request.user:
+    # Only dataset owner or superuser can access mapping areas
+    if dataset.owner != request.user and not request.user.is_superuser:
         return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
     
     try:
@@ -96,8 +96,8 @@ def mapping_area_create_view(request, dataset_id):
     """Create a new mapping area"""
     dataset = get_object_or_404(DataSet, id=dataset_id)
     
-    # Only dataset owner can create mapping areas
-    if dataset.owner != request.user:
+    # Only dataset owner or superuser can create mapping areas
+    if dataset.owner != request.user and not request.user.is_superuser:
         return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
     
     if request.method != 'POST':
@@ -182,8 +182,8 @@ def mapping_area_update_view(request, dataset_id, area_id):
     dataset = get_object_or_404(DataSet, id=dataset_id)
     mapping_area = get_object_or_404(MappingArea, id=area_id, dataset=dataset)
     
-    # Only dataset owner can update mapping areas
-    if dataset.owner != request.user:
+    # Only dataset owner or superuser can update mapping areas
+    if dataset.owner != request.user and not request.user.is_superuser:
         return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
     
     if request.method != 'POST':
@@ -264,8 +264,8 @@ def mapping_area_delete_view(request, dataset_id, area_id):
     dataset = get_object_or_404(DataSet, id=dataset_id)
     mapping_area = get_object_or_404(MappingArea, id=area_id, dataset=dataset)
     
-    # Only dataset owner can delete mapping areas
-    if dataset.owner != request.user:
+    # Only dataset owner or superuser can delete mapping areas
+    if dataset.owner != request.user and not request.user.is_superuser:
         return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
     
     if request.method == 'POST':

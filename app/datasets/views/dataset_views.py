@@ -155,8 +155,8 @@ def dataset_edit_view(request, dataset_id):
     """Edit dataset details"""
     dataset = get_object_or_404(DataSet, id=dataset_id)
     
-    # Only dataset owner can edit
-    if dataset.owner != request.user:
+    # Only dataset owner or superuser can edit
+    if dataset.owner != request.user and not request.user.is_superuser:
         return render(request, 'datasets/403.html', status=403)
     
     if request.method == 'POST':
@@ -209,7 +209,7 @@ def dataset_field_config_view(request, dataset_id):
     """
     dataset = get_object_or_404(DataSet, id=dataset_id)
     
-    if dataset.owner != request.user:
+    if dataset.owner != request.user and not request.user.is_superuser:
         return render(request, 'datasets/403.html', status=403)
     
     config = ensure_dataset_field_config(dataset)
@@ -300,8 +300,8 @@ def dataset_access_view(request, dataset_id):
     """Manage dataset access permissions"""
     dataset = get_object_or_404(DataSet, id=dataset_id)
     
-    # Only dataset owner can manage access
-    if dataset.owner != request.user:
+    # Only dataset owner or superuser can manage access
+    if dataset.owner != request.user and not request.user.is_superuser:
         return render(request, 'datasets/403.html', status=403)
     
     mapping_areas = list(dataset.mapping_areas.order_by('name'))
@@ -523,9 +523,9 @@ def dataset_data_input_view(request, dataset_id):
     except AttributeError:
         allow_multiple_entries = False  # Default to False if field doesn't exist
     
-    # Get all users for allocation dropdown (only for dataset owner)
+    # Get all users for allocation dropdown (only for dataset owner or superuser)
     users_for_allocation = []
-    if dataset.owner == request.user:
+    if dataset.owner == request.user or request.user.is_superuser:
         users_for_allocation = User.objects.filter(is_active=True).order_by('username')
     
     return render(request, 'datasets/dataset_data_input.html', {
@@ -712,8 +712,8 @@ def dataset_clear_data_view(request, dataset_id):
     """Clear all geometry points and data entries from a dataset"""
     dataset = get_object_or_404(DataSet, id=dataset_id)
     
-    # Only dataset owner can clear data
-    if dataset.owner != request.user:
+    # Only dataset owner or superuser can clear data
+    if dataset.owner != request.user and not request.user.is_superuser:
         return render(request, 'datasets/403.html', status=403)
     
     if request.method == 'POST':
@@ -829,8 +829,8 @@ def dataset_transfer_ownership_view(request, dataset_id):
     """Transfer ownership of a dataset to another user"""
     dataset = get_object_or_404(DataSet, id=dataset_id)
     
-    # Only the current owner can transfer ownership
-    if dataset.owner != request.user:
+    # Only the current owner or superuser can transfer ownership
+    if dataset.owner != request.user and not request.user.is_superuser:
         messages.error(request, 'You do not have permission to transfer ownership of this dataset.')
         return redirect('dataset_detail', dataset_id=dataset.id)
     
