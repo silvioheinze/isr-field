@@ -158,6 +158,7 @@
     padding: 1rem;
     margin-top: 10px; /* visible below map on small screens */
     transition: all 0.2s ease;
+    z-index: 1001; /* Above map controls */
 }
 
 .geometry-details.active { display: block; }
@@ -174,7 +175,7 @@
         overflow: auto;
         box-shadow: 0 4px 20px rgba(0,0,0,0.15);
         margin-top: 0; /* no extra margin in overlay mode */
-        z-index: 900;
+        z-index: 1001; /* Above map controls (z-index: 1000) */
     }
     /* When details are visible, shift map controls to sit next to the box */
     .geometry-details.active ~ .map-controls {
