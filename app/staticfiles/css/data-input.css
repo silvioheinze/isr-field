@@ -142,10 +142,24 @@
 }
 
 /* Fullscreen map */
+#mapColumn {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+}
+
+#mapColumn > .position-relative {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+}
+
 .map-fullscreen {
     width: 100%;
-    height: calc(100vh - 140px);
+    height: 100%;
     min-height: 400px;
+    flex: 1 0 auto;
     /* border: 1px solid #ddd;
     border-radius: 8px; */
 }
@@ -237,8 +251,8 @@
     
     .map-controls { top: 5px; right: 5px; }
     .zoom-controls { top: 5px; left: 5px; }
-    .map-controls .btn, .zoom-controls .btn { font-size: 0.75rem; padding: 0.25rem 0.5rem; }
-    .zoom-controls .btn { width: 28px; height: 28px; }
+    .map-controls .btn, .zoom-controls .btn { font-size: 0.875rem; padding: 0.5rem 0.75rem; }
+    .zoom-controls .btn { width: 36px; height: 36px; }
 }
 
 /* Form & UI misc (trimmed to essentials) */
