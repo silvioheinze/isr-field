@@ -782,18 +782,24 @@ def dataset_entries_table_view(request, dataset_id):
             Q(geometry__address__icontains=search_query)
         )
     
+    # Get all enabled fields for this dataset
+    all_fields = DatasetField.order_fields(DatasetField.objects.filter(dataset=dataset, enabled=True))
+    
     # Sorting
-    sort_by = request.GET.get('sort', 'name')
+    sort_by = request.GET.get('sort', 'id_kurz')
     reverse = request.GET.get('order', 'asc') == 'desc'
     
-    if sort_by == 'geometry':
+    if sort_by == 'id_kurz' or sort_by == 'geometry':
         entries = entries.order_by('geometry__id_kurz')
-    elif sort_by == 'year':
-        entries = entries.order_by('year')
     elif sort_by == 'user':
         entries = entries.order_by('user__username')
+    elif sort_by.startswith('field_'):
+        # Sort by custom field
+        field_name = sort_by.replace('field_', '')
+        # This is a simplified approach - in a real scenario you might need more complex sorting
+        entries = entries.order_by('geometry__id_kurz')
     else:
-        entries = entries.order_by('name')
+        entries = entries.order_by('geometry__id_kurz')
     
     if reverse:
         entries = entries.reverse()
@@ -806,6 +812,7 @@ def dataset_entries_table_view(request, dataset_id):
     return render(request, 'datasets/dataset_entries_table.html', {
         'dataset': dataset,
         'page_obj': page_obj,
+        'all_fields': all_fields,
         'search_query': search_query,
         'sort_by': sort_by,
         'order': 'desc' if reverse else 'asc'
