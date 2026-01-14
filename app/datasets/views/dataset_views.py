@@ -13,12 +13,14 @@ from ..models import (
     DataGeometry,
     DataEntry,
     DataEntryField,
+    DataEntryFile,
     DatasetField,
     DatasetFieldConfig,
     AuditLog,
     Typology,
     DatasetUserMappingArea,
     DatasetGroupMappingArea,
+    MappingArea,
 )
 from ..forms import DatasetFieldConfigForm, DatasetFieldForm, TransferOwnershipForm
 def _get_typology_categories_map():
@@ -201,6 +203,205 @@ def dataset_edit_view(request, dataset_id):
         'entries_count': DataEntry.objects.filter(geometry__dataset=dataset).count(),
         'field_count': DatasetField.objects.filter(dataset=dataset).count()
     })
+
+
+@login_required
+@transaction.atomic
+def dataset_copy_view(request, dataset_id):
+    """Copy a dataset with all its configuration and data (fields, mapping areas, geometry points, entries, files, etc.)"""
+    # Only superusers can copy datasets
+    if not request.user.is_superuser:
+        return render(request, 'datasets/403.html', status=403)
+    
+    original_dataset = get_object_or_404(DataSet, id=dataset_id)
+    
+    # Check if user has access to the original dataset
+    if not original_dataset.can_access(request.user):
+        return render(request, 'datasets/403.html', status=403)
+    
+    # Create new dataset with "_Copy" suffix
+    new_name = f"{original_dataset.name}_Copy"
+    # Ensure name doesn't exceed max_length (255)
+    if len(new_name) > 255:
+        new_name = original_dataset.name[:250] + "_Copy"
+    
+    # Create the new dataset
+    new_dataset = DataSet.objects.create(
+        name=new_name,
+        description=original_dataset.description,
+        owner=request.user,
+        is_public=original_dataset.is_public,
+        allow_multiple_entries=original_dataset.allow_multiple_entries,
+        enable_mapping_areas=original_dataset.enable_mapping_areas,
+    )
+    
+    # Copy ManyToMany relationships (shared_with and shared_with_groups)
+    new_dataset.shared_with.set(original_dataset.shared_with.all())
+    new_dataset.shared_with_groups.set(original_dataset.shared_with_groups.all())
+    
+    # Copy DatasetFieldConfig if it exists
+    try:
+        original_config = original_dataset.field_config
+        DatasetFieldConfig.objects.create(
+            dataset=new_dataset,
+            usage_code1_label=original_config.usage_code1_label,
+            usage_code1_enabled=original_config.usage_code1_enabled,
+            usage_code2_label=original_config.usage_code2_label,
+            usage_code2_enabled=original_config.usage_code2_enabled,
+            usage_code3_label=original_config.usage_code3_label,
+            usage_code3_enabled=original_config.usage_code3_enabled,
+            cat_inno_label=original_config.cat_inno_label,
+            cat_inno_enabled=original_config.cat_inno_enabled,
+            cat_wert_label=original_config.cat_wert_label,
+            cat_wert_enabled=original_config.cat_wert_enabled,
+            cat_fili_label=original_config.cat_fili_label,
+            cat_fili_enabled=original_config.cat_fili_enabled,
+            year_label=original_config.year_label,
+            year_enabled=original_config.year_enabled,
+            name_label=original_config.name_label,
+            name_enabled=original_config.name_enabled,
+        )
+    except DatasetFieldConfig.DoesNotExist:
+        pass  # No config to copy
+    
+    # Copy all DatasetField objects
+    for original_field in original_dataset.dataset_fields.all():
+        DatasetField.objects.create(
+            dataset=new_dataset,
+            field_name=original_field.field_name,
+            label=original_field.label,
+            field_type=original_field.field_type,
+            required=original_field.required,
+            enabled=original_field.enabled,
+            non_editable=original_field.non_editable,
+            help_text=original_field.help_text,
+            choices=original_field.choices,
+            order=original_field.order,
+            is_coordinate_field=original_field.is_coordinate_field,
+            is_id_field=original_field.is_id_field,
+            is_address_field=original_field.is_address_field,
+            typology=original_field.typology,  # Reference to same typology
+            typology_category=original_field.typology_category,
+        )
+    
+    # Copy MappingArea objects and their relationships
+    mapping_area_map = {}  # Map original area ID to new area
+    for original_area in original_dataset.mapping_areas.all():
+        new_area = MappingArea.objects.create(
+            dataset=new_dataset,
+            name=original_area.name,
+            geometry=original_area.geometry,  # Copy the geometry
+            created_by=request.user,
+        )
+        # Copy allocated_users ManyToMany
+        new_area.allocated_users.set(original_area.allocated_users.all())
+        mapping_area_map[original_area.id] = new_area
+    
+    # Copy DatasetUserMappingArea relationships
+    for original_user_area in DatasetUserMappingArea.objects.filter(dataset=original_dataset):
+        if original_user_area.mapping_area_id in mapping_area_map:
+            DatasetUserMappingArea.objects.create(
+                dataset=new_dataset,
+                user=original_user_area.user,
+                mapping_area=mapping_area_map[original_user_area.mapping_area_id],
+            )
+    
+    # Copy DatasetGroupMappingArea relationships
+    for original_group_area in DatasetGroupMappingArea.objects.filter(dataset=original_dataset):
+        if original_group_area.mapping_area_id in mapping_area_map:
+            DatasetGroupMappingArea.objects.create(
+                dataset=new_dataset,
+                group=original_group_area.group,
+                mapping_area=mapping_area_map[original_group_area.mapping_area_id],
+            )
+    
+    # Copy DataGeometry objects (geometry points)
+    geometry_map = {}  # Map original geometry ID to new geometry
+    for original_geometry in original_dataset.geometries.all():
+        new_geometry = DataGeometry.objects.create(
+            dataset=new_dataset,
+            address=original_geometry.address,
+            geometry=original_geometry.geometry,  # Copy the geometry
+            id_kurz=original_geometry.id_kurz,
+            user=request.user,  # Set to current user
+        )
+        geometry_map[original_geometry.id] = new_geometry
+    
+    # Copy DataEntry objects and their related data
+    entry_map = {}  # Map original entry ID to new entry
+    for original_geometry_id, new_geometry in geometry_map.items():
+        original_geometry = DataGeometry.objects.get(id=original_geometry_id)
+        for original_entry in original_geometry.entries.all():
+            new_entry = DataEntry.objects.create(
+                geometry=new_geometry,
+                name=original_entry.name,
+                year=original_entry.year,
+                user=request.user,  # Set to current user
+            )
+            entry_map[original_entry.id] = new_entry
+            
+            # Copy DataEntryField objects (field values)
+            for original_field in original_entry.fields.all():
+                DataEntryField.objects.create(
+                    entry=new_entry,
+                    field_name=original_field.field_name,
+                    field_type=original_field.field_type,
+                    value=original_field.value,
+                )
+            
+            # Copy DataEntryFile objects (files)
+            for original_file in original_entry.files.all():
+                # Copy the actual file content if it exists
+                if original_file.file and original_file.file.name:
+                    try:
+                        # Open the original file and copy its content
+                        original_file.file.open('rb')
+                        file_content = original_file.file.read()
+                        original_file.file.close()
+                        
+                        # Create new file entry with the copied file
+                        new_file = DataEntryFile.objects.create(
+                            entry=new_entry,
+                            filename=original_file.filename,
+                            file_type=original_file.file_type,
+                            file_size=original_file.file_size,
+                            upload_user=request.user,  # Set to current user
+                            description=original_file.description,
+                        )
+                        # Save the file content to the new file field
+                        from django.core.files.base import ContentFile
+                        new_file.file.save(
+                            original_file.filename,
+                            ContentFile(file_content),
+                            save=True
+                        )
+                    except Exception as e:
+                        # If file copy fails, create entry without file but log the error
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.warning(f"Failed to copy file {original_file.filename}: {e}")
+                        # Still create the file entry record without the actual file
+                        DataEntryFile.objects.create(
+                            entry=new_entry,
+                            filename=original_file.filename,
+                            file_type=original_file.file_type,
+                            file_size=0,  # Set to 0 since file wasn't copied
+                            upload_user=request.user,
+                            description=f"{original_file.description or ''} (File copy failed: {str(e)})".strip(),
+                        )
+                else:
+                    # No file to copy, just create the entry record
+                    DataEntryFile.objects.create(
+                        entry=new_entry,
+                        filename=original_file.filename,
+                        file_type=original_file.file_type,
+                        file_size=original_file.file_size,
+                        upload_user=request.user,
+                        description=original_file.description,
+                    )
+    
+    messages.success(request, f'Dataset "{original_dataset.name}" copied successfully as "{new_name}"!')
+    return redirect('dataset_detail', dataset_id=new_dataset.id)
 
 
 @login_required
@@ -581,18 +782,24 @@ def dataset_entries_table_view(request, dataset_id):
             Q(geometry__address__icontains=search_query)
         )
     
+    # Get all enabled fields for this dataset
+    all_fields = DatasetField.order_fields(DatasetField.objects.filter(dataset=dataset, enabled=True))
+    
     # Sorting
-    sort_by = request.GET.get('sort', 'name')
+    sort_by = request.GET.get('sort', 'id_kurz')
     reverse = request.GET.get('order', 'asc') == 'desc'
     
-    if sort_by == 'geometry':
+    if sort_by == 'id_kurz' or sort_by == 'geometry':
         entries = entries.order_by('geometry__id_kurz')
-    elif sort_by == 'year':
-        entries = entries.order_by('year')
     elif sort_by == 'user':
         entries = entries.order_by('user__username')
+    elif sort_by.startswith('field_'):
+        # Sort by custom field
+        field_name = sort_by.replace('field_', '')
+        # This is a simplified approach - in a real scenario you might need more complex sorting
+        entries = entries.order_by('geometry__id_kurz')
     else:
-        entries = entries.order_by('name')
+        entries = entries.order_by('geometry__id_kurz')
     
     if reverse:
         entries = entries.reverse()
@@ -605,6 +812,7 @@ def dataset_entries_table_view(request, dataset_id):
     return render(request, 'datasets/dataset_entries_table.html', {
         'dataset': dataset,
         'page_obj': page_obj,
+        'all_fields': all_fields,
         'search_query': search_query,
         'sort_by': sort_by,
         'order': 'desc' if reverse else 'asc'

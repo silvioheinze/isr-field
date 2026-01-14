@@ -31,15 +31,12 @@
                     <form method="get" class="row g-3 align-items-end">
                         <div class="col-md-6">
                             <label for="search" class="form-label">{% trans "Search" %}</label>
-                            <input type="text" class="form-control" id="search" name="search" value="{{ search_query }}" placeholder="{% trans 'Search by ID, address, or entry name…' %}">
+                            <input type="text" class="form-control" id="search" name="search" value="{{ search_query }}" placeholder="{% trans 'Search by ID…' %}">
                         </div>
                         <div class="col-md-3">
                             <label for="sort" class="form-label">{% trans "Sort by" %}</label>
                             <select class="form-select" id="sort" name="sort">
                                 <option value="id_kurz" {% if sort_by == 'id_kurz' %}selected{% endif %}>{% trans "ID" %}</option>
-                                <option value="address" {% if sort_by == 'address' %}selected{% endif %}>{% trans "Address" %}</option>
-                                <option value="entry_name" {% if sort_by == 'entry_name' %}selected{% endif %}>{% trans "Entry Name" %}</option>
-                                <option value="year" {% if sort_by == 'year' %}selected{% endif %}>{% trans "Year" %}</option>
                                 <option value="user" {% if sort_by == 'user' %}selected{% endif %}>{% trans "User" %}</option>
                                 {% for field in all_fields %}
                                 <option value="field_{{ field.field_name }}" {% if sort_by == 'field_'|add:field.field_name %}selected{% endif %}>{{ field.label }}</option>
@@ -74,9 +71,6 @@
                             <thead class="table-light">
                                 <tr>
                                     <th>{% trans "ID" %}</th>
-                                    <th>{% trans "Address" %}</th>
-                                    <th>{% trans "Entry Name" %}</th>
-                                    <th>{% trans "Year" %}</th>
                                     <th>{% trans "User" %}</th>
                                     <th>{% trans "Created" %}</th>
                                     {% for field in all_fields %}
@@ -89,13 +83,10 @@
                                 {% for entry in page_obj %}
                                 <tr>
                                     <td>
-                                        <strong>{{ entry.id_kurz }}</strong><br>
-                                        <small class="text-muted">#{{ entry.geometry_id }}</small>
+                                        <strong>{{ entry.geometry.id_kurz }}</strong><br>
+                                        <small class="text-muted">#{{ entry.geometry.id }}</small>
                                     </td>
-                                    <td>{{ entry.address }}</td>
-                                    <td>{{ entry.entry_name|default:"-" }}</td>
-                                    <td>{{ entry.year|default:"-" }}</td>
-                                    <td>{{ entry.user }}</td>
+                                    <td>{{ entry.user.username|default:"-" }}</td>
                                     <td>
                                         <small>{{ entry.created_at|date:"M d, Y" }}</small><br>
                                         <small class="text-muted">{{ entry.created_at|time:"H:i" }}</small>
@@ -126,7 +117,7 @@
                                 </tr>
                                 {% empty %}
                                 <tr>
-                                    <td colspan="{{ all_fields|length|add:'7' }}" class="text-center text-muted py-5">
+                                    <td colspan="{{ all_fields|length|add:'4' }}" class="text-center text-muted py-5">
                                         <i class="bi bi-inbox display-4"></i>
                                         <p class="mt-2 mb-1 fw-semibold">{% trans "No entries found" %}</p>
                                         <p class="small mb-3 text-muted">{% trans "Try adjusting your search filters or add new entries from the data input view." %}</p>
@@ -216,7 +207,7 @@
                 </div>
                 <div class="card-body small text-muted">
                     <ul class="ps-3 mb-0">
-                        <li class="mb-2">{% trans "Use the search bar to filter entries by ID, address, or entry name." %}</li>
+                        <li class="mb-2">{% trans "Use the search bar to filter entries by ID." %}</li>
                         <li class="mb-2">{% trans "Sort by any custom field to review specific attributes quickly." %}</li>
                         <li>{% trans "Open the data input view to edit entries directly on the map." %}</li>
                     </ul>
