@@ -283,6 +283,11 @@
                         <a href="{% url 'custom_field_create' dataset.id %}" class="btn btn-outline-secondary btn-sm">
                             <i class="bi bi-plus-circle"></i> Add Custom Field
                         </a>
+                        {% if user.is_superuser %}
+                        <a href="{% url 'dataset_copy' dataset.id %}" class="btn btn-outline-info btn-sm">
+                            <i class="bi bi-files"></i> Copy Dataset
+                        </a>
+                        {% endif %}
                         <a href="{% url 'dataset_transfer_ownership' dataset.id %}" class="btn btn-outline-warning btn-sm">
                             <i class="bi bi-arrow-right-circle"></i> Transfer Ownership
                         </a>
