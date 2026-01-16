@@ -32,6 +32,11 @@
                                 </h5>
                                 <div class="small text-muted">
                                     Created {{ typology.created_at|date:"M d, Y" }} by {{ typology.created_by.username }}
+                                    {% if typology.is_public %}
+                                        <span class="badge bg-success ms-2">Public</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary ms-2">Private</span>
+                                    {% endif %}
                                 </div>
                             </div>
 

@@ -12,7 +12,7 @@ from django import forms
 from django.forms import inlineformset_factory
 
 from ..forms import DatasetFieldConfigForm, DatasetFieldForm, GroupForm
-from ..models import DataSet, DatasetField
+from ..models import DataSet, DatasetField, Typology
 
 class InlineDatasetFieldForm(DatasetFieldForm):
     def clean_choices(self):
@@ -53,6 +53,7 @@ _BaseDatasetFieldInlineFormSet = inlineformset_factory(
 
 class DatasetFieldInlineFormSet(_BaseDatasetFieldInlineFormSet):
     def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
         if not kwargs.get('prefix'):
             kwargs['prefix'] = 'form'
         if kwargs.get('instance') is None:
@@ -60,6 +61,20 @@ class DatasetFieldInlineFormSet(_BaseDatasetFieldInlineFormSet):
         if kwargs.get('queryset') is None:
             kwargs['queryset'] = DatasetField.objects.none()
         super().__init__(*args, **kwargs)
+    
+    def _construct_form(self, i, **kwargs):
+        """Override to pass user to each form"""
+        form = super()._construct_form(i, **kwargs)
+        if self.user and hasattr(form, 'fields') and 'typology' in form.fields:
+            # Update typology queryset based on user access
+            if self.user.is_superuser:
+                typologies = Typology.objects.all()
+            else:
+                public_typologies = Typology.objects.filter(is_public=True)
+                user_typologies = Typology.objects.filter(created_by=self.user)
+                typologies = (public_typologies | user_typologies).distinct()
+            form.fields['typology'].queryset = typologies.order_by('name')
+        return form
 
     @property
     def errors(self):

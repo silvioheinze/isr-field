@@ -254,9 +254,21 @@ class Typology(models.Model):
     name = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_typologies')
+    is_public = models.BooleanField(default=False, help_text="Make this typology visible to all users")
     
     def __str__(self):
         return self.name
+    
+    def can_access(self, user):
+        """Check if a user can access this typology"""
+        # Superusers have access to all typologies
+        if user.is_superuser:
+            return True
+        if self.is_public:
+            return True
+        if user == self.created_by:
+            return True
+        return False
     
     class Meta:
         ordering = ['-created_at']

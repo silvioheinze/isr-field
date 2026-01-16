@@ -9,6 +9,11 @@
             <h1 class="h3 mb-1">{{ typology.name }}</h1>
             <div class="text-muted small">
                 Created by {{ typology.created_by.username|default:"Unknown" }} on {{ typology.created_at|date:"F d, Y" }}
+                {% if typology.is_public %}
+                    <span class="badge bg-success ms-2">Public</span>
+                {% else %}
+                    <span class="badge bg-secondary ms-2">Private</span>
+                {% endif %}
                 <span class="badge bg-info text-dark ms-2">{{ entries.count }} entries</span>
                 <span class="badge bg-secondary ms-1">Used in {{ linked_dataset_count }} dataset{{ linked_dataset_count|pluralize }}</span>
                 <span class="badge bg-light text-dark ms-1">{{ linked_field_count }} field{{ linked_field_count|pluralize }}</span>
@@ -144,6 +149,8 @@
                         <dd class="col-6">{{ typology.created_at|date:"F d, Y" }}</dd>
                         <dt class="col-6">Owner</dt>
                         <dd class="col-6">{{ typology.created_by.username|default:"Unknown" }}</dd>
+                        <dt class="col-6">Visibility</dt>
+                        <dd class="col-6">{% if typology.is_public %}<span class="badge bg-success">Public</span>{% else %}<span class="badge bg-secondary">Private</span>{% endif %}</dd>
                     </dl>
                 </div>
             </div>

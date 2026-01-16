@@ -23,10 +23,17 @@ from ..models import (
     MappingArea,
 )
 from ..forms import DatasetFieldConfigForm, DatasetFieldForm, TransferOwnershipForm
-def _get_typology_categories_map():
+def _get_typology_categories_map(user=None):
     categories = {}
-    typologies = Typology.objects.all().order_by('name')
-    for typology in typologies:
+    # Get typologies the user can access
+    if user and user.is_superuser:
+        typologies = Typology.objects.all()
+    else:
+        public_typologies = Typology.objects.filter(is_public=True)
+        user_typologies = Typology.objects.filter(created_by=user) if user else Typology.objects.none()
+        typologies = (public_typologies | user_typologies).distinct()
+    
+    for typology in typologies.order_by('name'):
         category_values = (
             typology.entries.order_by('category')
             .values_list('category', flat=True)
@@ -960,7 +967,7 @@ def custom_field_create_view(request, dataset_id):
         return render(request, 'datasets/403.html', status=403)
     
     if request.method == 'POST':
-        form = DatasetFieldForm(request.POST)
+        form = DatasetFieldForm(request.POST, user=request.user)
         if form.is_valid():
             field = form.save(commit=False)
             field.dataset = dataset
@@ -969,7 +976,7 @@ def custom_field_create_view(request, dataset_id):
             return redirect('dataset_detail', dataset_id=dataset.id)
         # Form is invalid - will be re-rendered with errors below
     else:
-        form = DatasetFieldForm()
+        form = DatasetFieldForm(user=request.user)
     
     # Calculate the next available order number (max order + 1, or 0 if no fields exist)
     max_order = DatasetField.objects.filter(dataset=dataset).aggregate(
@@ -981,7 +988,7 @@ def custom_field_create_view(request, dataset_id):
         'dataset': dataset,
         'form': form,
         'title': 'Create Custom Field',
-        'typology_categories': _get_typology_categories_map(),
+        'typology_categories': _get_typology_categories_map(request.user),
         'next_order': next_order
     })
 
@@ -997,14 +1004,14 @@ def custom_field_edit_view(request, dataset_id, field_id):
         return render(request, 'datasets/403.html', status=403)
     
     if request.method == 'POST':
-        form = DatasetFieldForm(request.POST, instance=field)
+        form = DatasetFieldForm(request.POST, instance=field, user=request.user)
         if form.is_valid():
             form.save()
             messages.success(request, f'Field "{field.label}" updated successfully!')
             return redirect('dataset_detail', dataset_id=dataset.id)
         # Form is invalid - will be re-rendered with errors below
     else:
-        form = DatasetFieldForm(instance=field)
+        form = DatasetFieldForm(instance=field, user=request.user)
     
     # Calculate the next available order number (max order + 1, or 0 if no fields exist)
     max_order = DatasetField.objects.filter(dataset=dataset).aggregate(
@@ -1017,7 +1024,7 @@ def custom_field_edit_view(request, dataset_id, field_id):
         'field': field,
         'form': form,
         'title': 'Edit Custom Field',
-        'typology_categories': _get_typology_categories_map(),
+        'typology_categories': _get_typology_categories_map(request.user),
         'next_order': next_order
     })
 
