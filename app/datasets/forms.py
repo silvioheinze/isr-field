@@ -64,18 +64,30 @@ class DatasetFieldForm(forms.ModelForm):
         }
     
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         # Set default field_type to 'choice' for new fields
         if not self.instance.pk:
             self.fields['field_type'].initial = 'choice'
             # Set default order to -1 (last)
             self.fields['order'].initial = -1
-            # Set default typology if available (first typology)
-            typologies = Typology.objects.all().order_by('name')
+            # Set default typology if available (first accessible typology)
+            if user and user.is_superuser:
+                typologies = Typology.objects.all()
+            else:
+                public_typologies = Typology.objects.filter(is_public=True)
+                user_typologies = Typology.objects.filter(created_by=user) if user else Typology.objects.none()
+                typologies = (public_typologies | user_typologies).distinct()
             if typologies.exists():
                 self.fields['typology'].initial = typologies.first().id
-        # Populate typology choices
-        self.fields['typology'].queryset = Typology.objects.all().order_by('name')
+        # Populate typology choices - only show typologies the user can access
+        if user and user.is_superuser:
+            typologies = Typology.objects.all()
+        else:
+            public_typologies = Typology.objects.filter(is_public=True)
+            user_typologies = Typology.objects.filter(created_by=user) if user else Typology.objects.none()
+            typologies = (public_typologies | user_typologies).distinct()
+        self.fields['typology'].queryset = typologies.order_by('name')
         self.fields['typology'].empty_label = "No typology selected"
         self.fields['typology_category'].required = False
         self.fields['typology_category'].choices = [('', 'All categories')]

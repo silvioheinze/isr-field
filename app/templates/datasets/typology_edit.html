@@ -40,6 +40,11 @@
                             <input type="text" class="form-control" id="name" name="name" value="{{ typology.name }}" required>
                             <div class="form-text">Choose a descriptive name. This is shown when selecting typologies for dataset fields.</div>
                         </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="is_public" name="is_public" {% if typology.is_public %}checked{% endif %}>
+                            <label class="form-check-label fw-semibold" for="is_public">Make typology public</label>
+                            <div class="form-text">When enabled, all users can see and use this typology. When disabled, only you can access it.</div>
+                        </div>
                     </div>
                 </div>
 

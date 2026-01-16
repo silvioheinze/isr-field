@@ -19,6 +19,13 @@ class TypologyDeleteViewTests(TestCase):
             email='other@example.com',
             password='testpass123'
         )
+        self.superuser = User.objects.create_user(
+            username='superuser',
+            email='super@example.com',
+            password='testpass123',
+            is_superuser=True,
+            is_staff=True
+        )
         self.typology = Typology.objects.create(name='Delete Me', created_by=self.owner)
         TypologyEntry.objects.create(typology=self.typology, code=1, category='A', name='Alpha')
         self.delete_url = reverse('typology_delete', args=[self.typology.id])
@@ -59,4 +66,13 @@ class TypologyDeleteViewTests(TestCase):
 
         response = client.post(f"{self.delete_url}?next=/typologies/", follow=True)
         self.assertEqual(response.redirect_chain[-1][0], reverse('typology_list'))
+        self.assertFalse(Typology.objects.filter(id=self.typology.id).exists())
+
+    def test_superuser_can_delete_typology(self):
+        """Test that superusers can delete any typology"""
+        client = Client()
+        client.force_login(self.superuser)
+
+        response = client.post(self.delete_url)
+        self.assertRedirects(response, reverse('typology_list'))
         self.assertFalse(Typology.objects.filter(id=self.typology.id).exists())

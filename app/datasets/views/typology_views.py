@@ -87,9 +87,11 @@ def typology_create_view(request):
         if not errors:
             try:
                 with transaction.atomic():
+                    is_public = request.POST.get('is_public') == 'on'
                     typology = Typology.objects.create(
                         name=name_value,
-                        created_by=request.user
+                        created_by=request.user,
+                        is_public=is_public
                     )
                     TypologyEntry.objects.bulk_create([
                         TypologyEntry(
@@ -126,15 +128,17 @@ def typology_edit_view(request, typology_id):
     """Edit a typology"""
     typology = get_object_or_404(Typology, id=typology_id)
     
-    # Only typology creator can edit
-    if typology.created_by != request.user:
+    # Only typology creator or superuser can edit
+    if typology.created_by != request.user and not request.user.is_superuser:
         return render(request, 'datasets/403.html', status=403)
     
     if request.method == 'POST':
         name = request.POST.get('name')
+        is_public = request.POST.get('is_public') == 'on'
         
         if name:
             typology.name = name
+            typology.is_public = is_public
             typology.save()
             
             messages.success(request, 'Typology updated successfully!')
@@ -150,7 +154,15 @@ def typology_edit_view(request, typology_id):
 @login_required
 def typology_list_view(request):
     """List all typologies"""
-    typologies = Typology.objects.all()
+    # Superusers can see all typologies
+    if request.user.is_superuser:
+        typologies = Typology.objects.all()
+    else:
+        # Get public typologies and typologies created by the user
+        public_typologies = Typology.objects.filter(is_public=True)
+        user_typologies = Typology.objects.filter(created_by=request.user)
+        typologies = (public_typologies | user_typologies).distinct()
+    
     return render(request, 'datasets/typology_list.html', {
         'typologies': typologies,
         'can_create_typologies': is_manager(request.user)
@@ -161,6 +173,10 @@ def typology_list_view(request):
 def typology_detail_view(request, typology_id):
     """View typology details"""
     typology = get_object_or_404(Typology, id=typology_id)
+    
+    # Check if user has access to this typology
+    if not typology.can_access(request.user):
+        return render(request, 'datasets/403.html', status=403)
     entries = TypologyEntry.objects.filter(typology=typology).order_by('code')
     linked_fields_qs = DatasetField.objects.filter(typology=typology).select_related('dataset')
     # Note: We can't use order_fields here because we need to order by dataset__name first
@@ -202,6 +218,10 @@ def typology_detail_view(request, typology_id):
 def typology_import_view(request, typology_id):
     """Import typology entries from CSV"""
     typology = get_object_or_404(Typology, id=typology_id)
+    
+    # Only typology creator or superuser can import
+    if typology.created_by != request.user and not request.user.is_superuser:
+        return render(request, 'datasets/403.html', status=403)
     
     if request.method == 'POST':
         csv_file = request.FILES.get('csv_file')
@@ -314,6 +334,10 @@ def typology_import_view(request, typology_id):
 def typology_export_view(request, typology_id):
     """Export typology as CSV"""
     typology = get_object_or_404(Typology, id=typology_id)
+    
+    # Check if user has access to this typology
+    if not typology.can_access(request.user):
+        return render(request, 'datasets/403.html', status=403)
     entries = TypologyEntry.objects.filter(typology=typology).order_by('code')
     
     # Create CSV response
@@ -334,7 +358,8 @@ def typology_delete_view(request, typology_id):
     """Delete an existing typology."""
     typology = get_object_or_404(Typology, id=typology_id)
 
-    if typology.created_by != request.user:
+    # Only typology creator or superuser can delete
+    if typology.created_by != request.user and not request.user.is_superuser:
         return render(request, 'datasets/403.html', status=403)
 
     if request.method == 'POST':

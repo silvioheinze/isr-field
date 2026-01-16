@@ -56,3 +56,31 @@ class TypologyImportViewTests(TestCase):
         messages = list(response.wsgi_request._messages)
         self.assertTrue(any('Missing required columns' in str(message) for message in messages))
         self.assertEqual(TypologyEntry.objects.filter(typology=self.typology).count(), 0)
+
+    def test_non_owner_cannot_import(self):
+        """Test that non-owners cannot import to typology"""
+        other_user = User.objects.create_user(
+            username='other',
+            email='other@example.com',
+            password='testpass123'
+        )
+        client = Client()
+        client.force_login(other_user)
+        
+        response = client.get(self.import_url)
+        self.assertEqual(response.status_code, 403)
+
+    def test_superuser_can_import(self):
+        """Test that superusers can import to any typology"""
+        superuser = User.objects.create_user(
+            username='superuser',
+            email='super@example.com',
+            password='testpass123',
+            is_superuser=True,
+            is_staff=True
+        )
+        client = Client()
+        client.force_login(superuser)
+        
+        response = client.get(self.import_url)
+        self.assertEqual(response.status_code, 200)

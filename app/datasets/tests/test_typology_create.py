@@ -41,6 +41,42 @@ class TypologyCreateViewTests(TestCase):
         self.assertEqual(entries[0].category, 'Residential')
         self.assertEqual(entries[0].name, 'Apartment')
         self.assertEqual(entries[1].code, 2)
+        # Default visibility should be private
+        self.assertFalse(typology.is_public)
+
+    def test_create_public_typology(self):
+        """Test creating a typology with public visibility"""
+        response = self.client.post(
+            self.create_url,
+            {
+                'name': 'Public Typology',
+                'is_public': 'on',
+                'entry_code_1': '1',
+                'entry_category_1': 'Category',
+                'entry_name_1': 'Entry',
+            }
+        )
+
+        self.assertEqual(response.status_code, 302)
+        typology = Typology.objects.get(name='Public Typology')
+        self.assertTrue(typology.is_public)
+
+    def test_create_private_typology(self):
+        """Test creating a typology with private visibility (default)"""
+        response = self.client.post(
+            self.create_url,
+            {
+                'name': 'Private Typology',
+                # is_public not set, should default to False
+                'entry_code_1': '1',
+                'entry_category_1': 'Category',
+                'entry_name_1': 'Entry',
+            }
+        )
+
+        self.assertEqual(response.status_code, 302)
+        typology = Typology.objects.get(name='Private Typology')
+        self.assertFalse(typology.is_public)
 
     def test_create_typology_requires_entries(self):
         response = self.client.post(
