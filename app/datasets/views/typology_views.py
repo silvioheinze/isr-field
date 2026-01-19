@@ -136,15 +136,136 @@ def typology_edit_view(request, typology_id):
         name = request.POST.get('name')
         is_public = request.POST.get('is_public') == 'on'
         
-        if name:
-            typology.name = name
-            typology.is_public = is_public
-            typology.save()
-            
-            messages.success(request, 'Typology updated successfully!')
-            return redirect('typology_detail', typology_id=typology.id)
-        else:
+        if not name:
             messages.error(request, 'Typology name is required.')
+            return render(request, 'datasets/typology_edit.html', {
+                'typology': typology,
+            })
+        
+        errors = []
+        
+        try:
+            with transaction.atomic():
+                # Update typology name and visibility
+                typology.name = name
+                typology.is_public = is_public
+                typology.save()
+                
+                # Process entry deletions
+                delete_entry_id = request.POST.get('delete_entry')
+                if delete_entry_id:
+                    try:
+                        entry_to_delete = TypologyEntry.objects.get(id=delete_entry_id, typology=typology)
+                        entry_to_delete.delete()
+                    except TypologyEntry.DoesNotExist:
+                        pass  # Entry already deleted or doesn't exist
+                
+                # Process existing entry updates
+                existing_entry_ids = []
+                for key in request.POST.keys():
+                    if key.startswith('entry_code_') and not key.startswith('new_entry_code_'):
+                        entry_id_str = key.replace('entry_code_', '')
+                        try:
+                            entry_id = int(entry_id_str)
+                            existing_entry_ids.append(entry_id)
+                        except ValueError:
+                            continue
+                
+                # Get all current codes for duplicate checking
+                seen_codes = set(TypologyEntry.objects.filter(typology=typology).values_list('code', flat=True))
+                
+                for entry_id in existing_entry_ids:
+                    try:
+                        entry = TypologyEntry.objects.get(id=entry_id, typology=typology)
+                        code_raw = (request.POST.get(f'entry_code_{entry_id}') or '').strip()
+                        category_raw = (request.POST.get(f'entry_category_{entry_id}') or '').strip()
+                        name_raw = (request.POST.get(f'entry_name_{entry_id}') or '').strip()
+                        
+                        entry_errors = []
+                        
+                        if not code_raw:
+                            entry_errors.append(f'Entry ID {entry_id}: Code is required.')
+                        else:
+                            try:
+                                code_int = int(code_raw)
+                            except ValueError:
+                                entry_errors.append(f'Entry ID {entry_id}: Code "{code_raw}" must be a number.')
+                        
+                        if not category_raw:
+                            entry_errors.append(f'Entry ID {entry_id}: Category is required.')
+                        if not name_raw:
+                            entry_errors.append(f'Entry ID {entry_id}: Name is required.')
+                        
+                        if entry_errors:
+                            errors.extend(entry_errors)
+                        else:
+                            # Remove old code from seen_codes and add new one
+                            seen_codes.discard(entry.code)
+                            seen_codes.add(code_int)
+                            entry.code = code_int
+                            entry.category = category_raw
+                            entry.name = name_raw
+                            entry.save()
+                    except TypologyEntry.DoesNotExist:
+                        pass  # Entry was deleted
+                
+                # Process new entries
+                new_entry_pattern = re.compile(r'^new_entry_code_(?P<index>\d+)$')
+                new_entry_indices = []
+                for key in request.POST.keys():
+                    match = new_entry_pattern.match(key)
+                    if match:
+                        new_entry_indices.append(int(match.group('index')))
+                
+                new_entry_indices = sorted(set(new_entry_indices))
+                
+                for index in new_entry_indices:
+                    code_raw = (request.POST.get(f'new_entry_code_{index}') or '').strip()
+                    category_raw = (request.POST.get(f'new_entry_category_{index}') or '').strip()
+                    name_raw = (request.POST.get(f'new_entry_name_{index}') or '').strip()
+                    
+                    # Skip empty entries
+                    if not code_raw and not category_raw and not name_raw:
+                        continue
+                    
+                    entry_errors = []
+                    
+                    if not code_raw:
+                        entry_errors.append(f'New entry #{index}: Code is required.')
+                    else:
+                        try:
+                            code_int = int(code_raw)
+                            if code_int in seen_codes:
+                                entry_errors.append(f'New entry #{index}: Duplicate code {code_int} detected.')
+                            else:
+                                seen_codes.add(code_int)
+                        except ValueError:
+                            entry_errors.append(f'New entry #{index}: Code "{code_raw}" must be a number.')
+                    
+                    if not category_raw:
+                        entry_errors.append(f'New entry #{index}: Category is required.')
+                    if not name_raw:
+                        entry_errors.append(f'New entry #{index}: Name is required.')
+                    
+                    if entry_errors:
+                        errors.extend(entry_errors)
+                    else:
+                        TypologyEntry.objects.create(
+                            typology=typology,
+                            code=code_int,
+                            category=category_raw,
+                            name=name_raw
+                        )
+                
+                if errors:
+                    for error_msg in errors:
+                        messages.error(request, error_msg)
+                else:
+                    messages.success(request, 'Typology updated successfully!')
+                    return redirect('typology_detail', typology_id=typology.id)
+                    
+        except Exception as exc:
+            messages.error(request, f'Error updating typology: {exc}')
     
     return render(request, 'datasets/typology_edit.html', {
         'typology': typology,

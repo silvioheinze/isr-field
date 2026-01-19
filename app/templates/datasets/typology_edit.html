@@ -160,11 +160,13 @@
 (function() {
     const newEntriesContainer = document.getElementById('newEntriesContainer');
     const addEntryBtn = document.getElementById('addEntryBtn');
+    // Start counter at 1 to ensure unique indices
     let newEntryCount = 0;
 
     function createEntryRow(index) {
         const wrapper = document.createElement('div');
-        wrapper.className = 'border rounded p-3 bg-light-subtle';
+        wrapper.className = 'border rounded p-3 bg-light-subtle mb-2';
+        wrapper.setAttribute('data-entry-index', index);
         wrapper.innerHTML = `
             <div class="row g-2 align-items-center">
                 <div class="col-sm-2">
@@ -188,19 +190,28 @@
             </div>
         `;
 
-        wrapper.querySelector('.remove-entry').addEventListener('click', function () {
-            wrapper.remove();
-        });
+        // Add remove functionality
+        const removeBtn = wrapper.querySelector('.remove-entry');
+        if (removeBtn) {
+            removeBtn.addEventListener('click', function () {
+                wrapper.remove();
+            });
+        }
 
         return wrapper;
     }
 
-    if (addEntryBtn) {
+    if (addEntryBtn && newEntriesContainer) {
         addEntryBtn.addEventListener('click', function () {
+            // Increment counter and create new entry row
             newEntryCount += 1;
             const entryRow = createEntryRow(newEntryCount);
             newEntriesContainer.appendChild(entryRow);
-            entryRow.querySelector('input').focus();
+            // Focus on the code input field
+            const codeInput = entryRow.querySelector('input[name^="new_entry_code_"]');
+            if (codeInput) {
+                codeInput.focus();
+            }
         });
     }
 
