@@ -148,15 +148,15 @@ class DatasetFieldForm(forms.ModelForm):
         choices = cleaned_data.get('choices', '')
         typology = cleaned_data.get('typology')
         
-        # Validate that choice fields have either manual choices or a typology
-        if field_type == 'choice':
+        # Validate that choice and multiple_choice fields have either manual choices or a typology
+        if field_type in ('choice', 'multiple_choice'):
             # Check if choices are provided (after normalization)
             has_choices = bool(choices and choices.strip())
             # Check if typology is provided
             has_typology = bool(typology)
             
             if not (has_choices or has_typology):
-                self.add_error('choices', 'Provide manual choices or select a typology for choice fields.')
+                self.add_error('choices', 'Provide manual choices or select a typology for ' + field_type.replace('_', ' ') + ' fields.')
         
         # Handle typology category
         if not cleaned_data.get('typology'):
