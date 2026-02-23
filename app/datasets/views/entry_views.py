@@ -59,7 +59,40 @@ def entry_edit_view(request, entry_id):
             for field in entry.fields.all():
                 field_name = field.field_name
                 if field_name in request.POST:
-                    field.value = request.POST[field_name]
+                    field_value = request.POST[field_name]
+                    
+                    # Get field type from DatasetField if it exists
+                    field_type = 'text'  # default
+                    try:
+                        dataset_field = DatasetField.objects.get(dataset=dataset, field_name=field_name)
+                        field_type = dataset_field.field_type
+                    except DatasetField.DoesNotExist:
+                        pass
+                    
+                    # Handle multiple_choice fields - validate and store as JSON
+                    if field_type == 'multiple_choice':
+                        import json
+                        try:
+                            # Try parsing as JSON (should already be JSON from form)
+                            parsed = json.loads(field_value)
+                            if isinstance(parsed, list):
+                                # Validate against available choices
+                                try:
+                                    dataset_field = DatasetField.objects.get(dataset=dataset, field_name=field_name)
+                                    available_values = [str(opt.get('value', opt) if isinstance(opt, dict) else opt) for opt in dataset_field.get_choices_list()]
+                                    validated_values = [v for v in parsed if str(v) in available_values]
+                                    field_value = json.dumps(validated_values)
+                                except DatasetField.DoesNotExist:
+                                    field_value = json.dumps(parsed)
+                            else:
+                                field_value = json.dumps([parsed])
+                        except (json.JSONDecodeError, TypeError):
+                            # Fallback: treat as comma-separated string
+                            values_list = [v.strip() for v in field_value.split(',') if v.strip()]
+                            field_value = json.dumps(values_list)
+                    
+                    field.value = field_value
+                    field.field_type = field_type
                     field.save()
             
             messages.success(request, 'Entry updated successfully!')
@@ -117,9 +150,40 @@ def entry_create_view(request, geometry_id):
                 if key not in ['name', 'year', 'geometry_id', 'csrfmiddlewaretoken']:
                     # Skip empty values to avoid creating empty fields
                     if value and value.strip():
+                        # Get field type from DatasetField if it exists
+                        field_type = 'text'  # default
+                        try:
+                            dataset_field = DatasetField.objects.get(dataset=dataset, field_name=key)
+                            field_type = dataset_field.field_type
+                        except DatasetField.DoesNotExist:
+                            pass
+                        
+                        # Handle multiple_choice fields - validate and store as JSON
+                        if field_type == 'multiple_choice':
+                            import json
+                            try:
+                                # Try parsing as JSON (should already be JSON from form)
+                                parsed = json.loads(value)
+                                if isinstance(parsed, list):
+                                    # Validate against available choices
+                                    try:
+                                        dataset_field = DatasetField.objects.get(dataset=dataset, field_name=key)
+                                        available_values = [str(opt.get('value', opt) if isinstance(opt, dict) else opt) for opt in dataset_field.get_choices_list()]
+                                        validated_values = [v for v in parsed if str(v) in available_values]
+                                        value = json.dumps(validated_values)
+                                    except DatasetField.DoesNotExist:
+                                        value = json.dumps(parsed)
+                                else:
+                                    value = json.dumps([parsed])
+                            except (json.JSONDecodeError, TypeError):
+                                # Fallback: treat as comma-separated string
+                                values_list = [v.strip() for v in value.split(',') if v.strip()]
+                                value = json.dumps(values_list)
+                        
                         DataEntryField.objects.create(
                             entry=entry,
                             field_name=key,
+                            field_type=field_type,
                             value=value.strip()
                         )
             
@@ -194,14 +258,45 @@ def save_entries_view(request):
                     
                     # Update field values
                     for field_name, field_value in entry_data['fields'].items():
+                        # Get field type from DatasetField if it exists
+                        field_type = 'text'  # default
+                        try:
+                            dataset_field = DatasetField.objects.get(dataset=dataset, field_name=field_name)
+                            field_type = dataset_field.field_type
+                        except DatasetField.DoesNotExist:
+                            pass
+                        
+                        # Handle multiple_choice fields - validate and store as JSON
+                        if field_type == 'multiple_choice':
+                            import json
+                            try:
+                                # Try parsing as JSON (should already be JSON from form)
+                                parsed = json.loads(field_value)
+                                if isinstance(parsed, list):
+                                    # Validate against available choices
+                                    try:
+                                        dataset_field = DatasetField.objects.get(dataset=dataset, field_name=field_name)
+                                        available_values = [str(opt.get('value', opt) if isinstance(opt, dict) else opt) for opt in dataset_field.get_choices_list()]
+                                        validated_values = [v for v in parsed if str(v) in available_values]
+                                        field_value = json.dumps(validated_values)
+                                    except DatasetField.DoesNotExist:
+                                        field_value = json.dumps(parsed)
+                                else:
+                                    field_value = json.dumps([parsed])
+                            except (json.JSONDecodeError, TypeError):
+                                # Fallback: treat as comma-separated string
+                                values_list = [v.strip() for v in field_value.split(',') if v.strip()]
+                                field_value = json.dumps(values_list)
+                        
                         # Get or create DataEntryField
                         field_obj, created = DataEntryField.objects.get_or_create(
                             entry=entry,
                             field_name=field_name,
-                            defaults={'value': field_value}
+                            defaults={'value': field_value, 'field_type': field_type}
                         )
                         if not created:
                             field_obj.value = field_value
+                            field_obj.field_type = field_type
                             field_obj.save()
                     
                     updated_count += 1

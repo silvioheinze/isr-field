@@ -139,7 +139,7 @@
         <input type="hidden" name="is_address_field" value="on" id="id_is_address_field">
         {% endif %}
 
-        <!-- Choice & Typology Options - only shown when field_type is "choice" -->
+        <!-- Choice & Typology Options - shown when field_type is "choice" or "multiple_choice" -->
         <div class="card shadow-sm mb-4" id="choiceOptionsCard" style="display: none;">
             <div class="card-header bg-light fw-semibold">
                 <i class="bi bi-list-check me-2"></i>Choice &amp; Typology Options
@@ -246,7 +246,7 @@
         // Function to show/hide choice options based on field type
         function toggleChoiceOptions() {
             if (fieldTypeSelect && choiceOptionsCard) {
-                if (fieldTypeSelect.value === 'choice') {
+                if (fieldTypeSelect.value === 'choice' || fieldTypeSelect.value === 'multiple_choice') {
                     choiceOptionsCard.style.display = 'block';
                 } else {
                     choiceOptionsCard.style.display = 'none';

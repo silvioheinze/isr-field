@@ -465,3 +465,30 @@
     background-color: #fff;
     border-color: #dee2e6;
 }
+
+/* Multiple choice field styling */
+.multiple-choice-group {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 0.5rem;
+    background-color: #fff;
+}
+
+.multiple-choice-group .form-check {
+    margin-bottom: 0.5rem;
+}
+
+.multiple-choice-group .form-check:last-child {
+    margin-bottom: 0;
+}
+
+.multiple-choice-group .form-check-input {
+    margin-top: 0.25rem;
+}
+
+.multiple-choice-group .form-check-label {
+    margin-left: 0.25rem;
+    cursor: pointer;
+}

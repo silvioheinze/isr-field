@@ -723,6 +723,67 @@ function createFormFieldInput(field, value, entryIndex) {
                 inputHtml += '<input type="hidden" name="' + fieldName + '" value="' + fieldValue + '">';
             }
             break;
+
+        case 'multiple_choice':
+            var mcOptions = normalizeFieldChoices(field);
+            var selectedValues = [];
+            try {
+                if (fieldValue !== undefined && fieldValue !== null) {
+                    var fv = String(fieldValue);
+                    if (fv.trim().startsWith('[')) {
+                        selectedValues = JSON.parse(fv);
+                    } else if (fv.includes(',')) {
+                        selectedValues = fv.split(',').map(function(v) { return v.trim(); });
+                    } else if (fv.trim()) {
+                        selectedValues = [fv.trim()];
+                    }
+                }
+            } catch (e) {
+                selectedValues = fieldValue ? [String(fieldValue)] : [];
+            }
+            if (mcOptions.length > 0) {
+                inputHtml = '<div class="multiple-choice-group" id="' + fieldId + '_group">';
+                mcOptions.forEach(function(option) {
+                    var optionValue = option.value !== undefined ? String(option.value) : '';
+                    var optionLabel = option.label !== undefined ? option.label : optionValue;
+                    var checkboxId = fieldId + '_' + optionValue.replace(/[^a-zA-Z0-9]/g, '_');
+                    var checked = selectedValues.indexOf(optionValue) !== -1 ? ' checked' : '';
+                    inputHtml += '<div class="form-check">';
+                    inputHtml += '<input class="form-check-input" type="checkbox" id="' + checkboxId + '" value="' + escapeHtml(optionValue) + '"' + checked;
+                    if (field.non_editable) inputHtml += ' disabled';
+                    inputHtml += '>';
+                    inputHtml += '<label class="form-check-label" for="' + checkboxId + '">' + escapeHtml(optionLabel) + '</label>';
+                    inputHtml += '</div>';
+                });
+                inputHtml += '</div>';
+                inputHtml += '<input type="hidden" name="' + fieldName + '" id="' + fieldId + '_hidden" value=\'' + JSON.stringify(selectedValues) + '\'>';
+                if (!field.non_editable) {
+                    inputHtml += '<script>';
+                    inputHtml += '(function() {';
+                    inputHtml += '  var group = document.getElementById("' + fieldId + '_group");';
+                    inputHtml += '  var hidden = document.getElementById("' + fieldId + '_hidden");';
+                    inputHtml += '  if (group && hidden) {';
+                    inputHtml += '    group.addEventListener("change", function(e) {';
+                    inputHtml += '      if (e.target.type === "checkbox") {';
+                    inputHtml += '        var checkboxes = group.querySelectorAll("input[type=checkbox]");';
+                    inputHtml += '        var selected = [];';
+                    inputHtml += '        for (var i = 0; i < checkboxes.length; i++) {';
+                    inputHtml += '          if (checkboxes[i].checked) selected.push(checkboxes[i].value);';
+                    inputHtml += '        }';
+                    inputHtml += '        hidden.value = JSON.stringify(selected);';
+                    inputHtml += '      }';
+                    inputHtml += '    });';
+                    inputHtml += '  }';
+                    inputHtml += '})();';
+                    inputHtml += '</script>';
+                }
+            } else {
+                inputHtml = '<input type="text" class="form-control" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (field.placeholder || 'Enter ' + field.label) + '"';
+                if (field.required) inputHtml += ' required';
+                if (field.non_editable) inputHtml += ' readonly';
+                inputHtml += '>';
+            }
+            break;
             
         case 'date':
             // Only set value if it's a valid date format (YYYY-MM-DD)
@@ -874,6 +935,60 @@ function createCustomFieldInput(field) {
             if (field.non_editable) inputHtml += ' readonly';
             inputHtml += '>';
             break;
+        case 'multiple_choice':
+            var customOptions = normalizeFieldChoices(field);
+            if (customOptions.length > 0) {
+                // Create checkbox group
+                inputHtml = '<div class="multiple-choice-group" id="' + fieldId + '_group">';
+                customOptions.forEach(function(option) {
+                    var optionValue = option.value !== undefined ? String(option.value) : '';
+                    var optionLabel = option.label !== undefined ? option.label : optionValue;
+                    var checkboxId = fieldId + '_' + optionValue.replace(/[^a-zA-Z0-9]/g, '_');
+                    inputHtml += '<div class="form-check">';
+                    inputHtml += '<input class="form-check-input" type="checkbox" id="' + checkboxId + '" value="' + escapeHtml(optionValue) + '"';
+                    if (field.non_editable) inputHtml += ' disabled';
+                    inputHtml += '>';
+                    inputHtml += '<label class="form-check-label" for="' + checkboxId + '">' + escapeHtml(optionLabel) + '</label>';
+                    inputHtml += '</div>';
+                });
+                inputHtml += '</div>';
+                
+                // Hidden input to store JSON array of selected values
+                inputHtml += '<input type="hidden" name="' + fieldName + '" id="' + fieldId + '_hidden" value=\'[]\'>';
+                
+                // JavaScript to update hidden input when checkboxes change
+                if (!field.non_editable) {
+                    inputHtml += '<script>';
+                    inputHtml += '(function() {';
+                    inputHtml += '  var group = document.getElementById("' + fieldId + '_group");';
+                    inputHtml += '  var hidden = document.getElementById("' + fieldId + '_hidden");';
+                    inputHtml += '  if (group && hidden) {';
+                    inputHtml += '    group.addEventListener("change", function(e) {';
+                    inputHtml += '      if (e.target.type === "checkbox") {';
+                    inputHtml += '        var checkboxes = group.querySelectorAll("input[type=checkbox]");';
+                    inputHtml += '        var selected = [];';
+                    inputHtml += '        for (var i = 0; i < checkboxes.length; i++) {';
+                    inputHtml += '          if (checkboxes[i].checked) {';
+                    inputHtml += '            selected.push(checkboxes[i].value);';
+                    inputHtml += '          }';
+                    inputHtml += '        }';
+                    inputHtml += '        hidden.value = JSON.stringify(selected);';
+                    inputHtml += '      }';
+                    inputHtml += '    });';
+                    inputHtml += '  }';
+                    inputHtml += '})();';
+                    inputHtml += '</script>';
+                } else {
+                    // For non-editable fields, add hidden input with empty array
+                    inputHtml += '<input type="hidden" name="' + fieldName + '" value=\'[]\'>';
+                }
+            } else {
+                // Fallback to text input if no options
+                inputHtml = '<input type="text" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '"';
+                if (field.non_editable) inputHtml += ' readonly';
+                inputHtml += '>';
+            }
+            break;
         default:
             inputHtml = '<input type="text" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '"';
             if (field.non_editable) inputHtml += ' readonly';
@@ -938,6 +1053,78 @@ function createEditableFieldInput(field, value, entryIndex) {
                 }
             } else {
                 inputHtml = '<input type="text" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '"';
+                if (field.non_editable) inputHtml += ' readonly';
+                inputHtml += '>';
+            }
+            break;
+        case 'multiple_choice':
+            var editableOptions = normalizeFieldChoices(field);
+            var editableValue = fieldValue !== undefined && fieldValue !== null ? String(fieldValue) : '';
+            
+            // Parse JSON array if value is stored as JSON
+            var selectedValues = [];
+            try {
+                if (editableValue && editableValue.trim().startsWith('[')) {
+                    selectedValues = JSON.parse(editableValue);
+                } else if (editableValue && editableValue.includes(',')) {
+                    // Fallback: comma-separated
+                    selectedValues = editableValue.split(',').map(function(v) { return v.trim(); });
+                } else if (editableValue && editableValue.trim()) {
+                    selectedValues = [editableValue.trim()];
+                }
+            } catch (e) {
+                selectedValues = editableValue ? [editableValue] : [];
+            }
+            
+            if (editableOptions.length > 0) {
+                // Create checkbox group
+                inputHtml = '<div class="multiple-choice-group" id="' + fieldId + '_group">';
+                editableOptions.forEach(function(option) {
+                    var optionValue = option.value !== undefined ? String(option.value) : '';
+                    var optionLabel = option.label !== undefined ? option.label : optionValue;
+                    var checked = selectedValues.indexOf(optionValue) !== -1 ? ' checked' : '';
+                    var checkboxId = fieldId + '_' + optionValue.replace(/[^a-zA-Z0-9]/g, '_');
+                    inputHtml += '<div class="form-check">';
+                    inputHtml += '<input class="form-check-input" type="checkbox" id="' + checkboxId + '" value="' + escapeHtml(optionValue) + '"' + checked;
+                    if (field.non_editable) inputHtml += ' disabled';
+                    inputHtml += '>';
+                    inputHtml += '<label class="form-check-label" for="' + checkboxId + '">' + escapeHtml(optionLabel) + '</label>';
+                    inputHtml += '</div>';
+                });
+                inputHtml += '</div>';
+                
+                // Hidden input to store JSON array of selected values
+                inputHtml += '<input type="hidden" name="' + fieldName + '" id="' + fieldId + '_hidden" value=\'' + JSON.stringify(selectedValues) + '\'>';
+                
+                // JavaScript to update hidden input when checkboxes change
+                if (!field.non_editable) {
+                    inputHtml += '<script>';
+                    inputHtml += '(function() {';
+                    inputHtml += '  var group = document.getElementById("' + fieldId + '_group");';
+                    inputHtml += '  var hidden = document.getElementById("' + fieldId + '_hidden");';
+                    inputHtml += '  if (group && hidden) {';
+                    inputHtml += '    group.addEventListener("change", function(e) {';
+                    inputHtml += '      if (e.target.type === "checkbox") {';
+                    inputHtml += '        var checkboxes = group.querySelectorAll("input[type=checkbox]");';
+                    inputHtml += '        var selected = [];';
+                    inputHtml += '        for (var i = 0; i < checkboxes.length; i++) {';
+                    inputHtml += '          if (checkboxes[i].checked) {';
+                    inputHtml += '            selected.push(checkboxes[i].value);';
+                    inputHtml += '          }';
+                    inputHtml += '        }';
+                    inputHtml += '        hidden.value = JSON.stringify(selected);';
+                    inputHtml += '      }';
+                    inputHtml += '    });';
+                    inputHtml += '  }';
+                    inputHtml += '})();';
+                    inputHtml += '</script>';
+                } else {
+                    // For non-editable fields, add hidden input with current value
+                    inputHtml += '<input type="hidden" name="' + fieldName + '" value=\'' + JSON.stringify(selectedValues) + '\'>';
+                }
+            } else {
+                // Fallback to text input if no options
+                inputHtml = '<input type="text" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + escapeHtml(editableValue) + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '"';
                 if (field.non_editable) inputHtml += ' readonly';
                 inputHtml += '>';
             }
@@ -1033,11 +1220,20 @@ function createEntry() {
         window.allFields.forEach(function(field) {
             if (field.enabled) {
                 var fieldElement = document.getElementById('field_' + field.field_name);
+                // For multiple_choice, check for hidden input
+                if (field.field_type === 'multiple_choice') {
+                    fieldElement = document.getElementById('field_' + field.field_name + '_hidden');
+                }
                 if (fieldElement) {
                     // Skip empty date fields to avoid browser validation errors
                     if (field.field_type === 'date' && !fieldElement.value) {
                         console.log('[createEntry] Skipping empty date field:', field.field_name);
                         return; // Skip empty date fields
+                    }
+                    // Skip empty multiple_choice fields (empty JSON array)
+                    if (field.field_type === 'multiple_choice' && (!fieldElement.value || fieldElement.value === '[]')) {
+                        console.log('[createEntry] Skipping empty multiple_choice field:', field.field_name);
+                        return; // Skip empty multiple_choice fields
                     }
                     // Send field name directly (not wrapped in fields[])
                     formData.append(field.field_name, fieldElement.value);
@@ -1176,11 +1372,19 @@ function copyToNewEntry(entryId, entryIndex, buttonElement) {
             if (field.enabled) {
                 // Get field value from the current entry's form
                 var fieldElement = document.getElementById('field_' + field.field_name + '_' + entryIndex);
+                // For multiple_choice, check for hidden input
+                if (field.field_type === 'multiple_choice') {
+                    fieldElement = document.getElementById('field_' + field.field_name + '_' + entryIndex + '_hidden');
+                }
                 if (fieldElement) {
                     var fieldValue = fieldElement.value;
                     // Skip empty date fields to avoid browser validation errors
                     if (field.field_type === 'date' && !fieldValue) {
                         return; // Skip empty date fields
+                    }
+                    // Skip empty multiple_choice fields (empty JSON array)
+                    if (field.field_type === 'multiple_choice' && (!fieldValue || fieldValue === '[]')) {
+                        return; // Skip empty multiple_choice fields
                     }
                     // Send field name directly (not wrapped in fields[])
                     formData.append(field.field_name, fieldValue);
@@ -1269,6 +1473,10 @@ function saveEntries() {
             window.allFields.forEach(function(field) {
                 if (field.enabled) {
                     var fieldElement = document.getElementById('field_' + field.field_name + '_' + i);
+                    // For multiple_choice, check for hidden input
+                    if (field.field_type === 'multiple_choice') {
+                        fieldElement = document.getElementById('field_' + field.field_name + '_' + i + '_hidden');
+                    }
                     if (fieldElement) {
                         formData.append('entries[' + i + '][fields][' + field.field_name + ']', fieldElement.value);
                     }
@@ -1321,6 +1529,25 @@ function setupEventListeners() {
             } else {
                 button.textContent = 'No files selected';
                 button.className = 'btn btn-outline-secondary';
+            }
+        }
+        // Multiple-choice: sync checkbox state to hidden input (scripts in innerHTML don't run)
+        if (e.target && e.target.type === 'checkbox') {
+            var group = e.target.closest ? e.target.closest('.multiple-choice-group') : null;
+            if (group) {
+                var groupId = group.id;
+                if (groupId && groupId.indexOf('_group') !== -1) {
+                    var hiddenId = groupId.replace(/_group$/, '_hidden');
+                    var hidden = document.getElementById(hiddenId);
+                    if (hidden) {
+                        var checkboxes = group.querySelectorAll('input[type=checkbox]');
+                        var selected = [];
+                        for (var i = 0; i < checkboxes.length; i++) {
+                            if (checkboxes[i].checked) selected.push(checkboxes[i].value);
+                        }
+                        hidden.value = JSON.stringify(selected);
+                    }
+                }
             }
         }
     });
