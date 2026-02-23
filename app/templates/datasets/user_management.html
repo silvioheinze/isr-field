@@ -59,6 +59,11 @@
                                             <a href="{% url 'edit_user' user.id %}" class="btn btn-outline-primary" title="Edit user">
                                                 <i class="bi bi-pencil"></i>
                                             </a>
+                                            {% if request.user.is_superuser %}
+                                            <a href="{% url 'admin_change_user_password' user.id %}" class="btn btn-outline-secondary" title="Change password">
+                                                <i class="bi bi-key"></i>
+                                            </a>
+                                            {% endif %}
                                             <a href="{% url 'modify_user_groups' user.id %}" class="btn btn-outline-warning" title="Manage groups">
                                                 <i class="bi bi-people"></i>
                                             </a>

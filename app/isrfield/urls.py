@@ -35,6 +35,7 @@ urlpatterns = [
     path('users/', datasets_views.user_management_view, name='user_management'),
     path('users/create/', datasets_views.create_user_view, name='create_user'),
     path('users/edit/<int:user_id>/', datasets_views.edit_user_view, name='edit_user'),
+    path('users/<int:user_id>/change-password/', datasets_views.admin_change_user_password_view, name='admin_change_user_password'),
     path('users/delete/<int:user_id>/', datasets_views.delete_user_view, name='delete_user'),
     path('groups/create/', datasets_views.create_group_view, name='create_group'),
     path('groups/edit/<int:group_id>/', datasets_views.edit_group_view, name='edit_group'),

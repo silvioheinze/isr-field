@@ -10,6 +10,11 @@
             <p class="text-muted small mb-0">Manage access and profile details for <strong>{{ user_obj.username }}</strong>.</p>
         </div>
         <div class="d-flex flex-wrap gap-2">
+            {% if request.user.is_superuser %}
+            <a href="{% url 'admin_change_user_password' user_obj.id %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-key"></i> Change Password
+            </a>
+            {% endif %}
             <a href="{% url 'user_management' %}" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-arrow-left"></i> Back to User Management
             </a>
