@@ -438,24 +438,25 @@ function generateEntriesTable(point) {
                         value = entry[field.field_name];
                     }
                     
-                    entriesHtml += '<div class="mb-3">';
-                    entriesHtml += '<label for="field_' + field.field_name + '_' + entryIndex + '" class="form-label">';
-                    entriesHtml += field.label;
-                    if (field.required) {
-                        entriesHtml += ' <span class="text-danger">*</span>';
+                    if (field.field_type === 'headline') {
+                        entriesHtml += '<div class="mb-2">';
+                        entriesHtml += createFormFieldInput(field, value, entryIndex);
+                        entriesHtml += '</div>';
+                    } else {
+                        entriesHtml += '<div class="mb-3">';
+                        entriesHtml += '<label for="field_' + field.field_name + '_' + entryIndex + '" class="form-label">';
+                        entriesHtml += field.label;
+                        if (field.required) {
+                            entriesHtml += ' <span class="text-danger">*</span>';
+                        }
+                        entriesHtml += '</label>';
+                        var inputHtml = createFormFieldInput(field, value, entryIndex);
+                        entriesHtml += inputHtml;
+                        if (field.help_text) {
+                            entriesHtml += '<div class="form-text">' + field.help_text + '</div>';
+                        }
+                        entriesHtml += '</div>';
                     }
-                    entriesHtml += '</label>';
-                    
-                    // Create input based on field type and settings
-                    var inputHtml = createFormFieldInput(field, value, entryIndex);
-                    entriesHtml += inputHtml;
-                    
-                    // Add help text if available
-                    if (field.help_text) {
-                        entriesHtml += '<div class="form-text">' + field.help_text + '</div>';
-                    }
-                    
-                    entriesHtml += '</div>';
                     }
                 });
             } else {
@@ -513,24 +514,25 @@ function generateEntriesTable(point) {
                 sortedFields.forEach(function(field) {
                     if (field.enabled) {
                         console.log('New entry form - Rendering field:', field.field_name);
-                        entriesHtml += '<div class="mb-3">';
-                        entriesHtml += '<label for="field_' + field.field_name + '" class="form-label">';
-                        entriesHtml += field.label;
-                        if (field.required) {
-                            entriesHtml += ' <span class="text-danger">*</span>';
+                        if (field.field_type === 'headline') {
+                            entriesHtml += '<div class="mb-2">';
+                            entriesHtml += createFormFieldInput(field, '', -1);
+                            entriesHtml += '</div>';
+                        } else {
+                            entriesHtml += '<div class="mb-3">';
+                            entriesHtml += '<label for="field_' + field.field_name + '" class="form-label">';
+                            entriesHtml += field.label;
+                            if (field.required) {
+                                entriesHtml += ' <span class="text-danger">*</span>';
+                            }
+                            entriesHtml += '</label>';
+                            var inputHtml = createFormFieldInput(field, '', -1); // -1 indicates new entry
+                            entriesHtml += inputHtml;
+                            if (field.help_text) {
+                                entriesHtml += '<div class="form-text">' + field.help_text + '</div>';
+                            }
+                            entriesHtml += '</div>';
                         }
-                        entriesHtml += '</label>';
-                        
-                        // Create input based on field type and settings
-                        var inputHtml = createFormFieldInput(field, '', -1); // -1 indicates new entry
-                        entriesHtml += inputHtml;
-                        
-                        // Add help text if available
-                        if (field.help_text) {
-                            entriesHtml += '<div class="form-text">' + field.help_text + '</div>';
-                        }
-                        
-                        entriesHtml += '</div>';
                     }
                 });
             } else {
@@ -653,6 +655,9 @@ function createFormFieldInput(field, value, entryIndex) {
     }
     
     switch (field.field_type) {
+        case 'headline':
+            inputHtml = '<div class="headline-field small text-muted text-uppercase fw-semibold mt-3 mb-2">' + escapeHtml(field.label || '') + '</div>';
+            break;
         case 'text':
             inputHtml = '<input type="text" class="form-control" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (field.placeholder || 'Enter ' + field.label) + '"';
             if (field.required) inputHtml += ' required';
@@ -1218,7 +1223,7 @@ function createEntry() {
     if (window.allFields && window.allFields.length > 0) {
         var fieldsAdded = 0;
         window.allFields.forEach(function(field) {
-            if (field.enabled) {
+            if (field.enabled && field.field_type !== 'headline') {
                 var fieldElement = document.getElementById('field_' + field.field_name);
                 // For multiple_choice, check for hidden input
                 if (field.field_type === 'multiple_choice') {
@@ -1471,7 +1476,7 @@ function saveEntries() {
             formData.append('entries[' + i + '][id]', entry.id);
             
             window.allFields.forEach(function(field) {
-                if (field.enabled) {
+                if (field.enabled && field.field_type !== 'headline') {
                     var fieldElement = document.getElementById('field_' + field.field_name + '_' + i);
                     // For multiple_choice, check for hidden input
                     if (field.field_type === 'multiple_choice') {

@@ -789,8 +789,10 @@ def dataset_entries_table_view(request, dataset_id):
             Q(geometry__address__icontains=search_query)
         )
     
-    # Get all enabled fields for this dataset
-    all_fields = DatasetField.order_fields(DatasetField.objects.filter(dataset=dataset, enabled=True))
+    # Get all enabled fields for this dataset (exclude headline - display-only, no data)
+    all_fields = DatasetField.order_fields(
+        DatasetField.objects.filter(dataset=dataset, enabled=True).exclude(field_type='headline')
+    )
     
     # Sorting
     sort_by = request.GET.get('sort', 'id_kurz')
@@ -967,7 +969,7 @@ def custom_field_create_view(request, dataset_id):
         return render(request, 'datasets/403.html', status=403)
     
     if request.method == 'POST':
-        form = DatasetFieldForm(request.POST, user=request.user)
+        form = DatasetFieldForm(request.POST, user=request.user, dataset=dataset)
         if form.is_valid():
             field = form.save(commit=False)
             field.dataset = dataset
@@ -976,7 +978,7 @@ def custom_field_create_view(request, dataset_id):
             return redirect('dataset_detail', dataset_id=dataset.id)
         # Form is invalid - will be re-rendered with errors below
     else:
-        form = DatasetFieldForm(user=request.user)
+        form = DatasetFieldForm(user=request.user, dataset=dataset)
     
     # Calculate the next available order number (max order + 1, or 0 if no fields exist)
     max_order = DatasetField.objects.filter(dataset=dataset).aggregate(
@@ -1004,14 +1006,14 @@ def custom_field_edit_view(request, dataset_id, field_id):
         return render(request, 'datasets/403.html', status=403)
     
     if request.method == 'POST':
-        form = DatasetFieldForm(request.POST, instance=field, user=request.user)
+        form = DatasetFieldForm(request.POST, instance=field, user=request.user, dataset=dataset)
         if form.is_valid():
             form.save()
             messages.success(request, f'Field "{field.label}" updated successfully!')
             return redirect('dataset_detail', dataset_id=dataset.id)
         # Form is invalid - will be re-rendered with errors below
     else:
-        form = DatasetFieldForm(instance=field, user=request.user)
+        form = DatasetFieldForm(instance=field, user=request.user, dataset=dataset)
     
     # Calculate the next available order number (max order + 1, or 0 if no fields exist)
     max_order = DatasetField.objects.filter(dataset=dataset).aggregate(

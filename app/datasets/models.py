@@ -360,6 +360,7 @@ class DatasetField(models.Model):
         ('boolean', 'Boolean'),
         ('date', 'Date'),
         ('choice', 'Choice'),
+        ('headline', 'Headline'),
         ('multiple_choice', 'Multiple Choice'),
     ]
     

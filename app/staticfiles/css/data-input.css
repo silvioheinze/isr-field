@@ -78,6 +78,11 @@
     border-width: 2px;
 }
 
+/* Headline field - display-only subheadline in data input form */
+.headline-field {
+    letter-spacing: 0.05em;
+}
+
 /* Map Controls Styling */
 .map-controls {
     position: absolute;
