@@ -41,7 +41,7 @@
             </div>
             <div class="card-body">
                 <div class="row g-4">
-                    <div class="col-md-6">
+                    <div class="col-md-6" id="fieldNameGroup">
                         <label for="{{ form.field_name.id_for_label }}" class="form-label">Field Name</label>
                         {{ form.field_name }}
                         {% if form.field_name.help_text %}
@@ -53,7 +53,7 @@
                             </div>
                         {% endif %}
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-6" id="displayLabelGroup">
                         <label for="{{ form.label.id_for_label }}" class="form-label">Display Label</label>
                         {{ form.label }}
                         {% if form.label.help_text %}
@@ -246,10 +246,23 @@
         // Function to show/hide choice options based on field type
         function toggleChoiceOptions() {
             if (fieldTypeSelect && choiceOptionsCard) {
-                if (fieldTypeSelect.value === 'choice') {
+                if (fieldTypeSelect.value === 'choice' || fieldTypeSelect.value === 'multiple_choice') {
                     choiceOptionsCard.style.display = 'block';
                 } else {
                     choiceOptionsCard.style.display = 'none';
+                }
+            }
+        }
+
+        // Function to show/hide field name (headline uses auto-generated headline_1, headline_2, etc.)
+        function toggleFieldNameVisibility() {
+            var fieldNameGroup = document.getElementById('fieldNameGroup');
+            if (fieldNameGroup && fieldTypeSelect) {
+                if (fieldTypeSelect.value === 'headline') {
+                    fieldNameGroup.style.display = 'none';
+                    if (fieldNameInput) fieldNameInput.value = '';
+                } else {
+                    fieldNameGroup.style.display = 'block';
                 }
             }
         }
@@ -329,8 +342,12 @@
 
         // Event listeners
         if (fieldTypeSelect) {
-            fieldTypeSelect.addEventListener('change', toggleChoiceOptions);
+            fieldTypeSelect.addEventListener('change', function() {
+                toggleChoiceOptions();
+                toggleFieldNameVisibility();
+            });
             toggleChoiceOptions(); // Initial call
+            toggleFieldNameVisibility(); // Initial call
         }
 
         if (choiceSourceManual) {

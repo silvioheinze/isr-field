@@ -338,6 +338,7 @@ class DatasetField(models.Model):
         ('boolean', 'Boolean'),
         ('date', 'Date'),
         ('choice', 'Choice'),
+        ('headline', 'Headline'),
     ]
     
     dataset = models.ForeignKey(DataSet, on_delete=models.CASCADE, related_name='dataset_fields')

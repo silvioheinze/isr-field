@@ -65,7 +65,11 @@ class DatasetFieldForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         user = kwargs.pop('user', None)
+        self.dataset = kwargs.pop('dataset', None)
         super().__init__(*args, **kwargs)
+        # Headline fields: field_name is auto-generated, not required
+        if self.data.get('field_type') == 'headline' or (self.instance and self.instance.pk and self.instance.field_type == 'headline'):
+            self.fields['field_name'].required = False
         # Set default field_type to 'choice' for new fields
         if not self.instance.pk:
             self.fields['field_type'].initial = 'choice'
@@ -117,8 +121,30 @@ class DatasetFieldForm(forms.ModelForm):
                 pass
     
     def clean_field_name(self):
-        """Validate field name"""
-        field_name = self.cleaned_data.get('field_name')
+        """Validate field name; auto-generate for headline type"""
+        field_type = self.data.get('field_type') or (self.instance.field_type if self.instance.pk else None)
+        field_name = self.cleaned_data.get('field_name', '') or ''
+
+        if field_type == 'headline':
+            # When editing, keep existing field_name; when creating, auto-generate headline_1, headline_2, etc.
+            if self.instance.pk and self.instance.field_type == 'headline':
+                return self.instance.field_name
+            dataset = self.dataset or (getattr(self.instance, 'dataset', None) if self.instance.pk else None)
+            if dataset:
+                existing = DatasetField.objects.filter(
+                    dataset=dataset,
+                    field_name__startswith='headline_'
+                ).values_list('field_name', flat=True)
+                numbers = []
+                for fn in existing:
+                    try:
+                        n = int(fn.replace('headline_', ''))
+                        numbers.append(n)
+                    except ValueError:
+                        pass
+                next_num = max(numbers) + 1 if numbers else 1
+                return f'headline_{next_num}'
+            return 'headline_1'
         if field_name:
             # Convert to lowercase and replace spaces with underscores
             field_name = field_name.lower().replace(' ', '_')

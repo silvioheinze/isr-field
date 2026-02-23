@@ -419,8 +419,10 @@ def dataset_export_options_view(request, dataset_id):
     years = DataEntry.objects.filter(geometry__dataset=dataset).values_list('year', flat=True).distinct().order_by('year')
     years = [str(year) for year in years if year is not None]
     
-    # Get enabled fields for this dataset
-    enabled_fields = DatasetField.order_fields(DatasetField.objects.filter(dataset=dataset, enabled=True))
+    # Get enabled fields for this dataset (exclude headline - display-only, no data)
+    enabled_fields = DatasetField.order_fields(
+        DatasetField.objects.filter(dataset=dataset, enabled=True).exclude(field_type='headline')
+    )
     
     # Get field statistics
     field_stats = {}
@@ -486,11 +488,11 @@ def dataset_csv_export_view(request, dataset_id):
     
     header.extend(['User', 'Entry_Name', 'Year'])
     
-    # Get all unique field names from enabled fields
+    # Get all unique field names from enabled fields (exclude headline - display-only, no data)
     enabled_field_names = set(DatasetField.objects.filter(
         dataset=dataset, 
         enabled=True
-    ).values_list('field_name', flat=True))
+    ).exclude(field_type='headline').values_list('field_name', flat=True))
     
     # Also get field names from actual data
     data_field_names = set()

@@ -63,7 +63,10 @@ class DatasetFieldInlineFormSet(_BaseDatasetFieldInlineFormSet):
         super().__init__(*args, **kwargs)
     
     def _construct_form(self, i, **kwargs):
-        """Override to pass user to each form"""
+        """Override to pass user and dataset to each form"""
+        kwargs['user'] = self.user
+        if self.instance and self.instance.pk:
+            kwargs['dataset'] = self.instance
         form = super()._construct_form(i, **kwargs)
         if self.user and hasattr(form, 'fields') and 'typology' in form.fields:
             # Update typology queryset based on user access
