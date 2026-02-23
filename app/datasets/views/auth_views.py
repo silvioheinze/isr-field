@@ -187,6 +187,36 @@ def user_management_view(request):
     })
 
 
+class AdminSetPasswordForm(SetPasswordForm):
+    """SetPasswordForm with Bootstrap styling."""
+    def __init__(self, user, *args, **kwargs):
+        super().__init__(user, *args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs['class'] = 'form-control'
+
+
+@login_required
+def admin_change_user_password_view(request, user_id):
+    """Change another user's password. Superusers only."""
+    if not request.user.is_superuser:
+        return render(request, 'datasets/403.html', status=403)
+    target_user = get_object_or_404(User, id=user_id)
+    if request.method == 'POST':
+        form = AdminSetPasswordForm(target_user, request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Password updated for {target_user.username}.')
+            return redirect('user_management')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = AdminSetPasswordForm(target_user)
+    return render(request, 'datasets/admin_change_password.html', {
+        'form': form,
+        'target_user': target_user,
+    })
+
+
 @login_required
 @permission_required('auth.change_user')
 def edit_user_view(request, user_id):
