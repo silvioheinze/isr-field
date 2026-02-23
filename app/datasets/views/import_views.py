@@ -331,7 +331,7 @@ def process_csv_import(request, dataset, decoded_file, csv_file_name, id_column,
                                 # Parse comma-separated values from CSV
                                 values_list = [v.strip() for v in field_value.split(',') if v.strip()]
                                 # Validate against available choices
-                                available_values = [str(opt.get('value', opt)) for opt in field.get_choices_list()]
+                                available_values = [str(opt.get('value', opt) if isinstance(opt, dict) else opt) for opt in field.get_choices_list()]
                                 validated_values = [v for v in values_list if v in available_values]
                                 # Store as JSON
                                 field_value = json.dumps(validated_values)

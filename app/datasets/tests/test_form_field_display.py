@@ -200,12 +200,12 @@ class FormFieldDisplayTest(TestCase):
             name='Option 2'
         )
         
-        # Create field with typology
+        # Create field with typology (use choice type for single-select dropdown)
         field = DatasetField.objects.create(
             dataset=self.dataset,
             field_name='typology_field',
             label='Typology Field',
-            field_type='text',
+            field_type='choice',
             enabled=True,
             order=1,
             typology=typology
@@ -244,7 +244,7 @@ class FormFieldDisplayTest(TestCase):
             dataset=self.dataset,
             field_name='filtered_typology_field',
             label='Filtered Typology Field',
-            field_type='text',
+            field_type='choice',
             enabled=True,
             order=1,
             typology=typology,

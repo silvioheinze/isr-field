@@ -79,7 +79,7 @@ def entry_edit_view(request, entry_id):
                                 # Validate against available choices
                                 try:
                                     dataset_field = DatasetField.objects.get(dataset=dataset, field_name=field_name)
-                                    available_values = [str(opt.get('value', opt)) for opt in dataset_field.get_choices_list()]
+                                    available_values = [str(opt.get('value', opt) if isinstance(opt, dict) else opt) for opt in dataset_field.get_choices_list()]
                                     validated_values = [v for v in parsed if str(v) in available_values]
                                     field_value = json.dumps(validated_values)
                                 except DatasetField.DoesNotExist:
@@ -168,7 +168,7 @@ def entry_create_view(request, geometry_id):
                                     # Validate against available choices
                                     try:
                                         dataset_field = DatasetField.objects.get(dataset=dataset, field_name=key)
-                                        available_values = [str(opt.get('value', opt)) for opt in dataset_field.get_choices_list()]
+                                        available_values = [str(opt.get('value', opt) if isinstance(opt, dict) else opt) for opt in dataset_field.get_choices_list()]
                                         validated_values = [v for v in parsed if str(v) in available_values]
                                         value = json.dumps(validated_values)
                                     except DatasetField.DoesNotExist:
@@ -276,7 +276,7 @@ def save_entries_view(request):
                                     # Validate against available choices
                                     try:
                                         dataset_field = DatasetField.objects.get(dataset=dataset, field_name=field_name)
-                                        available_values = [str(opt.get('value', opt)) for opt in dataset_field.get_choices_list()]
+                                        available_values = [str(opt.get('value', opt) if isinstance(opt, dict) else opt) for opt in dataset_field.get_choices_list()]
                                         validated_values = [v for v in parsed if str(v) in available_values]
                                         field_value = json.dumps(validated_values)
                                     except DatasetField.DoesNotExist:
