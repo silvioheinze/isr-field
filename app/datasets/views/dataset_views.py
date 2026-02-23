@@ -726,7 +726,7 @@ def dataset_data_input_view(request, dataset_id):
             'help_text': field.help_text or '',
             'choices': field.choices or '',
             'order': field.order,
-            'typology_choices': field.get_choices_list() if field.typology else [],
+            'typology_choices': field.get_choices_list(),
             'typology_category': field.typology_category or ''
         }
         fields_data.append(field_data)
@@ -864,7 +864,7 @@ def dataset_fields_view(request, dataset_id):
                 'help_text': field.help_text or '',
                 'choices': field.choices or '',
                 'order': field.order,
-                'typology_choices': field.get_choices_list() if field.typology else [],
+                'typology_choices': field.get_choices_list(),
                 'typology_category': field.typology_category or ''
             }
             fields_data.append(field_data)

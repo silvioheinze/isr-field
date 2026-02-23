@@ -313,7 +313,7 @@ def process_csv_import(request, dataset, decoded_file, csv_file_name, id_column,
                     # Create field values for all other columns
                     for column, value in row.items():
                         if column not in [id_column, x_column, y_column] and value.strip():
-                            # Create dataset field if it doesn't exist
+                            # Get or create dataset field
                             field, created = DatasetField.objects.get_or_create(
                                 dataset=dataset,
                                 field_name=column,
@@ -324,11 +324,24 @@ def process_csv_import(request, dataset, decoded_file, csv_file_name, id_column,
                                 }
                             )
                             
+                            # Handle multiple_choice fields - convert comma-separated to JSON
+                            field_value = value.strip()
+                            if field.field_type == 'multiple_choice':
+                                import json
+                                # Parse comma-separated values from CSV
+                                values_list = [v.strip() for v in field_value.split(',') if v.strip()]
+                                # Validate against available choices
+                                available_values = [str(opt.get('value', opt) if isinstance(opt, dict) else opt) for opt in field.get_choices_list()]
+                                validated_values = [v for v in values_list if v in available_values]
+                                # Store as JSON
+                                field_value = json.dumps(validated_values)
+                            
                             # Create entry field
                             DataEntryField.objects.create(
                                 entry=entry,
                                 field_name=column,
-                                value=value.strip()
+                                field_type=field.field_type,
+                                value=field_value
                             )
                     
                     imported_count += 1
@@ -530,8 +543,34 @@ def dataset_csv_export_view(request, dataset_id):
             
             # Add field values
             field_values = {field.field_name: field.value for field in entry.fields.all()}
+            # Get field types for all fields
+            field_types = {}
+            for field_name in all_field_names:
+                try:
+                    dataset_field = DatasetField.objects.get(dataset=dataset, field_name=field_name)
+                    field_types[field_name] = dataset_field.field_type
+                except DatasetField.DoesNotExist:
+                    field_types[field_name] = 'text'
+            
             for field_name in sorted(all_field_names):
-                row.append(field_values.get(field_name, ''))
+                value = field_values.get(field_name, '')
+                
+                # Handle multiple choice fields - convert JSON to comma-separated
+                if field_types.get(field_name) == 'multiple_choice':
+                    import json
+                    try:
+                        if value and value.strip().startswith('['):
+                            values_list = json.loads(value)
+                            value = ', '.join(str(v) for v in values_list)
+                        elif value:
+                            # Already comma-separated or single value
+                            value = str(value)
+                        else:
+                            value = ''
+                    except (json.JSONDecodeError, TypeError):
+                        value = str(value) if value else ''
+                
+                row.append(value)
             
             writer.writerow(row)
     

@@ -185,6 +185,7 @@ class DataEntryField(models.Model):
         ('boolean', 'Boolean'),
         ('date', 'Date'),
         ('choice', 'Choice'),
+        ('multiple_choice', 'Multiple Choice'),
     ]
     
     entry = models.ForeignKey(DataEntry, on_delete=models.CASCADE, related_name='fields')
@@ -200,6 +201,8 @@ class DataEntryField(models.Model):
     def get_typed_value(self):
         """Get the value converted to the appropriate Python type"""
         if not self.value:
+            if self.field_type == 'multiple_choice':
+                return []
             return None
             
         try:
@@ -212,9 +215,28 @@ class DataEntryField(models.Model):
             elif self.field_type == 'date':
                 from datetime import datetime
                 return datetime.strptime(self.value, '%Y-%m-%d').date()
+            elif self.field_type == 'multiple_choice':
+                import json
+                try:
+                    # Try parsing as JSON array
+                    parsed = json.loads(self.value)
+                    if isinstance(parsed, list):
+                        return [str(v) for v in parsed]
+                    else:
+                        return [str(parsed)]
+                except (json.JSONDecodeError, TypeError):
+                    # Fallback: treat as comma-separated string
+                    if ',' in str(self.value):
+                        return [v.strip() for v in str(self.value).split(',') if v.strip()]
+                    elif str(self.value).strip():
+                        return [str(self.value).strip()]
+                    else:
+                        return []
             else:  # text, choice
                 return str(self.value)
         except (ValueError, TypeError):
+            if self.field_type == 'multiple_choice':
+                return []
             return self.value
 
     class Meta:
@@ -339,6 +361,7 @@ class DatasetField(models.Model):
         ('date', 'Date'),
         ('choice', 'Choice'),
         ('headline', 'Headline'),
+        ('multiple_choice', 'Multiple Choice'),
     ]
     
     dataset = models.ForeignKey(DataSet, on_delete=models.CASCADE, related_name='dataset_fields')
@@ -364,7 +387,7 @@ class DatasetField(models.Model):
         return f"{self.label} ({self.dataset.name})"
     
     def get_choices_list(self):
-        """Get choices as a list for choice fields"""
+        """Get choices as a list for choice and multiple_choice fields"""
         # If typology is assigned, use typology entries regardless of stored field_type
         if self.typology:
             entries = self.typology.entries.all()
@@ -374,8 +397,8 @@ class DatasetField(models.Model):
                 {'value': str(entry.code), 'label': f"{entry.code} - {entry.name}"}
                 for entry in entries.order_by('code')
             ]
-        # Otherwise, fall back to manual choices for choice fields
-        if self.field_type == 'choice' and self.choices:
+        # Otherwise, fall back to manual choices for choice and multiple_choice fields
+        if self.field_type in ('choice', 'multiple_choice') and self.choices:
             return [choice.strip() for choice in self.choices.split(',') if choice.strip()]
         return []
     
