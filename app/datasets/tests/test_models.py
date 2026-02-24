@@ -309,6 +309,18 @@ class DataEntryFieldModelTest(TestCase):
         )
         
         self.assertEqual(field.get_typed_value(), 'Hello World')
+
+    def test_get_typed_value_textarea(self):
+        """Test get_typed_value for textarea (Large Text) field type"""
+        field = DataEntryField.objects.create(
+            entry=self.entry,
+            field_name='notes_field',
+            field_type='textarea',
+            value='Line one\nLine two\nLine three'
+        )
+        
+        self.assertEqual(field.get_typed_value(), 'Line one\nLine two\nLine three')
+        self.assertIsInstance(field.get_typed_value(), str)
     
     def test_get_typed_value_integer(self):
         """Test get_typed_value for integer field type"""
@@ -446,7 +458,7 @@ class DataEntryFieldModelTest(TestCase):
     
     def test_field_type_choices(self):
         """Test that field_type choices are valid"""
-        valid_choices = ['text', 'integer', 'decimal', 'boolean', 'date', 'choice']
+        valid_choices = ['text', 'textarea', 'integer', 'decimal', 'boolean', 'date', 'choice']
         
         for choice in valid_choices:
             field = DataEntryField.objects.create(

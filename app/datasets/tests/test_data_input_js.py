@@ -135,6 +135,58 @@ class DataInputJavaScriptTestCase(TestCase):
         self.assertFalse(field2_data['required'])
         self.assertEqual(field2_data['order'], 2)
         self.assertEqual(field2_data['choices'], 'Option A,Option B,Option C')
+
+    def test_textarea_field_in_fields_data(self):
+        """Test that textarea (Large Text) fields are included in fields_data for JavaScript"""
+        textarea_field = DatasetField.objects.create(
+            dataset=self.dataset,
+            field_name='notes_field',
+            label='Notes',
+            field_type='textarea',
+            enabled=True,
+            required=False,
+            order=3
+        )
+
+        client = Client()
+        client.force_login(self.user)
+
+        response = client.get(reverse('dataset_data_input', kwargs={'dataset_id': self.dataset.id}))
+        self.assertEqual(response.status_code, 200)
+
+        content = response.content.decode()
+        json_match = re.search(r'<script[^>]*id="allFields"[^>]*>(.*?)</script>', content, re.DOTALL)
+        self.assertIsNotNone(json_match, "allFields script tag not found")
+
+        fields_json = json_match.group(1).strip()
+        fields_data = json.loads(fields_json)
+
+        textarea_data = next(f for f in fields_data if f['field_name'] == 'notes_field')
+        self.assertEqual(textarea_data['field_name'], 'notes_field')
+        self.assertEqual(textarea_data['label'], 'Notes')
+        self.assertEqual(textarea_data['field_type'], 'textarea')
+        self.assertTrue(textarea_data['enabled'])
+        self.assertFalse(textarea_data['required'])
+        self.assertEqual(textarea_data['order'], 3)
+
+    def test_javascript_handles_textarea_field_type(self):
+        """Test that JavaScript createFormFieldInput, createCustomFieldInput, createEditableFieldInput handle textarea"""
+        import os
+        from django.conf import settings
+
+        js_file_path = os.path.join(settings.STATIC_ROOT, 'js', 'data-input.js')
+        if not os.path.exists(js_file_path):
+            js_file_path = os.path.join(settings.STATICFILES_DIRS[0], 'js', 'data-input.js')
+
+        self.assertTrue(os.path.exists(js_file_path), f"JavaScript file not found at {js_file_path}")
+
+        with open(js_file_path, 'r', encoding='utf-8') as f:
+            js_content = f.read()
+
+        self.assertIn("case 'textarea':", js_content,
+                      "createFormFieldInput should handle textarea field type")
+        self.assertIn('<textarea', js_content,
+                      "JavaScript should render textarea element for Large Text fields")
     
     def test_geometry_details_api_returns_correct_data(self):
         """Test that the geometry details API returns the correct structure"""

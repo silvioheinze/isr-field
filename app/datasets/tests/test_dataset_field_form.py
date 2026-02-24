@@ -132,6 +132,22 @@ class DatasetFieldFormTest(TestCase):
         form = DatasetFieldForm(data=form_data)
         self.assertTrue(form.is_valid())
         self.assertEqual(len(form.errors), 0)
+
+    def test_form_validation_valid_textarea_field(self):
+        """Test form validation with valid textarea (Large Text) field data"""
+        form_data = {
+            'field_name': 'notes_field',
+            'label': 'Notes',
+            'field_type': 'textarea',
+            'required': False,
+            'enabled': True,
+            'help_text': 'Enter additional notes',
+            'order': 6
+        }
+        
+        form = DatasetFieldForm(data=form_data)
+        self.assertTrue(form.is_valid())
+        self.assertEqual(len(form.errors), 0)
     
     def test_form_validation_choice_field_with_choices(self):
         """Test form validation for choice field with choices"""

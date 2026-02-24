@@ -670,9 +670,9 @@ function createFormFieldInput(field, value, entryIndex) {
             inputHtml = '<textarea class="form-control" id="' + fieldId + '" name="' + fieldName + '" placeholder="' + (field.placeholder || 'Enter ' + field.label) + '"';
             if (field.required) inputHtml += ' required';
             if (field.max_length) inputHtml += ' maxlength="' + field.max_length + '"';
-            if (field.rows) inputHtml += ' rows="' + field.rows + '"';
+            inputHtml += ' rows="' + (field.rows || 4) + '"';
             if (field.non_editable) inputHtml += ' readonly';
-            inputHtml += '>' + fieldValue + '</textarea>';
+            inputHtml += '>' + escapeHtml(fieldValue || '') + '</textarea>';
             break;
             
         case 'integer':
@@ -875,6 +875,11 @@ function createCustomFieldInput(field) {
             if (field.non_editable) inputHtml += ' readonly';
             inputHtml += '>';
             break;
+        case 'textarea':
+            inputHtml = '<textarea class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" rows="4" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '"';
+            if (field.non_editable) inputHtml += ' readonly';
+            inputHtml += '>' + escapeHtml(fieldValue) + '</textarea>';
+            break;
         case 'integer':
             inputHtml = '<input type="number" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '"';
             if (field.non_editable) inputHtml += ' readonly';
@@ -1015,6 +1020,11 @@ function createEditableFieldInput(field, value, entryIndex) {
             inputHtml = '<input type="text" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '"';
             if (field.non_editable) inputHtml += ' readonly';
             inputHtml += '>';
+            break;
+        case 'textarea':
+            inputHtml = '<textarea class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" rows="4" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '"';
+            if (field.non_editable) inputHtml += ' readonly';
+            inputHtml += '>' + escapeHtml(fieldValue) + '</textarea>';
             break;
         case 'integer':
             inputHtml = '<input type="number" class="form-control form-control-sm" id="' + fieldId + '" name="' + fieldName + '" value="' + fieldValue + '" placeholder="' + (window.translations?.enterField || 'Enter') + ' ' + field.label + '"';
