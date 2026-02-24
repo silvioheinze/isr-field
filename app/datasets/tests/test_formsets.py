@@ -58,6 +58,27 @@ class DatasetFieldInlineFormSetTest(TestCase):
         formset = DatasetFieldInlineFormSet(data=form_data)
         self.assertTrue(formset.is_valid())
         self.assertEqual(len(formset.errors), 0)
+
+    def test_formset_validation_textarea_field(self):
+        """Test formset validation with textarea (Large Text) field type"""
+        from ..views import DatasetFieldInlineFormSet
+
+        form_data = {
+            'form-TOTAL_FORMS': '1',
+            'form-INITIAL_FORMS': '0',
+            'form-MIN_NUM_FORMS': '0',
+            'form-MAX_NUM_FORMS': '1000',
+            'form-0-field_name': 'notes_field',
+            'form-0-label': 'Notes',
+            'form-0-field_type': 'textarea',
+            'form-0-required': '',
+            'form-0-enabled': 'on',
+            'form-0-order': '1',
+        }
+
+        formset = DatasetFieldInlineFormSet(data=form_data)
+        self.assertTrue(formset.is_valid())
+        self.assertEqual(len(formset.errors), 0)
     
     def test_formset_validation_duplicate_names(self):
         """Test formset validation with duplicate field names"""

@@ -180,6 +180,7 @@ class DataEntryField(models.Model):
     """Dynamic field values for data entries - represents CSV columns"""
     FIELD_TYPE_CHOICES = [
         ('text', 'Text'),
+        ('textarea', 'Large Text'),
         ('integer', 'Integer'),
         ('decimal', 'Decimal'),
         ('boolean', 'Boolean'),
@@ -232,7 +233,7 @@ class DataEntryField(models.Model):
                         return [str(self.value).strip()]
                     else:
                         return []
-            else:  # text, choice
+            else:  # text, textarea, choice
                 return str(self.value)
         except (ValueError, TypeError):
             if self.field_type == 'multiple_choice':
@@ -355,6 +356,7 @@ class DatasetField(models.Model):
     """Field configuration for datasets - defines which CSV columns are shown in data input"""
     FIELD_TYPE_CHOICES = [
         ('text', 'Text'),
+        ('textarea', 'Large Text'),
         ('integer', 'Integer'),
         ('decimal', 'Decimal'),
         ('boolean', 'Boolean'),
